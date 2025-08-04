@@ -25,6 +25,7 @@ class MockUserService:
 
 
 class Item(Struct):
+    """Test model for OpenAPI generation"""
     name: str
     price: float
 
@@ -32,7 +33,10 @@ class Item(Struct):
 @pytest.fixture
 def app():
     """
-    Fixture that provides a Tachyon application instance for testing.
+    Create a test Tachyon application with sample routes for testing.
+
+    This fixture provides a basic app with routes that exercise different
+    parameter types (path params, body params) to test OpenAPI generation.
     """
 
     tachyon_app = Tachyon()
@@ -63,7 +67,8 @@ def app():
 
     @tachyon_app.post("/items")
     def create_item(item: Item = Body()):
-        return {"status": "created", "item_name": item.name}
+        """Create a new item"""
+        return {"message": "Item created", "item_name": item.name, "item_price": item.price}
 
     @tachyon_app.put("/put")
     def put_endpoint():

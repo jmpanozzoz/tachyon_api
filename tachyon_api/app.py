@@ -8,17 +8,18 @@ parameter validation, and automatic type conversion.
 
 import asyncio
 import inspect
-from functools import partial
-from typing import Any, Dict, Type, Union
-
 import msgspec
+from functools import partial
+from typing import Any, Callable, Dict, List, Type, Union, get_type_hints
+
 from starlette.applications import Starlette
-from starlette.responses import JSONResponse
+from starlette.responses import HTMLResponse, JSONResponse
 from starlette.routing import Route
 
-from .models import Struct
-from .params import Body, Query, Path
 from .di import Depends, _registry
+from .models import Struct
+from .openapi import OpenAPIGenerator, OpenAPIConfig, create_openapi_config, _generate_schema_for_struct
+from .params import Body, Query, Path
 
 
 class Tachyon:
@@ -32,13 +33,26 @@ class Tachyon:
         _router: Internal Starlette application instance
         routes: List of registered routes for introspection
         _instances_cache: Cache for dependency injection singleton instances
+        openapi_config: Configuration for OpenAPI documentation
+        openapi_generator: Generator for OpenAPI schema and documentation
     """
 
-    def __init__(self):
-        """Initialize a new Tachyon application instance."""
+    def __init__(self, openapi_config: OpenAPIConfig = None):
+        """
+        Initialize a new Tachyon application instance.
+
+        Args:
+            openapi_config: Optional OpenAPI configuration. If not provided,
+                          uses default configuration similar to FastAPI.
+        """
         self._router = Starlette()
         self.routes = []
         self._instances_cache: Dict[Type, Any] = {}
+
+        # Initialize OpenAPI configuration and generator
+        self.openapi_config = openapi_config or create_openapi_config()
+        self.openapi_generator = OpenAPIGenerator(self.openapi_config)
+        self._docs_setup = False
 
         # Dynamically create HTTP method decorators (get, post, put, delete, etc.)
         http_methods = ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"]
@@ -52,10 +66,10 @@ class Tachyon:
 
     @staticmethod
     def _convert_value(
-        value_str: str,
-        target_type: Type,
-        param_name: str,
-        is_path_param: bool = False
+            value_str: str,
+            target_type: Type,
+            param_name: str,
+            is_path_param: bool = False
     ) -> Union[Any, JSONResponse]:
         """
         Convert a string value to the target type with appropriate error handling.
@@ -143,7 +157,7 @@ class Tachyon:
         self._instances_cache[cls] = instance
         return instance
 
-    def _create_decorator(self, path: str, *, http_method: str):
+    def _create_decorator(self, path: str, *, http_method: str, **kwargs):
         """
         Create a decorator for the specified HTTP method.
 
@@ -159,12 +173,12 @@ class Tachyon:
         """
 
         def decorator(endpoint_func: callable):
-            self._add_route(path, endpoint_func, http_method)
+            self._add_route(path, endpoint_func, http_method, **kwargs)
             return endpoint_func
 
         return decorator
 
-    def _add_route(self, path: str, endpoint_func: callable, method: str):
+    def _add_route(self, path: str, endpoint_func: callable, method: str, **kwargs):
         """
         Register a route with the application and create an async handler.
 
@@ -205,8 +219,8 @@ class Tachyon:
                 # Determine if this parameter is a dependency
                 is_explicit_dependency = isinstance(param.default, Depends)
                 is_implicit_dependency = (
-                    param.default is inspect.Parameter.empty
-                    and param.annotation in _registry
+                        param.default is inspect.Parameter.empty
+                        and param.annotation in _registry
                 )
 
                 # Process dependencies (explicit and implicit)
@@ -294,12 +308,180 @@ class Tachyon:
             else:
                 payload = endpoint_func(**kwargs_to_inject)
 
+            # Convert Struct objects to dictionaries for JSON serialization
+            if isinstance(payload, Struct):
+                payload = msgspec.to_builtins(payload)
+            elif isinstance(payload, dict):
+                # Convert any Struct values in the dictionary
+                for key, value in payload.items():
+                    if isinstance(value, Struct):
+                        payload[key] = msgspec.to_builtins(value)
+
             return JSONResponse(payload)
 
         # Register the route with Starlette
         route = Route(path, endpoint=handler, methods=[method])
         self._router.routes.append(route)
-        self.routes.append({"path": path, "method": method, "func": endpoint_func})
+        self.routes.append({
+            "path": path,
+            "method": method,
+            "func": endpoint_func,
+            **kwargs
+        })
+
+        # Generate OpenAPI documentation for this route
+        include_in_schema = kwargs.get('include_in_schema', True)
+        if include_in_schema:
+            self._generate_openapi_for_route(path, method, endpoint_func, **kwargs)
+
+    def _generate_openapi_for_route(self, path: str, method: str, endpoint_func: callable, **kwargs):
+        """
+        Generate OpenAPI documentation for a specific route.
+
+        This method analyzes the endpoint function signature and generates appropriate
+        OpenAPI schema entries for parameters, request body, and responses.
+
+        Args:
+            path: URL path pattern
+            method: HTTP method
+            endpoint_func: The endpoint function
+            **kwargs: Additional route metadata (summary, description, tags, etc.)
+        """
+        sig = inspect.signature(endpoint_func)
+
+        # Build the OpenAPI operation object
+        operation = {
+            "summary": kwargs.get('summary', self._generate_summary_from_function(endpoint_func)),
+            "description": kwargs.get('description', endpoint_func.__doc__ or ""),
+            "responses": {
+                "200": {
+                    "description": "Successful Response",
+                    "content": {
+                        "application/json": {
+                            "schema": {"type": "object"}
+                        }
+                    }
+                }
+            }
+        }
+
+        # Add tags if provided
+        if 'tags' in kwargs:
+            operation['tags'] = kwargs['tags']
+
+        # Process parameters from function signature
+        parameters = []
+        request_body_schema = None
+
+        for param in sig.parameters.values():
+            # Skip dependency parameters
+            if (isinstance(param.default, Depends) or
+                (param.default is inspect.Parameter.empty and param.annotation in _registry)):
+                continue
+
+            # Process query parameters
+            elif isinstance(param.default, Query):
+                parameters.append({
+                    "name": param.name,
+                    "in": "query",
+                    "required": param.default.default is ...,
+                    "schema": {"type": self._get_openapi_type(param.annotation)},
+                    "description": getattr(param.default, 'description', '')
+                })
+
+            # Process path parameters
+            elif isinstance(param.default, Path) or self._is_path_parameter(param.name, path):
+                parameters.append({
+                    "name": param.name,
+                    "in": "path",
+                    "required": True,
+                    "schema": {"type": self._get_openapi_type(param.annotation)},
+                    "description": getattr(param.default, 'description', '') if isinstance(param.default, Path) else ''
+                })
+
+            # Process body parameters
+            elif isinstance(param.default, Body):
+                model_class = param.annotation
+                if issubclass(model_class, Struct):
+                    schema_name = model_class.__name__
+                    # Add schema to components
+                    self.openapi_generator.add_schema(schema_name, _generate_schema_for_struct(model_class))
+
+                    request_body_schema = {
+                        "content": {
+                            "application/json": {
+                                "schema": {"$ref": f"#/components/schemas/{schema_name}"}
+                            }
+                        },
+                        "required": True
+                    }
+
+        # Add parameters to operation if any exist
+        if parameters:
+            operation["parameters"] = parameters
+
+        # Add request body if it exists
+        if request_body_schema:
+            operation["requestBody"] = request_body_schema
+
+        # Add the operation to the OpenAPI schema
+        self.openapi_generator.add_path(path, method, operation)
+
+    def _generate_summary_from_function(self, func: callable) -> str:
+        """Generate a human-readable summary from function name."""
+        return func.__name__.replace('_', ' ').title()
+
+    def _is_path_parameter(self, param_name: str, path: str) -> bool:
+        """Check if a parameter name corresponds to a path parameter in the URL."""
+        return f"{{{param_name}}}" in path
+
+    def _get_openapi_type(self, python_type: Type) -> str:
+        """Convert Python type to OpenAPI schema type."""
+        type_map: Dict[Type, str] = {
+            int: "integer",
+            str: "string",
+            bool: "boolean",
+            float: "number"
+        }
+        return type_map.get(python_type, "string")
+
+    def _setup_docs(self):
+        """
+        Setup OpenAPI documentation endpoints.
+
+        This method registers the routes for serving OpenAPI JSON schema,
+        Swagger UI, and ReDoc documentation interfaces.
+        """
+        if self._docs_setup:
+            return
+
+        self._docs_setup = True
+
+        # OpenAPI JSON schema endpoint
+        @self.get(self.openapi_config.openapi_url, include_in_schema=False)
+        def get_openapi_schema():
+            """Serve the OpenAPI JSON schema."""
+            return self.openapi_generator.get_openapi_schema()
+
+        # Swagger UI documentation endpoint
+        @self.get(self.openapi_config.docs_url, include_in_schema=False)
+        def get_swagger_ui():
+            """Serve the Swagger UI documentation interface."""
+            html = self.openapi_generator.get_swagger_ui_html(
+                self.openapi_config.openapi_url,
+                self.openapi_config.info.title
+            )
+            return HTMLResponse(html)
+
+        # ReDoc documentation endpoint
+        @self.get(self.openapi_config.redoc_url, include_in_schema=False)
+        def get_redoc():
+            """Serve the ReDoc documentation interface."""
+            html = self.openapi_generator.get_redoc_html(
+                self.openapi_config.openapi_url,
+                self.openapi_config.info.title
+            )
+            return HTMLResponse(html)
 
     async def __call__(self, scope, receive, send):
         """
@@ -308,4 +490,7 @@ class Tachyon:
         Delegates request handling to the internal Starlette application.
         This makes Tachyon compatible with ASGI servers like Uvicorn.
         """
+        # Setup documentation endpoints on first request
+        if not self._docs_setup:
+            self._setup_docs()
         await self._router(scope, receive, send)
