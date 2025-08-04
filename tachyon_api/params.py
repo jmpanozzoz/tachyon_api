@@ -6,7 +6,7 @@ parameters should be resolved from HTTP requests (query strings, path variables,
 and request bodies).
 """
 
-from typing import Any, Union
+from typing import Any, Optional
 
 
 class Query:
@@ -18,6 +18,7 @@ class Query:
 
     Args:
         default: Default value if parameter is not provided. Use ... for required parameters.
+        description: Optional description for OpenAPI documentation.
 
     Example:
         @app.get("/search")
@@ -35,15 +36,37 @@ class Query:
         - Invalid type conversions return 422 Unprocessable Entity
     """
 
-    def __init__(self, default: Any = ...):
+    def __init__(self, default: Any = ..., description: Optional[str] = None):
         """
-        Initialize a query parameter definition.
+        Initialize a Query parameter marker.
 
         Args:
-            default: The default value to use if parameter is not provided.
-                    Use ... (Ellipsis) to mark as required parameter.
+            default: Default value for the parameter. Use ... (Ellipsis) for required parameters.
+            description: Optional description for API documentation.
         """
         self.default = default
+        self.description = description
+
+
+class Path:
+    """
+    Marker class for path parameters.
+
+    Use this to define parameters that should be extracted from the URL path.
+    Path parameters are always required.
+
+    Args:
+        description: Optional description for OpenAPI documentation.
+    """
+
+    def __init__(self, description: Optional[str] = None):
+        """
+        Initialize a Path parameter marker.
+
+        Args:
+            description: Optional description for API documentation.
+        """
+        self.description = description
 
 
 class Body:
@@ -51,54 +74,17 @@ class Body:
     Marker class for request body parameters.
 
     Use this to define parameters that should be extracted and validated from
-    the JSON request body using Struct models for automatic validation.
+    the JSON request body. The parameter type should be a Struct subclass.
 
-    Example:
-        class UserModel(Struct):
-            name: str
-            email: str
-            age: int
-
-        @app.post("/users")
-        def create_user(user: UserModel = Body()):
-            return {"created": user.name, "email": user.email}
-
-    Note:
-        - Only works with Struct-based models for validation
-        - Automatically validates JSON structure and types
-        - Invalid JSON or validation errors return 422 Unprocessable Entity
-        - Uses msgspec for high-performance JSON parsing and validation
+    Args:
+        description: Optional description for OpenAPI documentation.
     """
 
-    def __init__(self):
-        """Initialize a body parameter definition."""
-        pass
+    def __init__(self, description: Optional[str] = None):
+        """
+        Initialize a Body parameter marker.
 
-
-class Path:
-    """
-    Marker class for explicit path parameters.
-
-    Use this to explicitly mark parameters that should be extracted from
-    the URL path variables with automatic type conversion.
-
-    Example:
-        @app.get("/users/{user_id}")
-        def get_user(user_id: int = Path()):
-            return {"user_id": user_id, "type": type(user_id).__name__}
-
-        # Alternative implicit syntax (also supported):
-        @app.get("/users/{user_id}")
-        def get_user(user_id: int):  # No Path() needed
-            return {"user_id": user_id}
-
-    Note:
-        - Type conversion is automatic based on parameter annotation
-        - Invalid type conversions return 404 Not Found
-        - Missing path parameters return 404 Not Found
-        - Both explicit Path() and implicit syntax are supported
-    """
-
-    def __init__(self):
-        """Initialize a path parameter definition."""
-        pass
+        Args:
+            description: Optional description for API documentation.
+        """
+        self.description = description

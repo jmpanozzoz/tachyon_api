@@ -10,15 +10,20 @@ import asyncio
 import inspect
 import msgspec
 from functools import partial
-from typing import Any, Callable, Dict, List, Type, Union, get_type_hints
+from typing import Any, Dict, Type, Union
 
 from starlette.applications import Starlette
-from starlette.responses import HTMLResponse, JSONResponse
+from starlette.responses import HTMLResponse, JSONResponse, Response
 from starlette.routing import Route
 
 from .di import Depends, _registry
 from .models import Struct
-from .openapi import OpenAPIGenerator, OpenAPIConfig, create_openapi_config, _generate_schema_for_struct
+from .openapi import (
+    OpenAPIGenerator,
+    OpenAPIConfig,
+    create_openapi_config,
+    _generate_schema_for_struct,
+)
 from .params import Body, Query, Path
 
 
@@ -66,10 +71,7 @@ class Tachyon:
 
     @staticmethod
     def _convert_value(
-            value_str: str,
-            target_type: Type,
-            param_name: str,
-            is_path_param: bool = False
+        value_str: str, target_type: Type, param_name: str, is_path_param: bool = False
     ) -> Union[Any, JSONResponse]:
         """
         Convert a string value to the target type with appropriate error handling.
@@ -149,7 +151,7 @@ class Tachyon:
 
         # Recursively resolve each constructor parameter
         for param in sig.parameters.values():
-            if param.name != 'self':
+            if param.name != "self":
                 dependencies[param.name] = self._resolve_dependency(param.annotation)
 
         # Create instance with resolved dependencies and cache it
@@ -215,18 +217,19 @@ class Tachyon:
 
             # Process each parameter in the endpoint function signature
             for param in sig.parameters.values():
-
                 # Determine if this parameter is a dependency
                 is_explicit_dependency = isinstance(param.default, Depends)
                 is_implicit_dependency = (
-                        param.default is inspect.Parameter.empty
-                        and param.annotation in _registry
+                    param.default is inspect.Parameter.empty
+                    and param.annotation in _registry
                 )
 
                 # Process dependencies (explicit and implicit)
                 if is_explicit_dependency or is_implicit_dependency:
                     target_class = param.annotation
-                    kwargs_to_inject[param.name] = self._resolve_dependency(target_class)
+                    kwargs_to_inject[param.name] = self._resolve_dependency(
+                        target_class
+                    )
 
                 # Process Body parameters (JSON request body)
                 elif isinstance(param.default, Body):
@@ -288,10 +291,12 @@ class Tachyon:
                         return JSONResponse({"detail": "Not Found"}, status_code=404)
 
                 # Process implicit Path parameters (URL path variables without Path())
-                elif (param.default is inspect.Parameter.empty and
-                      param.name in path_params and
-                      not is_explicit_dependency and
-                      not is_implicit_dependency):
+                elif (
+                    param.default is inspect.Parameter.empty
+                    and param.name in path_params
+                    and not is_explicit_dependency
+                    and not is_implicit_dependency
+                ):
                     param_name = param.name
                     value_str = path_params[param_name]
                     converted_value = self._convert_value(
@@ -308,6 +313,10 @@ class Tachyon:
             else:
                 payload = endpoint_func(**kwargs_to_inject)
 
+            # If the endpoint already returned a Response object, return it directly
+            if isinstance(payload, Response):
+                return payload
+
             # Convert Struct objects to dictionaries for JSON serialization
             if isinstance(payload, Struct):
                 payload = msgspec.to_builtins(payload)
@@ -322,19 +331,18 @@ class Tachyon:
         # Register the route with Starlette
         route = Route(path, endpoint=handler, methods=[method])
         self._router.routes.append(route)
-        self.routes.append({
-            "path": path,
-            "method": method,
-            "func": endpoint_func,
-            **kwargs
-        })
+        self.routes.append(
+            {"path": path, "method": method, "func": endpoint_func, **kwargs}
+        )
 
         # Generate OpenAPI documentation for this route
-        include_in_schema = kwargs.get('include_in_schema', True)
+        include_in_schema = kwargs.get("include_in_schema", True)
         if include_in_schema:
             self._generate_openapi_for_route(path, method, endpoint_func, **kwargs)
 
-    def _generate_openapi_for_route(self, path: str, method: str, endpoint_func: callable, **kwargs):
+    def _generate_openapi_for_route(
+        self, path: str, method: str, endpoint_func: callable, **kwargs
+    ):
         """
         Generate OpenAPI documentation for a specific route.
 
@@ -351,23 +359,21 @@ class Tachyon:
 
         # Build the OpenAPI operation object
         operation = {
-            "summary": kwargs.get('summary', self._generate_summary_from_function(endpoint_func)),
-            "description": kwargs.get('description', endpoint_func.__doc__ or ""),
+            "summary": kwargs.get(
+                "summary", self._generate_summary_from_function(endpoint_func)
+            ),
+            "description": kwargs.get("description", endpoint_func.__doc__ or ""),
             "responses": {
                 "200": {
                     "description": "Successful Response",
-                    "content": {
-                        "application/json": {
-                            "schema": {"type": "object"}
-                        }
-                    }
+                    "content": {"application/json": {"schema": {"type": "object"}}},
                 }
-            }
+            },
         }
 
         # Add tags if provided
-        if 'tags' in kwargs:
-            operation['tags'] = kwargs['tags']
+        if "tags" in kwargs:
+            operation["tags"] = kwargs["tags"]
 
         # Process parameters from function signature
         parameters = []
@@ -375,29 +381,39 @@ class Tachyon:
 
         for param in sig.parameters.values():
             # Skip dependency parameters
-            if (isinstance(param.default, Depends) or
-                (param.default is inspect.Parameter.empty and param.annotation in _registry)):
+            if isinstance(param.default, Depends) or (
+                param.default is inspect.Parameter.empty
+                and param.annotation in _registry
+            ):
                 continue
 
             # Process query parameters
             elif isinstance(param.default, Query):
-                parameters.append({
-                    "name": param.name,
-                    "in": "query",
-                    "required": param.default.default is ...,
-                    "schema": {"type": self._get_openapi_type(param.annotation)},
-                    "description": getattr(param.default, 'description', '')
-                })
+                parameters.append(
+                    {
+                        "name": param.name,
+                        "in": "query",
+                        "required": param.default.default is ...,
+                        "schema": {"type": self._get_openapi_type(param.annotation)},
+                        "description": getattr(param.default, "description", ""),
+                    }
+                )
 
             # Process path parameters
-            elif isinstance(param.default, Path) or self._is_path_parameter(param.name, path):
-                parameters.append({
-                    "name": param.name,
-                    "in": "path",
-                    "required": True,
-                    "schema": {"type": self._get_openapi_type(param.annotation)},
-                    "description": getattr(param.default, 'description', '') if isinstance(param.default, Path) else ''
-                })
+            elif isinstance(param.default, Path) or self._is_path_parameter(
+                param.name, path
+            ):
+                parameters.append(
+                    {
+                        "name": param.name,
+                        "in": "path",
+                        "required": True,
+                        "schema": {"type": self._get_openapi_type(param.annotation)},
+                        "description": getattr(param.default, "description", "")
+                        if isinstance(param.default, Path)
+                        else "",
+                    }
+                )
 
             # Process body parameters
             elif isinstance(param.default, Body):
@@ -405,15 +421,19 @@ class Tachyon:
                 if issubclass(model_class, Struct):
                     schema_name = model_class.__name__
                     # Add schema to components
-                    self.openapi_generator.add_schema(schema_name, _generate_schema_for_struct(model_class))
+                    self.openapi_generator.add_schema(
+                        schema_name, _generate_schema_for_struct(model_class)
+                    )
 
                     request_body_schema = {
                         "content": {
                             "application/json": {
-                                "schema": {"$ref": f"#/components/schemas/{schema_name}"}
+                                "schema": {
+                                    "$ref": f"#/components/schemas/{schema_name}"
+                                }
                             }
                         },
-                        "required": True
+                        "required": True,
                     }
 
         # Add parameters to operation if any exist
@@ -429,7 +449,7 @@ class Tachyon:
 
     def _generate_summary_from_function(self, func: callable) -> str:
         """Generate a human-readable summary from function name."""
-        return func.__name__.replace('_', ' ').title()
+        return func.__name__.replace("_", " ").title()
 
     def _is_path_parameter(self, param_name: str, path: str) -> bool:
         """Check if a parameter name corresponds to a path parameter in the URL."""
@@ -441,7 +461,7 @@ class Tachyon:
             int: "integer",
             str: "string",
             bool: "boolean",
-            float: "number"
+            float: "number",
         }
         return type_map.get(python_type, "string")
 
@@ -468,8 +488,7 @@ class Tachyon:
         def get_swagger_ui():
             """Serve the Swagger UI documentation interface."""
             html = self.openapi_generator.get_swagger_ui_html(
-                self.openapi_config.openapi_url,
-                self.openapi_config.info.title
+                self.openapi_config.openapi_url, self.openapi_config.info.title
             )
             return HTMLResponse(html)
 
@@ -478,8 +497,7 @@ class Tachyon:
         def get_redoc():
             """Serve the ReDoc documentation interface."""
             html = self.openapi_generator.get_redoc_html(
-                self.openapi_config.openapi_url,
-                self.openapi_config.info.title
+                self.openapi_config.openapi_url, self.openapi_config.info.title
             )
             return HTMLResponse(html)
 

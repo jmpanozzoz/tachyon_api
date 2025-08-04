@@ -26,6 +26,7 @@ class MockUserService:
 
 class Item(Struct):
     """Test model for OpenAPI generation"""
+
     name: str
     price: float
 
@@ -68,7 +69,11 @@ def app():
     @tachyon_app.post("/items")
     def create_item(item: Item = Body()):
         """Create a new item"""
-        return {"message": "Item created", "item_name": item.name, "item_price": item.price}
+        return {
+            "message": "Item created",
+            "item_name": item.name,
+            "item_price": item.price,
+        }
 
     @tachyon_app.put("/put")
     def put_endpoint():
@@ -80,10 +85,10 @@ def app():
 
     @tachyon_app.get("/di_explicit/{user_id}")
     def get_user_explicitly(user_id: int, service: MockUserService = Depends()):
-            return service.get_user_data(user_id)
+        return service.get_user_data(user_id)
 
     @tachyon_app.get("/di_implicit/{user_id}")
     def get_user_implicitly(user_id: int, service: MockUserService):
-            return service.get_user_data(user_id)
+        return service.get_user_data(user_id)
 
     yield tachyon_app

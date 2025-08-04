@@ -5,7 +5,7 @@ from tachyon_api.openapi import (
     OpenAPIGenerator,
     Contact,
     License,
-    Server
+    Server,
 )
 
 
@@ -43,7 +43,10 @@ async def test_openapi_schema_generation(app):
     # 3. Verify a route with a Body Parameter is documented
     post_item = schema["paths"]["/items"]["post"]
     request_body = post_item["requestBody"]
-    assert request_body["content"]["application/json"]["schema"]["$ref"] == "#/components/schemas/Item"
+    assert (
+        request_body["content"]["application/json"]["schema"]["$ref"]
+        == "#/components/schemas/Item"
+    )
 
     # 4. Verify that the model (Struct) is defined in components
     component_schema = schema["components"]["schemas"]["Item"]
@@ -70,17 +73,16 @@ def test_custom_openapi_config():
     contact = Contact(
         name="Equipo de Desarrollo",
         url="https://ejemplo.com/contacto",
-        email="dev@ejemplo.com"
+        email="dev@ejemplo.com",
     )
 
-    license = License(
-        name="MIT",
-        url="https://opensource.org/licenses/MIT"
-    )
+    license = License(name="MIT", url="https://opensource.org/licenses/MIT")
 
     servers = [
         Server(url="https://api.ejemplo.com", description="Servidor de producción"),
-        Server(url="https://staging-api.ejemplo.com", description="Servidor de staging")
+        Server(
+            url="https://staging-api.ejemplo.com", description="Servidor de staging"
+        ),
     ]
 
     config = create_openapi_config(
@@ -92,7 +94,7 @@ def test_custom_openapi_config():
         servers=servers,
         docs_url="/documentacion",
         redoc_url="/redoc-docs",
-        swagger_ui_parameters={"deepLinking": True, "displayRequestDuration": True}
+        swagger_ui_parameters={"deepLinking": True, "displayRequestDuration": True},
     )
 
     assert config.info.title == "Mi API Personalizada"
@@ -107,10 +109,7 @@ def test_custom_openapi_config():
 
 def test_openapi_generator():
     """Test que el generador OpenAPI funcione correctamente"""
-    config = create_openapi_config(
-        title="Test API",
-        description="API de prueba"
-    )
+    config = create_openapi_config(title="Test API", description="API de prueba")
 
     generator = OpenAPIGenerator(config)
     schema = generator.get_openapi_schema()
@@ -158,13 +157,9 @@ def test_add_path_to_schema():
         "responses": {
             "200": {
                 "description": "Usuario encontrado",
-                "content": {
-                    "application/json": {
-                        "schema": {"type": "object"}
-                    }
-                }
+                "content": {"application/json": {"schema": {"type": "object"}}},
             }
-        }
+        },
     }
 
     generator.add_path("/users/{user_id}", "get", operation_data)
@@ -178,9 +173,7 @@ def test_add_path_to_schema():
 def test_contact_to_dict():
     """Test conversión de Contact a diccionario"""
     contact = Contact(
-        name="Juan Pérez",
-        url="https://ejemplo.com",
-        email="juan@ejemplo.com"
+        name="Juan Pérez", url="https://ejemplo.com", email="juan@ejemplo.com"
     )
 
     result = contact.to_dict()

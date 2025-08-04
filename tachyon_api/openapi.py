@@ -1,17 +1,10 @@
-import inspect
 from typing import Dict, Any, Optional, List, Type
 from dataclasses import dataclass, field
 
 from .models import Struct
-from .params import Body, Query, Path
 
 # Type mapping from Python types to OpenAPI schema types
-TYPE_MAP = {
-    int: "integer",
-    str: "string",
-    bool: "boolean",
-    float: "number"
-}
+TYPE_MAP = {int: "integer", str: "string", bool: "boolean", float: "number"}
 
 
 def _generate_schema_for_struct(struct_class: Type[Struct]) -> Dict[str, Any]:
@@ -32,21 +25,18 @@ def _generate_schema_for_struct(struct_class: Type[Struct]) -> Dict[str, Any]:
         field_type = struct_class.__annotations__.get(field_name)
         properties[field_name] = {
             "type": TYPE_MAP.get(field_type, "string"),
-            "title": field_name.replace("_", " ").title()
+            "title": field_name.replace("_", " ").title(),
         }
         # For now, assume all fields are required (can be enhanced later)
         required.append(field_name)
 
-    return {
-        "type": "object",
-        "properties": properties,
-        "required": required
-    }
+    return {"type": "object", "properties": properties, "required": required}
 
 
 @dataclass
 class Contact:
     """Contact information for the API"""
+
     name: Optional[str] = None
     url: Optional[str] = None
     email: Optional[str] = None
@@ -66,6 +56,7 @@ class Contact:
 @dataclass
 class License:
     """License information for the API"""
+
     name: str
     url: Optional[str] = None
 
@@ -80,6 +71,7 @@ class License:
 @dataclass
 class Info:
     """General information about the API"""
+
     title: str = "Tachyon API"
     description: Optional[str] = "A fast API built with Tachyon"
     version: str = "0.1.0"
@@ -89,10 +81,7 @@ class Info:
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to OpenAPI info object"""
-        result: Dict[str, Any] = {
-            "title": self.title,
-            "version": self.version
-        }
+        result: Dict[str, Any] = {"title": self.title, "version": self.version}
         if self.description:
             result["description"] = self.description
         if self.terms_of_service:
@@ -107,6 +96,7 @@ class Info:
 @dataclass
 class Server:
     """Server information"""
+
     url: str
     description: Optional[str] = None
 
@@ -121,6 +111,7 @@ class Server:
 @dataclass
 class OpenAPIConfig:
     """Configuration for OpenAPI/Swagger documentation"""
+
     info: Info = field(default_factory=Info)
     servers: List[Server] = field(default_factory=list)
     openapi_version: str = "3.0.0"
@@ -132,9 +123,15 @@ class OpenAPIConfig:
     swagger_ui_init_oauth: Optional[Dict[str, Any]] = None
     swagger_ui_parameters: Optional[Dict[str, Any]] = None
     swagger_favicon_url: str = "https://fastapi.tiangolo.com/img/favicon.png"
-    swagger_js_url: str = "https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui-bundle.js"
-    swagger_css_url: str = "https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui.css"
-    redoc_js_url: str = "https://cdn.jsdelivr.net/npm/redoc@next/bundles/redoc.standalone.js"
+    swagger_js_url: str = (
+        "https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui-bundle.js"
+    )
+    swagger_css_url: str = (
+        "https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui.css"
+    )
+    redoc_js_url: str = (
+        "https://cdn.jsdelivr.net/npm/redoc@next/bundles/redoc.standalone.js"
+    )
 
     def to_openapi_dict(self) -> Dict[str, Any]:
         """Generate the complete OpenAPI dictionary"""
@@ -142,9 +139,7 @@ class OpenAPIConfig:
             "openapi": self.openapi_version,
             "info": self.info.to_dict(),
             "paths": {},
-            "components": {
-                "schemas": {}
-            }
+            "components": {"schemas": {}},
         }
 
         if self.servers:
@@ -177,7 +172,12 @@ class OpenAPIGenerator:
         swagger_ui_parameters = self.config.swagger_ui_parameters or {}
 
         # Convert parameters to JSON string, handling Python booleans correctly
-        params_json = str(swagger_ui_parameters).replace("'", '"').replace("True", "true").replace("False", "false")
+        params_json = (
+            str(swagger_ui_parameters)
+            .replace("'", '"')
+            .replace("True", "true")
+            .replace("False", "false")
+        )
 
         html = f"""<!DOCTYPE html>
 <html>
@@ -197,7 +197,7 @@ class OpenAPIGenerator:
             SwaggerUIBundle.presets.apis,
             SwaggerUIBundle.presets.standalone
         ],
-        layout: "StandaloneLayout",
+        layout: "BaseLayout",
         ...{params_json}
     }})
     </script>
@@ -275,7 +275,7 @@ def create_openapi_config(
     swagger_favicon_url: str = "https://fastapi.tiangolo.com/img/favicon.png",
     swagger_js_url: str = "https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui-bundle.js",
     swagger_css_url: str = "https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui.css",
-    redoc_js_url: str = "https://cdn.jsdelivr.net/npm/redoc@next/bundles/redoc.standalone.js"
+    redoc_js_url: str = "https://cdn.jsdelivr.net/npm/redoc@next/bundles/redoc.standalone.js",
 ) -> OpenAPIConfig:
     """
     Create a customizable OpenAPI configuration similar to FastAPI.
@@ -307,7 +307,7 @@ def create_openapi_config(
         version=version,
         terms_of_service=terms_of_service,
         contact=contact,
-        license=license
+        license=license,
     )
 
     return OpenAPIConfig(
@@ -321,5 +321,5 @@ def create_openapi_config(
         swagger_favicon_url=swagger_favicon_url,
         swagger_js_url=swagger_js_url,
         swagger_css_url=swagger_css_url,
-        redoc_js_url=redoc_js_url
+        redoc_js_url=redoc_js_url,
     )

@@ -5,12 +5,12 @@ This module provides a lightweight dependency injection system that supports
 both explicit and implicit dependency resolution with singleton pattern.
 """
 
-from typing import Set, Type, TypeVar, Callable
+from typing import Set, Type, TypeVar
 
 # Global registry of injectable classes
 _registry: Set[Type] = set()
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 class Depends:
