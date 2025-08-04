@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from tachyon_api import Tachyon
+from tachyon_api.openapi import OpenAPIConfig, Info, Contact, License
 from tachyon_api.params import Body, Path, Query
 from tachyon_api.di import Depends
 from tachyon_api.responses import (
@@ -16,8 +17,28 @@ from tachyon_api.responses import (
 from example.models.item import Item
 from example.services.item import ItemService
 
+openapi_config = OpenAPIConfig(
+    info=Info(
+        title="Mi API con Tachyon",
+        description="Una API súper rápida construida con Tachyon",
+        version="1.0.0",
+        contact=Contact(
+            name="Tu Nombre",
+            email="tu@email.com",
+            url="https://tu-website.com"
+        ),
+        license=License(
+            name="MIT",
+            url="https://opensource.org/licenses/MIT"
+        )
+    ),
+    docs_url="/docs",        # Swagger UI
+    redoc_url="/redoc",      # ReDoc
+    openapi_url="/openapi.json"
+)
+
 # Create app instance
-app = Tachyon()
+app = Tachyon(openapi_config=openapi_config)
 
 
 # === Basic Examples ===
