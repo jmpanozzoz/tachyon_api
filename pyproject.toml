@@ -1,0 +1,24 @@
+[tool.poetry]
+name = "tachyon-api"
+version = "0.0.1"
+description = ""
+authors = ["Juan Manuel Panozzo Zenere <juanmanuel.panozzozenere@alumnos.uai.edu.ar>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+starlette = "^0.47.2"
+uvicorn = "^0.35.0"
+msgspec = "^0.19.0"
+typer = "^0.16.0"
+
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.4.1"
+pytest-asyncio = "^1.1.0"
+httpx = "^0.28.1"
+ruff = "^0.12.7"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
