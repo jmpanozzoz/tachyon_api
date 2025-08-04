@@ -6,4 +6,6 @@ def test_struct_is_reexported_from_msgspec():
 
     from msgspec import Struct as MsgspecStruct
 
-    assert TachyonStruct is MsgspecStruct, "TachyonStruct should be the same as msgspec.Struct"
+    assert TachyonStruct is MsgspecStruct, (
+        "TachyonStruct should be the same as msgspec.Struct"
+    )

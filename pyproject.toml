@@ -1,8 +1,8 @@
 [tool.poetry]
 name = "tachyon-api"
-version = "0.0.1"
+version = "0.1.0"
 description = ""
-authors = ["Juan Manuel Panozzo Zenere <juanmanuel.panozzozenere@alumnos.uai.edu.ar>"]
+authors = ["Juan Manuel Panozzo Zenere <jm.panozzozenere@gmail.com>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
