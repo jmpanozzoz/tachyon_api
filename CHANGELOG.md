@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.4.1] - 2025-08-05
+
+### Changed
+
+- **Example Application Refactoring:** Complete reorganization of the example application using clean architecture principles.
+  - Restructured `/example` directory with proper separation of concerns
+  - Added `/example/routers/` directory for organized API endpoint management
+  - Enhanced `/example/repositories/` with proper dependency injection setup
+  - Improved `/example/services/` to demonstrate implicit dependency injection
+  - Updated `/example/models/` with comprehensive data structures
+
+### Added
+
+- **Router Organization:** New router-based architecture in example application.
+  - `users_router`: Complete user management endpoints (`/api/v1/users/*`)
+  - `items_router`: Item management endpoints (`/api/v1/items/*`)
+  - `admin_router`: Administrative endpoints (`/admin/*`)
+
+### Technical Improvements
+
+- **Clean Architecture Demonstration:** Example now showcases proper layered architecture:
+  - Models: Data structures and validation
+  - Repositories: Data access layer with `@injectable` decorators
+  - Services: Business logic layer with automatic dependency resolution
+  - Routers: API endpoint organization with implicit dependency injection
+- **Enhanced Documentation:** Updated example application with comprehensive inline documentation
+- **Implicit Dependency Injection:** Example demonstrates parameter ordering for maximum use of implicit DI
+
+---
+
 ## [0.4.0] - 2025-08-05
 
 ### Added

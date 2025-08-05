@@ -5,7 +5,7 @@ Provides convenient response helpers while keeping full compatibility
 with Starlette responses.
 """
 
-from starlette.responses import JSONResponse, HTMLResponse
+from starlette.responses import JSONResponse
 
 
 # Simple helper functions for common response patterns
@@ -45,4 +45,3 @@ def validation_error_response(error="Validation failed", errors=None):
 
 
 # Re-export Starlette responses for convenience
-from starlette.responses import JSONResponse, HTMLResponse

@@ -5,7 +5,6 @@ This module tests the router grouping functionality similar to FastAPI's APIRout
 allowing for better organization of routes with common prefixes, tags, and dependencies.
 """
 
-import pytest
 from starlette.testclient import TestClient
 
 from tachyon_api import Tachyon
@@ -50,13 +49,13 @@ class TestRouterDecorators:
         router = Router()
 
         # Check that all HTTP method decorators exist
-        assert hasattr(router, 'get')
-        assert hasattr(router, 'post')
-        assert hasattr(router, 'put')
-        assert hasattr(router, 'delete')
-        assert hasattr(router, 'patch')
-        assert hasattr(router, 'options')
-        assert hasattr(router, 'head')
+        assert hasattr(router, "get")
+        assert hasattr(router, "post")
+        assert hasattr(router, "put")
+        assert hasattr(router, "delete")
+        assert hasattr(router, "patch")
+        assert hasattr(router, "options")
+        assert hasattr(router, "head")
 
     def test_router_decorators_are_callable(self):
         """Test that router decorators are callable"""
@@ -83,8 +82,14 @@ class TestRouterDecorators:
 
         # Router should store the routes
         assert len(router.routes) == 2
-        assert any(route["path"] == "/users" and route["method"] == "GET" for route in router.routes)
-        assert any(route["path"] == "/users" and route["method"] == "POST" for route in router.routes)
+        assert any(
+            route["path"] == "/users" and route["method"] == "GET"
+            for route in router.routes
+        )
+        assert any(
+            route["path"] == "/users" and route["method"] == "POST"
+            for route in router.routes
+        )
 
 
 class TestRouterIncludeInApp:
@@ -208,7 +213,9 @@ class TestRouterWithParameters:
         app.include_router(router)
 
         client = TestClient(app)
-        response = client.post("/api/users", json={"name": "John", "email": "john@example.com"})
+        response = client.post(
+            "/api/users", json={"name": "John", "email": "john@example.com"}
+        )
         assert response.status_code == 200
         assert response.json() == {"name": "John", "email": "john@example.com"}
 
@@ -307,7 +314,11 @@ class TestRouterOpenAPIIntegration:
         app = Tachyon()
         router = Router(prefix="/api")
 
-        @router.get("/users", summary="Get all users", description="Retrieve a list of all users")
+        @router.get(
+            "/users",
+            summary="Get all users",
+            description="Retrieve a list of all users",
+        )
         def get_users():
             return {"users": []}
 

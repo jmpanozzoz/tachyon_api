@@ -1,15 +1,14 @@
+"""
+Item models for the Tachyon API v0.4.0 Demo
+"""
+
 from tachyon_api.models import Struct
 
 
 class Item(Struct):
-    """
-    Item model for the training example
+    """Item model"""
 
-    Demonstrates:
-    - Basic Struct model definition
-    - Type annotations for validation
-    - Optional fields with defaults
-    """
     id: int
     name: str
-    description: str = "No description provided"
+    price: float
+    owner_id: int

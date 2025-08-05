@@ -551,8 +551,5 @@ class Tachyon:
 
             # Register the route with the main app
             self._add_route(
-                full_path,
-                route_info["func"],
-                route_info["method"],
-                **route_kwargs
+                full_path, route_info["func"], route_info["method"], **route_kwargs
             )

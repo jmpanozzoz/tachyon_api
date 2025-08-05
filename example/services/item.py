@@ -1,3 +1,7 @@
+"""
+Item service for business logic
+"""
+
 from typing import List, Optional, Tuple
 from tachyon_api.di import injectable
 from example.models.item import Item
@@ -6,26 +10,17 @@ from example.repositories.item import ItemRepository
 
 @injectable
 class ItemService:
-    """
-    Item service for business logic - Training Example
-
-    Demonstrates:
-    - Service layer pattern
-    - Dependency injection with repository
-    - Error handling and business rules
-    - Clean separation of concerns
-    """
+    """Service for item business logic"""
 
     def __init__(self, item_repo: ItemRepository):
         self.item_repo = item_repo
 
-    def list_items(self) -> List[Item]:
-        """
-        Get all items
+    def get_items_by_owner(self, owner_id: int) -> List[Item]:
+        """Get items by owner ID"""
+        return self.item_repo.get_by_owner(owner_id)
 
-        Returns:
-            List of all items in the system
-        """
+    def get_all_items(self) -> List[Item]:
+        """Get all items"""
         return self.item_repo.get_all()
 
     def get_item(self, item_id: int) -> Optional[Item]:
