@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.4.0] - 2025-08-05
+
+### Added
+
+- **Router System:** Complete route grouping functionality similar to FastAPI's APIRouter.
+  - Create routers with common prefixes, tags, and dependencies
+  - Include multiple routers in the main application with `app.include_router()`
+  - Automatic prefix application to all routes in a router
+  - Tag inheritance from router to individual routes
+  - Full compatibility with existing parameter types (Query, Path, Body) and dependency injection
+  - OpenAPI integration with proper route documentation
+
+- **Scalar API Reference Integration:** Modern API documentation interface as default.
+  - `/docs` now serves Scalar API Reference (modern, fast UI)
+  - `/swagger` continues to serve Swagger UI (legacy support)
+  - `/redoc` unchanged, continues to serve ReDoc
+  - Configurable Scalar CDN URLs and styling options
+  - Backward compatibility maintained for all existing OpenAPI configurations
+
+### Changed
+
+- **Documentation Default:** `/docs` endpoint now uses Scalar instead of Swagger UI by default
+- **Route Organization:** Enhanced route organization capabilities with Router system
+
+### Technical Details
+
+- Router implementation follows TDD approach with comprehensive test coverage
+- Zero code redundancy - Router reuses existing Tachyon routing logic
+- 100% backward compatibility with existing applications
+- Router stores route definitions and delegates actual routing to main Tachyon app
+
+---
+
 ## [0.3.1] - 2025-08-04
 
 ### Added

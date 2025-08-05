@@ -483,8 +483,17 @@ class Tachyon:
             """Serve the OpenAPI JSON schema."""
             return self.openapi_generator.get_openapi_schema()
 
-        # Swagger UI documentation endpoint
+        # Scalar API Reference documentation endpoint (default for /docs)
         @self.get(self.openapi_config.docs_url, include_in_schema=False)
+        def get_scalar_docs():
+            """Serve the Scalar API Reference documentation interface."""
+            html = self.openapi_generator.get_scalar_html(
+                self.openapi_config.openapi_url, self.openapi_config.info.title
+            )
+            return HTMLResponse(html)
+
+        # Swagger UI documentation endpoint (legacy support)
+        @self.get("/swagger", include_in_schema=False)
         def get_swagger_ui():
             """Serve the Swagger UI documentation interface."""
             html = self.openapi_generator.get_swagger_ui_html(
@@ -512,3 +521,38 @@ class Tachyon:
         if not self._docs_setup:
             self._setup_docs()
         await self._router(scope, receive, send)
+
+    def include_router(self, router, **kwargs):
+        """
+        Include a Router instance in the application.
+
+        This method registers all routes from the router with the main application,
+        applying the router's prefix, tags, and dependencies.
+
+        Args:
+            router: The Router instance to include
+            **kwargs: Additional options (currently reserved for future use)
+        """
+        from .router import Router
+
+        if not isinstance(router, Router):
+            raise TypeError("Expected Router instance")
+
+        # Register all routes from the router
+        for route_info in router.routes:
+            # Get the full path with prefix
+            full_path = router.get_full_path(route_info["path"])
+
+            # Create a copy of route info with the full path
+            route_kwargs = route_info.copy()
+            route_kwargs.pop("path", None)
+            route_kwargs.pop("method", None)
+            route_kwargs.pop("func", None)
+
+            # Register the route with the main app
+            self._add_route(
+                full_path,
+                route_info["func"],
+                route_info["method"],
+                **route_kwargs
+            )

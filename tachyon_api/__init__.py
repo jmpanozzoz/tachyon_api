@@ -17,6 +17,7 @@ from .app import Tachyon
 from .models import Struct
 from .params import Query, Body, Path
 from .di import injectable, Depends
+from .router import Router
 
 __all__ = [
     "Tachyon",
@@ -26,4 +27,5 @@ __all__ = [
     "Path",
     "injectable",
     "Depends",
+    "Router",
 ]

@@ -119,6 +119,10 @@ class OpenAPIConfig:
     redoc_url: str = "/redoc"
     openapi_url: str = "/openapi.json"
     include_in_schema: bool = True
+    # Scalar configuration
+    scalar_js_url: str = "https://cdn.jsdelivr.net/npm/@scalar/api-reference"
+    scalar_favicon_url: str = "https://fastapi.tiangolo.com/img/favicon.png"
+    # Swagger UI configuration (legacy support)
     swagger_ui_oauth2_redirect_url: Optional[str] = None
     swagger_ui_init_oauth: Optional[Dict[str, Any]] = None
     swagger_ui_parameters: Optional[Dict[str, Any]] = None
@@ -228,6 +232,25 @@ class OpenAPIGenerator:
 </html>"""
         return html
 
+    def get_scalar_html(self, openapi_url: str, title: str) -> str:
+        """Generate HTML for Scalar API Reference"""
+        html = f"""<!DOCTYPE html>
+<html>
+<head>
+    <title>{title}</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="shortcut icon" href="{self.config.scalar_favicon_url}">
+</head>
+<body>
+    <script
+        id="api-reference"
+        data-url="{openapi_url}"
+        src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
+</body>
+</html>"""
+        return html
+
     def add_path(self, path: str, method: str, operation_data: Dict[str, Any]) -> None:
         """
         Add a path operation to the OpenAPI schema.
@@ -271,6 +294,10 @@ def create_openapi_config(
     license: Optional[License] = None,
     servers: Optional[List[Server]] = None,
     terms_of_service: Optional[str] = None,
+    # Scalar configuration
+    scalar_js_url: str = "https://cdn.jsdelivr.net/npm/@scalar/api-reference",
+    scalar_favicon_url: str = "https://fastapi.tiangolo.com/img/favicon.png",
+    # Swagger UI configuration (legacy support)
     swagger_ui_parameters: Optional[Dict[str, Any]] = None,
     swagger_favicon_url: str = "https://fastapi.tiangolo.com/img/favicon.png",
     swagger_js_url: str = "https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui-bundle.js",
@@ -285,13 +312,15 @@ def create_openapi_config(
         description: API description
         version: API version
         openapi_version: OpenAPI specification version
-        docs_url: URL for Swagger UI documentation
+        docs_url: URL for Scalar API Reference documentation (default)
         redoc_url: URL for ReDoc documentation
         openapi_url: URL for OpenAPI JSON schema
         contact: Contact information
         license: License information
         servers: List of servers
         terms_of_service: Terms of service URL
+        scalar_js_url: Scalar API Reference JavaScript URL
+        scalar_favicon_url: Favicon URL for Scalar
         swagger_ui_parameters: Additional Swagger UI parameters
         swagger_favicon_url: Favicon URL for Swagger UI
         swagger_js_url: Swagger UI JavaScript URL
@@ -317,6 +346,8 @@ def create_openapi_config(
         docs_url=docs_url,
         redoc_url=redoc_url,
         openapi_url=openapi_url,
+        scalar_js_url=scalar_js_url,
+        scalar_favicon_url=scalar_favicon_url,
         swagger_ui_parameters=swagger_ui_parameters,
         swagger_favicon_url=swagger_favicon_url,
         swagger_js_url=swagger_js_url,
