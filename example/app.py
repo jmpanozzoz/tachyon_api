@@ -1,9 +1,12 @@
 from datetime import datetime
 
+# Import our models and services
+from example.models.item import Item
+from example.services.item import ItemService
 from tachyon_api import Tachyon
+from tachyon_api.di import Depends
 from tachyon_api.openapi import OpenAPIConfig, Info, Contact, License
 from tachyon_api.params import Body, Path, Query
-from tachyon_api.di import Depends
 from tachyon_api.responses import (
     success_response,
     error_response,
@@ -12,10 +15,6 @@ from tachyon_api.responses import (
     validation_error_response,
     JSONResponse,
 )
-
-# Import our models and services
-from example.models.item import Item
-from example.services.item import ItemService
 
 openapi_config = OpenAPIConfig(
     info=Info(
@@ -32,8 +31,8 @@ openapi_config = OpenAPIConfig(
             url="https://opensource.org/licenses/MIT"
         )
     ),
-    docs_url="/docs",        # Swagger UI
-    redoc_url="/redoc",      # ReDoc
+    docs_url="/docs",  # Swagger UI
+    redoc_url="/redoc",  # ReDoc
     openapi_url="/openapi.json"
 )
 
@@ -127,9 +126,9 @@ async def example_validation_error():
 
 @app.get("/items")
 async def list_items(
-    limit: int = Query(default=10, description="Maximum number of items to return"),
-    search: str = Query(default=None, description="Search term to filter items"),
-    item_service: ItemService = Depends(),
+        item_service: ItemService,
+        limit: int = Query(default=10, description="Maximum number of items to return"),
+        search: str = Query(default=None, description="Search term to filter items"),
 ):
     """
     List all items with optional filtering
@@ -170,8 +169,8 @@ async def list_items(
 
 @app.get("/items/{item_id}")
 async def get_item(
-    item_id: int = Path(description="Unique identifier of the item"),
-    item_service: ItemService = Depends(),
+        item_id: int = Path(description="Unique identifier of the item"),
+        item_service: ItemService = Depends(),
 ):
     """
     Get a specific item by ID
@@ -200,8 +199,8 @@ async def get_item(
 
 @app.post("/items")
 async def create_item(
-    item: Item = Body(description="Item data to create"),
-    item_service: ItemService = Depends(),
+        item: Item = Body(description="Item data to create"),
+        item_service: ItemService = Depends(),
 ):
     """
     Create a new item
@@ -239,9 +238,9 @@ async def create_item(
 
 @app.put("/items/{item_id}")
 async def update_item(
-    item_id: int = Path(description="ID of item to update"),
-    item_data: Item = Body(description="Updated item data"),
-    item_service: ItemService = Depends(),
+        item_id: int = Path(description="ID of item to update"),
+        item_data: Item = Body(description="Updated item data"),
+        item_service: ItemService = Depends(),
 ):
     """
     Update an existing item
@@ -278,8 +277,8 @@ async def update_item(
 
 @app.delete("/items/{item_id}")
 async def delete_item(
-    item_id: int = Path(description="ID of item to delete"),
-    item_service: ItemService = Depends(),
+        item_id: int = Path(description="ID of item to delete"),
+        item_service: ItemService = Depends(),
 ):
     """
     Delete an item
@@ -345,3 +344,10 @@ async def custom_headers_example():
             "X-Response-Time": "fast",
         },
     )
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    # Run the app with Uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000, log_level="info")
