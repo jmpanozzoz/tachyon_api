@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.4.3] - 2025-08-06
+
+### Added
+
+- **orjson Integration:** Enhanced JSON processing with high-performance orjson library.
+  - Added new `encode_json` and `decode_json` functions for direct access to optimized JSON operations
+  - Implemented seamless serialization of complex types (UUID, datetime, etc.)
+  - Maintained full backward compatibility with existing Struct-based models
+  - Comprehensive test suite ensures correctness and performance improvements
+
+### Technical Improvements
+
+- **Performance Optimization:** JSON serialization/deserialization now significantly faster with orjson
+- **Enhanced Type Support:** Better handling of complex types like UUID, datetime, and nested Struct objects
+- **Flexible Configuration:** Support for orjson-specific options when using the explicit API
+
+---
+
 ## [0.4.2] - 2025-08-06
 
 ### Fixed
