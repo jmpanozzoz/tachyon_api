@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.5.3] - 2025-08-06
+
+### Added
+
+- **Traditional Python Environment Support:** Added requirements.txt for broader compatibility.
+  - Support for traditional venv-based workflows alongside Poetry
+  - Direct pip installation capability via `pip install -r requirements.txt`
+  - Maintained synchronization between Poetry dependencies and requirements.txt
+
+### Technical Improvements
+
+- **Deployment Flexibility:** Support for environments where Poetry isn't available
+- **CI/CD Compatibility:** Better integration with common CI/CD pipelines
+- **Onboarding Experience:** Easier project setup for developers familiar with traditional Python workflows
+
+---
+
 ## [0.5.2] - 2025-08-06
 
 ### Changed
