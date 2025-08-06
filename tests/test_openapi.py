@@ -201,3 +201,17 @@ def test_server_to_dict():
 
     assert result["url"] == "https://api.ejemplo.com"
     assert result["description"] == "Servidor principal"
+
+
+def test_scalar_html_generation():
+    """Test generación de HTML para Scalar API Reference"""
+    config = create_openapi_config(title="Test API")
+    generator = OpenAPIGenerator(config)
+
+    html = generator.get_scalar_html("/openapi.json", "Test API")
+
+    assert "<!DOCTYPE html>" in html
+    assert 'id="api-reference"' in html
+    assert 'data-url="/openapi.json"' in html
+    assert "Test API" in html
+    assert config.scalar_js_url in html

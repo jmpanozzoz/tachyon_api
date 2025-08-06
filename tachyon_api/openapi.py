@@ -241,12 +241,18 @@ class OpenAPIGenerator:
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="shortcut icon" href="{self.config.scalar_favicon_url}">
+    <style>
+        body {{
+            margin: 0;
+            padding: 0;
+        }}
+    </style>
 </head>
 <body>
     <script
         id="api-reference"
         data-url="{openapi_url}"
-        src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
+        src="{self.config.scalar_js_url}"></script>
 </body>
 </html>"""
         return html

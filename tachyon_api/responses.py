@@ -5,7 +5,7 @@ Provides convenient response helpers while keeping full compatibility
 with Starlette responses.
 """
 
-from starlette.responses import JSONResponse
+from starlette.responses import JSONResponse, HTMLResponse
 
 
 # Simple helper functions for common response patterns

@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.4.2] - 2025-08-06
+
+### Fixed
+
+- **OpenAPI Documentation:** Fixed Scalar API Reference implementation.
+  - Resolved issue where the Scalar UI failed to load properly at the `/docs` endpoint
+  - Improved HTML structure of documentation to remove malformed elements
+  - Fixed Scalar script URL to ensure proper component loading
+
+### Added
+
+- **Documentation Testing:** New unit test to verify proper HTML generation for Scalar API Reference.
+  - Implemented `test_scalar_html_generation()` that validates the correct structure of generated HTML
+  - Ensures compatibility between all three documentation interfaces: Scalar (default), Swagger UI, and ReDoc
+
+### Technical Improvements
+
+- **Documentation Consistency:** Ensured consistency between all three available documentation interfaces
+  - Scalar API Reference: available at `/docs` (default)
+  - Swagger UI: maintains compatibility for integration with existing tools
+  - ReDoc: available as an alternative at `/redoc`
+
+---
+
 ## [0.4.1] - 2025-08-05
 
 ### Changed

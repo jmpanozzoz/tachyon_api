@@ -71,7 +71,7 @@ class Tachyon:
 
     @staticmethod
     def _convert_value(
-        value_str: str, target_type: Type, param_name: str, is_path_param: bool = False
+        value_str: str, target_type: Type, param_name: str, is_path_param: bool = False # noqa
     ) -> Union[Any, JSONResponse]:
         """
         Convert a string value to the target type with appropriate error handling.
@@ -447,15 +447,18 @@ class Tachyon:
         # Add the operation to the OpenAPI schema
         self.openapi_generator.add_path(path, method, operation)
 
-    def _generate_summary_from_function(self, func: callable) -> str:
+    @staticmethod
+    def _generate_summary_from_function(func: callable) -> str:
         """Generate a human-readable summary from function name."""
         return func.__name__.replace("_", " ").title()
 
-    def _is_path_parameter(self, param_name: str, path: str) -> bool:
+    @staticmethod
+    def _is_path_parameter(param_name: str, path: str) -> bool:
         """Check if a parameter name corresponds to a path parameter in the URL."""
         return f"{{{param_name}}}" in path
 
-    def _get_openapi_type(self, python_type: Type) -> str:
+    @staticmethod
+    def _get_openapi_type(python_type: Type) -> str:
         """Convert Python type to OpenAPI schema type."""
         type_map: Dict[Type, str] = {
             int: "integer",
