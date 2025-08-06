@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.5.4] - 2025-08-06
+
+### Added
+
+- **Comprehensive README**: Created a detailed README.md for the project.
+  - Comprehensive feature overview and code examples
+  - Clear installation instructions for the beta version
+  - Feature comparison with FastAPI
+  - Detailed examples of dependency injection and middleware usage
+  - Expanded roadmap with upcoming features
+  - Contributor guidelines and project structure explanation
+
+### Technical Improvements
+
+- **Project Documentation**: Enhanced project presentation for the upcoming GitHub beta release
+- **Onboarding Experience**: Clearer instructions for new users and contributors
+- **Framework Positioning**: Better articulation of Tachyon API's unique value proposition
+
+---
+
 ## [0.5.3] - 2025-08-06
 
 ### Added
