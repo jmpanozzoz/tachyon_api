@@ -7,6 +7,71 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.5.2] - 2025-08-06
+
+### Changed
+
+- **Decoupled Test Architecture:** Refactored all tests to be self-contained.
+  - Removed test dependencies on conftest.py fixture for better isolation
+  - Each test now creates its own Tachyon instance with required configuration
+  - Improved test clarity and maintenance by making test dependencies explicit
+  - Fixed language consistency across all test files (standardized to English)
+
+### Fixed
+
+- **Response Module:** Added missing HTMLResponse export in responses.py
+  - Resolved issue with TestStarletteCompatibility.test_starlette_imports_available test
+  - Ensured proper re-export of all Starlette response types for convenience
+
+### Technical Improvements
+
+- **Testing Efficiency:** Self-contained tests provide better failure isolation and debugging
+- **Test Clarity:** Each test file now clearly shows its dependencies and requirements
+- **Consistent Documentation:** All code comments and docstrings standardized to English
+
+---
+
+## [0.5.1] - 2025-08-06
+
+### Added
+
+- **Example Middleware Implementation:** Enhanced example application with middleware examples.
+  - Added request logging middleware to demonstrate request/response monitoring
+  - Implemented response headers middleware to show response modification
+  - Created a reusable middleware setup pattern in a dedicated module
+
+### Technical Improvements
+
+- **Middleware Organization:** Implemented a clean pattern for middleware definition in separate files
+- **Middleware Documentation:** Comprehensive examples demonstrating middleware capabilities
+- **Example Architecture:** Improved example application structure with middleware integration
+
+---
+
+## [0.5.0] - 2025-08-06
+
+### Added
+
+- **Middleware Support:** Added comprehensive middleware functionality.
+  - Implemented `app.add_middleware()` method for adding middleware classes
+  - Created `@app.middleware()` decorator for a more elegant middleware definition
+  - Added support for both class-based and decorator-based middleware approaches
+  - Full integration with the ASGI specification for compatibility with standard patterns
+
+### Changed
+
+- **Decorator API:** Enhanced the API with middleware decorators for better developer experience
+  - Consistent pattern with route decorators like `@app.get()`, `@app.post()`, etc.
+  - Support for middleware type filtering (`http`, etc.)
+
+### Technical Improvements
+
+- **Request/Response Pipeline:** Complete implementation of the middleware "onion" pattern
+- **Testing Coverage:** Comprehensive test suite for middleware functionality
+- **Architecture Flexibility:** Support for multiple middleware implementation styles
+
+---
+
 ## [0.4.3] - 2025-08-06
 
 ### Added

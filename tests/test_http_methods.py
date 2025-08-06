@@ -1,5 +1,6 @@
 import pytest
 from httpx import AsyncClient, ASGITransport
+from tachyon_api import Tachyon
 
 http_test_cases = [
     ("get", "/get", {"method": "GET", "message": "GET request successful"}),
@@ -11,7 +12,26 @@ http_test_cases = [
 
 @pytest.mark.parametrize("http_method, path, expected_payload", http_test_cases)
 @pytest.mark.asyncio
-async def test_all_http_methods(app, http_method, path, expected_payload):
+async def test_all_http_methods(http_method, path, expected_payload):
+    # Create a Tachyon instance for this specific test
+    app = Tachyon()
+
+    @app.get("/get")
+    def get_endpoint():
+        return {"method": "GET", "message": "GET request successful"}
+
+    @app.post("/post")
+    def post_endpoint():
+        return {"method": "POST", "message": "POST request successful"}
+
+    @app.put("/put")
+    def put_endpoint():
+        return {"method": "PUT", "message": "PUT request successful"}
+
+    @app.delete("/delete")
+    def delete_endpoint():
+        return {"method": "DELETE", "message": "DELETE request successful"}
+
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://testserver") as client:
         response = await getattr(client, http_method)(path)
@@ -21,7 +41,14 @@ async def test_all_http_methods(app, http_method, path, expected_payload):
 
 
 @pytest.mark.asyncio
-async def test_invalid_method(app):
+async def test_invalid_method():
+    # Create a Tachyon instance for this specific test
+    app = Tachyon()
+
+    @app.get("/get")
+    def get_endpoint():
+        return {"method": "GET", "message": "GET request successful"}
+
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://testserver") as client:
         response = await client.patch("/get")

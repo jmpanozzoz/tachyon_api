@@ -18,6 +18,7 @@ TEST_DATE = datetime.date.today()
 
 class ComplexModel(Struct):
     """A test model with complex types to verify orjson serialization."""
+
     id: int
     name: str
     uuid_field: uuid.UUID
@@ -38,7 +39,7 @@ def complex_data():
         "date_field": TEST_DATE,
         "datetime_field": TEST_DATETIME,
         "tags": ["tag1", "tag2", "tag3"],
-        "metadata": {"key1": "value1", "key2": "value2"}
+        "metadata": {"key1": "value1", "key2": "value2"},
     }
 
 
@@ -64,7 +65,9 @@ def test_orjson_encode_decode_roundtrip(complex_data):
     assert "datetime_field" in decoded_data
     assert decoded_data["tags"] == complex_data["tags"]
     assert decoded_data["metadata"] == complex_data["metadata"]
-    assert "optional_field" not in decoded_data or decoded_data["optional_field"] is None
+    assert (
+        "optional_field" not in decoded_data or decoded_data["optional_field"] is None
+    )
 
 
 def test_orjson_struct_serialization():
@@ -78,7 +81,7 @@ def test_orjson_struct_serialization():
         datetime_field=TEST_DATETIME,
         tags=["python", "orjson", "fast"],
         metadata={"purpose": "testing"},
-        optional_field=3.14159
+        optional_field=3.14159,
     )
 
     # Encode to JSON
@@ -112,7 +115,7 @@ def test_orjson_performance_comparison():
         datetime_field=TEST_DATETIME,
         tags=["python", "orjson", "fast"],
         metadata={"purpose": "testing"},
-        optional_field=3.14159
+        optional_field=3.14159,
     )
 
     # Convert to dict for standard json
@@ -124,7 +127,7 @@ def test_orjson_performance_comparison():
         "datetime_field": model.datetime_field.isoformat(),
         "tags": model.tags,
         "metadata": model.metadata,
-        "optional_field": model.optional_field
+        "optional_field": model.optional_field,
     }
 
     # Test orjson performance
@@ -141,7 +144,9 @@ def test_orjson_performance_comparison():
 
     # We just want to make sure orjson is not significantly slower
     # In reality, it should be faster, but we don't want to make the test brittle
-    assert orjson_time <= std_json_time * 1.5, "orjson should not be significantly slower than standard json"
+    assert orjson_time <= std_json_time * 1.5, (
+        "orjson should not be significantly slower than standard json"
+    )
 
 
 def test_orjson_decode_from_json():
@@ -154,11 +159,11 @@ def test_orjson_decode_from_json():
         "date_field": TEST_DATE.isoformat(),
         "datetime_field": TEST_DATETIME.isoformat(),
         "tags": ["decoded", "object"],
-        "metadata": {"source": "json"}
+        "metadata": {"source": "json"},
     }
 
     # Encode to JSON string (bytes for orjson)
-    json_bytes = json.dumps(json_data).encode('utf-8')
+    json_bytes = json.dumps(json_data).encode("utf-8")
 
     # Decode using our orjson-powered decoder
     decoded_model = decode_json(json_bytes, ComplexModel)

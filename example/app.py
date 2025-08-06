@@ -7,6 +7,7 @@ This example demonstrates:
 - Implicit dependency injection
 - Clean architecture with services, repositories, and models
 - Complete CRUD operations with proper error handling
+- Middleware implementation for logging and response modification
 """
 
 from datetime import datetime
@@ -16,13 +17,15 @@ from tachyon_api.responses import success_response
 
 # Import all routers
 from example.routers import users_router, items_router, admin_router
+# Import middleware setup
+from example.middlewares import setup_middlewares
 
 # Configure OpenAPI with Scalar as default
 openapi_config = OpenAPIConfig(
     info=Info(
-        title="Tachyon API v0.4.0 Demo",
+        title="Tachyon API Demo",
         description="Complete example demonstrating Router system, Scalar integration, and clean architecture",
-        version="0.4.0",
+        version="0.5.2",
         contact=Contact(
             name="Tachyon Team", email="info@tachyon.dev", url="https://tachyon.dev"
         ),
@@ -38,6 +41,10 @@ openapi_config = OpenAPIConfig(
 # Create main application
 app = Tachyon(openapi_config=openapi_config)
 
+# Set up middlewares - this uses the decorator pattern but keeps the code organized
+# in the middlewares.py file
+setup_middlewares(app)
+
 # Include all routers in the main app
 app.include_router(users_router)
 app.include_router(items_router)
@@ -49,8 +56,12 @@ app.include_router(admin_router)
 def root():
     """Root endpoint for API health check"""
     return success_response(
-        data={"status": "healthy", "version": "0.4.0", "framework": "Tachyon"},
-        message="Tachyon API v0.4.0 is running!",
+        data={
+            "status": "healthy",
+            "version": "0.4.0",
+            "timestamp": datetime.now().isoformat(),
+            "message": "Tachyon API is running!"
+        }
     )
 
 

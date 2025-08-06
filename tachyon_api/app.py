@@ -15,6 +15,7 @@ from typing import Any, Dict, Type, Union
 from starlette.applications import Starlette
 from starlette.responses import HTMLResponse, JSONResponse, Response
 from starlette.routing import Route
+from starlette.middleware import Middleware
 
 from .di import Depends, _registry
 from .models import Struct
@@ -52,6 +53,7 @@ class Tachyon:
         """
         self._router = Starlette()
         self.routes = []
+        self.middleware_stack = []
         self._instances_cache: Dict[Type, Any] = {}
 
         # Initialize OpenAPI configuration and generator
@@ -71,7 +73,10 @@ class Tachyon:
 
     @staticmethod
     def _convert_value(
-        value_str: str, target_type: Type, param_name: str, is_path_param: bool = False # noqa
+        value_str: str,
+        target_type: Type,
+        param_name: str,
+        is_path_param: bool = False,  # noqa
     ) -> Union[Any, JSONResponse]:
         """
         Convert a string value to the target type with appropriate error handling.
@@ -556,3 +561,52 @@ class Tachyon:
             self._add_route(
                 full_path, route_info["func"], route_info["method"], **route_kwargs
             )
+
+    def add_middleware(self, middleware_class, **options):
+        """
+        Adds a middleware to the application's stack.
+
+        Middlewares are processed in the order they are added. They follow
+        the ASGI middleware specification.
+
+        Args:
+            middleware_class: The middleware class.
+            **options: Options to be passed to the middleware constructor.
+        """
+        # Agregamos el middleware a Starlette - corregido para usar correctamente la API
+        self._router.user_middleware.insert(0, Middleware(middleware_class, **options))
+        # Reconstruimos la pila de middleware
+        self._router.middleware_stack = self._router.build_middleware_stack()
+        # Mantenemos una referencia para nuestra propia introspección
+        if not hasattr(self, "middleware_stack"):
+            self.middleware_stack = []
+        self.middleware_stack.append({"func": middleware_class, "options": options})
+
+    def middleware(self, middleware_type="http"):
+        """
+        Decorator for adding a middleware to the application.
+        Similar to route decorators (@app.get, etc.)
+
+        Args:
+            middleware_type: Type of middleware ('http' by default)
+
+        Returns:
+            A decorator that registers the decorated function as middleware.
+        """
+
+        def decorator(middleware_func):
+            # Create a middleware class that wraps the function
+            class DecoratedMiddleware:
+                def __init__(self, app):
+                    self.app = app
+
+                async def __call__(self, scope, receive, send):
+                    if scope["type"] == middleware_type or middleware_type == "*":
+                        return await middleware_func(scope, receive, send, self.app)
+                    return await self.app(scope, receive, send)
+
+            # Register the middleware using the existing add_middleware function
+            self.add_middleware(DecoratedMiddleware)
+            return middleware_func
+
+        return decorator

@@ -1,5 +1,8 @@
 import pytest
 from httpx import AsyncClient, ASGITransport
+from tachyon_api import Tachyon
+from tachyon_api.params import Body, Path
+from tachyon_api.models import Struct
 from tachyon_api.openapi import (
     create_openapi_config,
     OpenAPIGenerator,
@@ -9,14 +12,41 @@ from tachyon_api.openapi import (
 )
 
 
+class Item(Struct):
+    """Test model for OpenAPI generation"""
+
+    name: str
+    price: float
+
+
 @pytest.mark.asyncio
-async def test_openapi_schema_generation(app):
+async def test_openapi_schema_generation():
     """
     Tests that a valid OpenAPI schema is generated and served at /openapi.json.
 
     It verifies that the schema correctly reflects the application's routes,
     parameters, and models defined in the test fixture.
     """
+    # Create a Tachyon instance for this specific test
+    app = Tachyon()
+
+    @app.get("/")
+    def home():
+        return {"message": "Tachyon is running!"}
+
+    @app.get("/items/{item_id}")
+    def get_item(item_id: int = Path()):
+        return {"item_id_received": item_id, "type": "int"}
+
+    @app.post("/items")
+    def create_item(item: Item = Body()):
+        """Create a new item"""
+        return {
+            "message": "Item created",
+            "item_name": item.name,
+            "item_price": item.price,
+        }
+
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://testserver") as client:
         response = await client.get("/openapi.json")
@@ -69,60 +99,58 @@ def test_default_openapi_config():
 
 
 def test_custom_openapi_config():
-    """Test configuración personalizada similar a FastAPI"""
+    """Test for custom configuration similar to FastAPI"""
     contact = Contact(
-        name="Equipo de Desarrollo",
-        url="https://ejemplo.com/contacto",
-        email="dev@ejemplo.com",
+        name="Development Team",
+        url="https://example.com/contact",
+        email="dev@example.com",
     )
 
     license = License(name="MIT", url="https://opensource.org/licenses/MIT")
 
     servers = [
-        Server(url="https://api.ejemplo.com", description="Servidor de producción"),
-        Server(
-            url="https://staging-api.ejemplo.com", description="Servidor de staging"
-        ),
+        Server(url="https://api.example.com", description="Production server"),
+        Server(url="https://staging-api.example.com", description="Staging server"),
     ]
 
     config = create_openapi_config(
-        title="Mi API Personalizada",
-        description="Esta es mi API personalizada con Tachyon",
+        title="My Custom API",
+        description="This is my custom API with Tachyon",
         version="1.2.3",
         contact=contact,
         license=license,
         servers=servers,
-        docs_url="/documentacion",
+        docs_url="/documentation",
         redoc_url="/redoc-docs",
         swagger_ui_parameters={"deepLinking": True, "displayRequestDuration": True},
     )
 
-    assert config.info.title == "Mi API Personalizada"
-    assert config.info.description == "Esta es mi API personalizada con Tachyon"
+    assert config.info.title == "My Custom API"
+    assert config.info.description == "This is my custom API with Tachyon"
     assert config.info.version == "1.2.3"
-    assert config.info.contact.name == "Equipo de Desarrollo"
+    assert config.info.contact.name == "Development Team"
     assert config.info.license.name == "MIT"
     assert len(config.servers) == 2
-    assert config.docs_url == "/documentacion"
+    assert config.docs_url == "/documentation"
     assert config.swagger_ui_parameters["deepLinking"] is True
 
 
 def test_openapi_generator():
-    """Test que el generador OpenAPI funcione correctamente"""
-    config = create_openapi_config(title="Test API", description="API de prueba")
+    """Test that the OpenAPI generator works correctly"""
+    config = create_openapi_config(title="Test API", description="Test API")
 
     generator = OpenAPIGenerator(config)
     schema = generator.get_openapi_schema()
 
     assert schema["openapi"] == "3.0.0"
     assert schema["info"]["title"] == "Test API"
-    assert schema["info"]["description"] == "API de prueba"
+    assert schema["info"]["description"] == "Test API"
     assert "paths" in schema
     assert "components" in schema
 
 
 def test_swagger_ui_html_generation():
-    """Test generación de HTML para Swagger UI"""
+    """Test HTML generation for Swagger UI"""
     config = create_openapi_config(title="Test API")
     generator = OpenAPIGenerator(config)
 
@@ -135,7 +163,7 @@ def test_swagger_ui_html_generation():
 
 
 def test_redoc_html_generation():
-    """Test generación de HTML para ReDoc"""
+    """Test HTML generation for ReDoc"""
     config = create_openapi_config(title="Test API")
     generator = OpenAPIGenerator(config)
 
@@ -148,15 +176,15 @@ def test_redoc_html_generation():
 
 
 def test_add_path_to_schema():
-    """Test añadir rutas al esquema OpenAPI"""
+    """Test adding routes to the OpenAPI schema"""
     generator = OpenAPIGenerator()
 
     operation_data = {
-        "summary": "Obtener usuario",
-        "description": "Obtiene información de un usuario",
+        "summary": "Get user",
+        "description": "Gets information about a user",
         "responses": {
             "200": {
-                "description": "Usuario encontrado",
+                "description": "User found",
                 "content": {"application/json": {"schema": {"type": "object"}}},
             }
         },
@@ -167,24 +195,24 @@ def test_add_path_to_schema():
 
     assert "/users/{user_id}" in schema["paths"]
     assert "get" in schema["paths"]["/users/{user_id}"]
-    assert schema["paths"]["/users/{user_id}"]["get"]["summary"] == "Obtener usuario"
+    assert schema["paths"]["/users/{user_id}"]["get"]["summary"] == "Get user"
 
 
 def test_contact_to_dict():
-    """Test conversión de Contact a diccionario"""
+    """Test conversion of Contact to dictionary"""
     contact = Contact(
-        name="Juan Pérez", url="https://ejemplo.com", email="juan@ejemplo.com"
+        name="John Doe", url="https://example.com", email="john@example.com"
     )
 
     result = contact.to_dict()
 
-    assert result["name"] == "Juan Pérez"
-    assert result["url"] == "https://ejemplo.com"
-    assert result["email"] == "juan@ejemplo.com"
+    assert result["name"] == "John Doe"
+    assert result["url"] == "https://example.com"
+    assert result["email"] == "john@example.com"
 
 
 def test_license_to_dict():
-    """Test conversión de License a diccionario"""
+    """Test conversion of License to dictionary"""
     license = License(name="Apache 2.0", url="https://apache.org/licenses/LICENSE-2.0")
 
     result = license.to_dict()
@@ -194,17 +222,17 @@ def test_license_to_dict():
 
 
 def test_server_to_dict():
-    """Test conversión de Server a diccionario"""
-    server = Server(url="https://api.ejemplo.com", description="Servidor principal")
+    """Test conversion of Server to dictionary"""
+    server = Server(url="https://api.example.com", description="Main server")
 
     result = server.to_dict()
 
-    assert result["url"] == "https://api.ejemplo.com"
-    assert result["description"] == "Servidor principal"
+    assert result["url"] == "https://api.example.com"
+    assert result["description"] == "Main server"
 
 
 def test_scalar_html_generation():
-    """Test generación de HTML para Scalar API Reference"""
+    """Test HTML generation for Scalar API Reference"""
     config = create_openapi_config(title="Test API")
     generator = OpenAPIGenerator(config)
 

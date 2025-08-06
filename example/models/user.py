@@ -7,6 +7,7 @@ from tachyon_api.models import Struct
 
 class User(Struct):
     """User model"""
+
     id: int
     name: str
     email: str
@@ -14,5 +15,6 @@ class User(Struct):
 
 class CreateUserRequest(Struct):
     """Request model for creating a new user"""
+
     name: str
     email: str

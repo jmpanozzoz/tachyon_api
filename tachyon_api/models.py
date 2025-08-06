@@ -16,7 +16,7 @@ from msgspec import Struct, Meta
 
 __all__ = ["Struct", "Meta", "encode_json", "decode_json"]
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 def _orjson_default(obj: Any) -> Any:
@@ -41,7 +41,10 @@ def encode_json(obj: Any, option: Optional[int] = None) -> bytes:
     Returns:
         JSON-encoded bytes
     """
-    opts = option or orjson.OPT_SERIALIZE_DATACLASS | orjson.OPT_SERIALIZE_UUID | orjson.OPT_UTC_Z
+    opts = (
+        option
+        or orjson.OPT_SERIALIZE_DATACLASS | orjson.OPT_SERIALIZE_UUID | orjson.OPT_UTC_Z
+    )
     return orjson.dumps(obj, default=_orjson_default, option=opts)
 
 
@@ -58,7 +61,7 @@ def decode_json(data: Union[bytes, str], type_: Type[T] = Dict[str, Any]) -> T:
         Decoded object of the specified type
     """
     if isinstance(data, str):
-        data = data.encode('utf-8')
+        data = data.encode("utf-8")
 
     # First use orjson for fast JSON parsing
     parsed_data = orjson.loads(data)
