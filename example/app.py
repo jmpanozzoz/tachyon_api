@@ -14,6 +14,7 @@ from datetime import datetime
 from tachyon_api import Tachyon
 from tachyon_api.openapi import OpenAPIConfig, Info, Contact, License
 from tachyon_api.responses import success_response
+from tachyon_api.middlewares import CORSMiddleware, LoggerMiddleware
 
 # Import all routers
 from example.routers import users_router, items_router, admin_router
@@ -41,8 +42,20 @@ openapi_config = OpenAPIConfig(
 # Create main application
 app = Tachyon(openapi_config=openapi_config)
 
-# Set up middlewares - this uses the decorator pattern but keeps the code organized
-# in the middlewares.py file
+# Built-in middlewares (class-based)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+    allow_credentials=False,
+)
+app.add_middleware(
+    LoggerMiddleware,
+    include_headers=False,  # set True to log headers
+)
+
+# Set up additional example middlewares using the decorator pattern
 setup_middlewares(app)
 
 # Include all routers in the main app

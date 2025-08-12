@@ -10,12 +10,11 @@ import asyncio
 import inspect
 import msgspec
 from functools import partial
-from typing import Any, Dict, Type, Union
+from typing import Any, Dict, Type, Union, Callable
 
 from starlette.applications import Starlette
 from starlette.responses import HTMLResponse, JSONResponse, Response
 from starlette.routing import Route
-from starlette.middleware import Middleware
 
 from .di import Depends, _registry
 from .models import Struct
@@ -26,6 +25,10 @@ from .openapi import (
     _generate_schema_for_struct,
 )
 from .params import Body, Query, Path
+from .middlewares.core import (
+    apply_middleware_to_router,
+    create_decorated_middleware_class,
+)
 
 
 class Tachyon:
@@ -179,13 +182,13 @@ class Tachyon:
             A decorator function that registers the endpoint
         """
 
-        def decorator(endpoint_func: callable):
+        def decorator(endpoint_func: Callable):
             self._add_route(path, endpoint_func, http_method, **kwargs)
             return endpoint_func
 
         return decorator
 
-    def _add_route(self, path: str, endpoint_func: callable, method: str, **kwargs):
+    def _add_route(self, path: str, endpoint_func: Callable, method: str, **kwargs):
         """
         Register a route with the application and create an async handler.
 
@@ -346,7 +349,7 @@ class Tachyon:
             self._generate_openapi_for_route(path, method, endpoint_func, **kwargs)
 
     def _generate_openapi_for_route(
-        self, path: str, method: str, endpoint_func: callable, **kwargs
+        self, path: str, method: str, endpoint_func: Callable, **kwargs
     ):
         """
         Generate OpenAPI documentation for a specific route.
@@ -453,7 +456,7 @@ class Tachyon:
         self.openapi_generator.add_path(path, method, operation)
 
     @staticmethod
-    def _generate_summary_from_function(func: callable) -> str:
+    def _generate_summary_from_function(func: Callable) -> str:
         """Generate a human-readable summary from function name."""
         return func.__name__.replace("_", " ").title()
 
@@ -573,11 +576,9 @@ class Tachyon:
             middleware_class: The middleware class.
             **options: Options to be passed to the middleware constructor.
         """
-        # Agregamos el middleware a Starlette - corregido para usar correctamente la API
-        self._router.user_middleware.insert(0, Middleware(middleware_class, **options))
-        # Reconstruimos la pila de middleware
-        self._router.middleware_stack = self._router.build_middleware_stack()
-        # Mantenemos una referencia para nuestra propia introspección
+        # Usar helper centralizado para aplicar el middleware sobre Starlette
+        apply_middleware_to_router(self._router, middleware_class, **options)
+
         if not hasattr(self, "middleware_stack"):
             self.middleware_stack = []
         self.middleware_stack.append({"func": middleware_class, "options": options})
@@ -595,17 +596,11 @@ class Tachyon:
         """
 
         def decorator(middleware_func):
-            # Create a middleware class that wraps the function
-            class DecoratedMiddleware:
-                def __init__(self, app):
-                    self.app = app
-
-                async def __call__(self, scope, receive, send):
-                    if scope["type"] == middleware_type or middleware_type == "*":
-                        return await middleware_func(scope, receive, send, self.app)
-                    return await self.app(scope, receive, send)
-
-            # Register the middleware using the existing add_middleware function
+            # Crear una clase de middleware a partir de la función decorada
+            DecoratedMiddleware = create_decorated_middleware_class(
+                middleware_func, middleware_type
+            )
+            # Registrar el middleware usando el método existente
             self.add_middleware(DecoratedMiddleware)
             return middleware_func
 
