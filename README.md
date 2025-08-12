@@ -3,7 +3,7 @@
 ![Version](https://img.shields.io/badge/version-0.5.5-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.10+-brightgreen.svg)
 ![License](https://img.shields.io/badge/license-GPL--3.0-orange.svg)
-![Status](https://img.shields.io/badge/status-beta-yellow.svg)
+![Status](https://img.shields.io/badge/status-stable-brightgreen.svg)
 
 **A lightweight, high-performance API framework for Python with the elegance of FastAPI and the speed of light.**
 
