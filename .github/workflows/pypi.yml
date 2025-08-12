@@ -3,6 +3,7 @@ name: Publish Python 🐍 package to PyPI using Poetry
 on:
   release:
     types: [published]
+  workflow_dispatch: # Allows manual triggering of the workflow
 
 jobs:
   build-and-publish:
