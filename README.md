@@ -1,6 +1,6 @@
 # 🚀 Tachyon API
 
-![Version](https://img.shields.io/badge/version-0.5.3-blue.svg)
+![Version](https://img.shields.io/badge/version-0.5.5-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.10+-brightgreen.svg)
 ![License](https://img.shields.io/badge/license-GPL--3.0-orange.svg)
 ![Status](https://img.shields.io/badge/status-beta-yellow.svg)
@@ -121,16 +121,23 @@ Tachyon API supports middlewares in two elegant ways:
 ### Class-based Approach
 
 ```python
-class TimingMiddleware:
-    def __init__(self, app):
-        self.app = app
-        
-    async def __call__(self, scope, receive, send):
-        start_time = time.time()
-        await self.app(scope, receive, send)
-        print(f"Request took {time.time() - start_time:.4f}s")
+from tachyon_api.middlewares import CORSMiddleware, LoggerMiddleware
 
-app.add_middleware(TimingMiddleware)
+# Add built-in CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+    allow_credentials=False,
+)
+
+# Add built-in Logger middleware
+app.add_middleware(
+    LoggerMiddleware,
+    include_headers=True,
+    redact_headers=["authorization"],
+)
 ```
 
 ### Decorator-based Approach
@@ -143,6 +150,13 @@ async def timing_middleware(scope, receive, send, app):
     print(f"Request took {time.time() - start_time:.4f}s")
 ```
 
+### Built-in Middlewares
+
+- CORSMiddleware: Handles preflight requests and injects CORS headers into responses. Highly configurable with allow_origins, allow_methods, allow_headers, allow_credentials, expose_headers, and max_age.
+- LoggerMiddleware: Logs request start/end, duration, status code, and optionally headers and a non-intrusive body preview.
+
+Both middlewares are standard ASGI middlewares and can be used with `app.add_middleware(...)`.
+
 ## 📚 Example Application
 
 For a complete example showcasing all features, see the [example directory](./example). It demonstrates:
@@ -152,6 +166,8 @@ For a complete example showcasing all features, see the [example directory](./ex
 - Middleware implementation
 - Dependency injection patterns
 - OpenAPI documentation
+
+Built-in CORS and Logger middlewares are integrated in the example for convenience. You can toggle settings in `example/app.py`.
 
 Run the example with:
 
@@ -197,6 +213,4 @@ This project is licensed under the GNU General Public License v3.0 - see the [LI
 
 ---
 
-<p align="center">
-  <em>Built with 💜 by developers, for developers</em>
-</p>
+*Built with 💜 by developers, for developers*

@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.5.5] - 2025-08-12
+
+### Added
+
+- Built-in Middlewares: CORSMiddleware and LoggerMiddleware
+  - Standard ASGI-compatible classes usable via `app.add_middleware(...)`
+  - CORS: preflight handling, allow/expose headers, credentials, max-age
+  - Logger: request start/end, duration, status; optional headers and body preview with redaction
+- Tests: Added `tests/test_cors_middleware.py` and `tests/test_logger_middleware.py`
+- Example: Integrated built-in middlewares in `example/app.py`
+
+### Changed
+
+- Middleware Refactor: centralized integration helpers in `tachyon_api/middlewares/core.py`
+  - `apply_middleware_to_router()` for Starlette stack integration
+  - `create_decorated_middleware_class()` for decorator-based middlewares
+  - Maintained full backward compatibility for `app.add_middleware` and `@app.middleware()`
+- Language Consistency: standardize docstrings and comments to English in middleware modules and tests
+- Documentation: README updated with built-in middleware usage and example details
+
+---
+
 ## [0.5.4] - 2025-08-06
 
 ### Added
