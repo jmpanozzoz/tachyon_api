@@ -1,6 +1,6 @@
 # 🚀 Tachyon API
 
-![Version](https://img.shields.io/badge/version-0.5.5-blue.svg)
+![Version](https://img.shields.io/badge/version-0.5.7-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.10+-brightgreen.svg)
 ![License](https://img.shields.io/badge/license-GPL--3.0-orange.svg)
 ![Status](https://img.shields.io/badge/status-stable-brightgreen.svg)
@@ -30,155 +30,71 @@ def create_user(user: User):
 
 ## ✨ Features
 
-- 🔍 **Intuitive API** - Elegant decorator-based routing inspired by FastAPI
-- 🧩 **Implicit & Explicit Dependency Injection** - Both supported for maximum flexibility
-- 📚 **Automatic OpenAPI Documentation** - With Scalar UI, Swagger UI, and ReDoc support
-- 🛠️ **Router System** - Organize your API endpoints with powerful route grouping
-- 🧪 **Built with TDD** - Comprehensive test suite ensures stability and correctness
-- 🔄 **Middleware Support** - Both class-based and decorator-based approaches
-- 🚀 **High-Performance JSON** - Powered by msgspec and orjson for lightning-fast processing
-- 🪶 **Minimal Dependencies** - Lean core with only what you really need
-
-## 📦 Installation
-
-Tachyon API is currently in beta. The package will be available on PyPI and Poetry repositories soon!
-
-### From source (Currently the only method)
-
-```bash
-git clone https://github.com/jmpanozzoz/tachyon_api.git
-cd tachyon-api
-pip install -r requirements.txt
-```
-
-> **Note:** The `pip install tachyon-api` and `poetry add tachyon-api` commands will be available once the package is published to PyPI.
-
-## 🔍 Key Differences from FastAPI
-
-While inspired by FastAPI's elegant API design, Tachyon API takes a different approach in several key areas:
-
-| Feature | Tachyon API | FastAPI |
-|---------|------------|---------|
-| **Core Dependencies** | Minimalist: Starlette + msgspec + orjson | Pydantic + multiple dependencies |
-| **Validation Engine** | msgspec (faster, lighter) | Pydantic (more features, heavier) |
-| **Dependency Injection** | Both implicit and explicit | Primarily explicit |
-| **Middleware Approach** | Dual API (class + decorator) | Class-based |
-| **Development Approach** | Test-Driven from the start | Feature-driven |
-| **Documentation UI** | Scalar UI (default), Swagger, ReDoc | Swagger UI (default), ReDoc |
-| **Size** | Lightweight, focused | Comprehensive, full-featured |
+- 🔍 Intuitive API (decorators) and minimal core
+- 🧩 Implicit & explicit DI
+- 📚 OpenAPI with Scalar, Swagger, ReDoc
+- 🛠️ Router system
+- 🔄 Middlewares (class + decorator)
+- 🧠 Cache decorator with TTL (in-memory, Redis, Memcached)
+- 🚀 High-performance JSON (msgspec + orjson)
+- 🧾 Unified error format (422/500)
+- 🧰 Default JSON response (TachyonJSONResponse)
+- 🔒 End-to-end safety: request Body validation + typed response_model
+- 📘 Deep OpenAPI schemas: nested Structs, Optional/List (nullable/array), formats (uuid, date-time)
 
 ## 🧪 Test-Driven Development
 
-Tachyon API is built with TDD principles at its core:
-
-- Every feature starts with a test
-- Comprehensive test coverage
-- Self-contained test architecture
-- Clear test documentation
-
-This ensures stability, maintainability, and prevents regressions as the framework evolves.
+Tachyon API is built with TDD principles at its core. The test suite covers routing, DI, params, body validation, responses, OpenAPI generation, caching, and example flows.
 
 ## 🔌 Core Dependencies
 
-Tachyon API maintains a minimal, carefully selected set of dependencies:
-
-- **[Starlette](https://www.starlette.io/)**: ASGI framework providing solid foundations
-- **[msgspec](https://jcristharif.com/msgspec/)**: Ultra-fast serialization and validation
-- **[orjson](https://github.com/ijl/orjson)**: High-performance JSON parser
-- **[uvicorn](https://www.uvicorn.org/)**: ASGI server for development and production
-
-These were chosen for their performance, lightweight nature, and focused functionality.
+- Starlette (ASGI)
+- msgspec (validation/serialization)
+- orjson (fast JSON)
+- uvicorn (server)
 
 ## 💉 Dependency Injection System
 
-Tachyon API offers a flexible dependency injection system:
-
-### Implicit Injection
-
-```python
-@injectable
-class UserService:
-    def __init__(self, repository: UserRepository):  # Auto-injected!
-        self.repository = repository
-
-@app.get("/users/{user_id}")
-def get_user(user_id: int, service: UserService):  # Auto-injected!
-    return service.get_user(user_id)
-```
-
-### Explicit Injection
-
-```python
-@app.get("/users/{user_id}")
-def get_user(user_id: int, service: UserService = Depends()):
-    return service.get_user(user_id)
-```
+- Implicit injection: annotate with registered types
+- Explicit injection: Depends() for clarity and control
 
 ## 🔄 Middleware Support
 
-Tachyon API supports middlewares in two elegant ways:
+- Built-in: CORSMiddleware, LoggerMiddleware
+- Use app.add_middleware(...) or @app.middleware()
 
-### Class-based Approach
+## ⚡ Cache with TTL
 
-```python
-from tachyon_api.middlewares import CORSMiddleware, LoggerMiddleware
-
-# Add built-in CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-    allow_credentials=False,
-)
-
-# Add built-in Logger middleware
-app.add_middleware(
-    LoggerMiddleware,
-    include_headers=True,
-    redact_headers=["authorization"],
-)
-```
-
-### Decorator-based Approach
-
-```python
-@app.middleware()
-async def timing_middleware(scope, receive, send, app):
-    start_time = time.time()
-    await app(scope, receive, send)
-    print(f"Request took {time.time() - start_time:.4f}s")
-```
-
-### Built-in Middlewares
-
-- CORSMiddleware: Handles preflight requests and injects CORS headers into responses. Highly configurable with allow_origins, allow_methods, allow_headers, allow_credentials, expose_headers, and max_age.
-- LoggerMiddleware: Logs request start/end, duration, status code, and optionally headers and a non-intrusive body preview.
-
-Both middlewares are standard ASGI middlewares and can be used with `app.add_middleware(...)`.
+- @cache(TTL=...) on routes and functions
+- Per-app config and pluggable backends (InMemory, Redis, Memcached)
 
 ## 📚 Example Application
 
-For a complete example showcasing all features, see the [example directory](./example). It demonstrates:
+The example demonstrates clean architecture, routers, middlewares, caching, and now end-to-end safety with OpenAPI:
 
-- Clean architecture with models, services, and repositories
-- Router organization
-- Middleware implementation
-- Dependency injection patterns
-- OpenAPI documentation
+- /orjson-demo: default JSON powered by orjson
+- /api/v1/users/e2e: Body + response_model, unified errors and deep OpenAPI schemas
 
-Built-in CORS and Logger middlewares are integrated in the example for convenience. You can toggle settings in `example/app.py`.
+Run the example:
 
-Run the example with:
-
-```bash
+```
 cd example
 python app.py
 ```
 
-Then visit:
-- **API**: http://localhost:8000/
-- **Documentation**: http://localhost:8000/docs
+Docs at /docs (Scalar), /swagger, /redoc.
+
+## ✅ Response models, OpenAPI params, and deep schemas
+
+- Response models: set response_model=YourStruct to validate/convert outputs via msgspec before serializing.
+- Parameter schemas: Optional[T] → nullable: true; List[T] → type: array with items.
+- Deep schemas: nested Struct components, Optional/List items, and formats (uuid, date-time) are generated and referenced in components.
+
+## 🧾 Default JSON response and unified error format
+
+- Default response: TachyonJSONResponse serializes complex types (UUID/date/datetime, Struct) via orjson and centralized encoders.
+- 422 Validation: { success: false, error, code: VALIDATION_ERROR, [errors] }.
+- 500 Response model: { success: false, error: "Response validation error: ...", detail, code: RESPONSE_VALIDATION_ERROR }.
 
 ## 📝 Contributing
 
@@ -196,20 +112,10 @@ This project is licensed under the GNU General Public License v3.0 - see the [LI
 
 ## 🔮 Roadmap
 
-- [ ] **Exception System**: Standardized exception handling and error responses
-- [ ] **Environment Management**: Built-in environment variable handling and uvicorn integration
-- [ ] **CLI Tool**: Project scaffolding and service generation
-  - Directory structure generation
-  - Service and repository templates
-  - API endpoint generation
-- [ ] **Code Quality Tools**: Ruff integration for linting and formatting
-- [ ] **Performance Optimization**: Cython compilation for service layer via CLI
-- [ ] **Authentication Middleware**: Built-in auth patterns and middleware
-- [ ] **Performance Benchmarks**: Comparisons against other frameworks
-- [ ] **More Example Applications**: Demonstrating different use cases
-- [ ] **Plugin System**: Extensibility through plugins
-- [ ] **Deployment Guides**: Documentation for various deployment scenarios
-- [ ] **And much more!**
+- Exception system and global handlers
+- CLI, scaffolding, and code quality tooling
+- Authentication middleware and benchmarks
+- More examples and deployment guides
 
 ---
 
