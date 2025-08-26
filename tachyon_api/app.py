@@ -29,6 +29,11 @@ from .middlewares.core import (
     apply_middleware_to_router,
     create_decorated_middleware_class,
 )
+# New: optional cache configuration support
+try:
+    from .cache import set_cache_config
+except Exception:  # pragma: no cover - defensive import guard
+    set_cache_config = None  # type: ignore
 
 
 class Tachyon:
@@ -46,13 +51,15 @@ class Tachyon:
         openapi_generator: Generator for OpenAPI schema and documentation
     """
 
-    def __init__(self, openapi_config: OpenAPIConfig = None):
+    def __init__(self, openapi_config: OpenAPIConfig = None, cache_config=None):
         """
         Initialize a new Tachyon application instance.
 
         Args:
             openapi_config: Optional OpenAPI configuration. If not provided,
                           uses default configuration similar to FastAPI.
+            cache_config: Optional cache configuration (tachyon_api.cache.CacheConfig).
+                          If provided, it will be set as the active cache configuration.
         """
         self._router = Starlette()
         self.routes = []
@@ -63,6 +70,15 @@ class Tachyon:
         self.openapi_config = openapi_config or create_openapi_config()
         self.openapi_generator = OpenAPIGenerator(self.openapi_config)
         self._docs_setup = False
+
+        # Apply cache configuration if provided
+        self.cache_config = cache_config
+        if cache_config is not None and set_cache_config is not None:
+            try:
+                set_cache_config(cache_config)
+            except Exception:
+                # Do not break app initialization if cache setup fails
+                pass
 
         # Dynamically create HTTP method decorators (get, post, put, delete, etc.)
         http_methods = ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"]
@@ -576,7 +592,7 @@ class Tachyon:
             middleware_class: The middleware class.
             **options: Options to be passed to the middleware constructor.
         """
-        # Usar helper centralizado para aplicar el middleware sobre Starlette
+        # Use centralized helper to apply middleware to internal Starlette app
         apply_middleware_to_router(self._router, middleware_class, **options)
 
         if not hasattr(self, "middleware_stack"):
@@ -596,11 +612,11 @@ class Tachyon:
         """
 
         def decorator(middleware_func):
-            # Crear una clase de middleware a partir de la función decorada
+            # Create a middleware class from the decorated function
             DecoratedMiddleware = create_decorated_middleware_class(
                 middleware_func, middleware_type
             )
-            # Registrar el middleware usando el método existente
+            # Register the middleware using the existing method
             self.add_middleware(DecoratedMiddleware)
             return middleware_func
 

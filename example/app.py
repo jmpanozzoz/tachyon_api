@@ -8,10 +8,11 @@ This example demonstrates:
 - Clean architecture with services, repositories, and models
 - Complete CRUD operations with proper error handling
 - Middleware implementation for logging and response modification
+- Cache decorator with TTL and configurable backends
 """
 
 from datetime import datetime
-from tachyon_api import Tachyon
+from tachyon_api import Tachyon, cache, create_cache_config
 from tachyon_api.openapi import OpenAPIConfig, Info, Contact, License
 from tachyon_api.responses import success_response
 from tachyon_api.middlewares import CORSMiddleware, LoggerMiddleware
@@ -25,8 +26,8 @@ from example.middlewares import setup_middlewares
 openapi_config = OpenAPIConfig(
     info=Info(
         title="Tachyon API Demo",
-        description="Complete example demonstrating Router system, Scalar integration, and clean architecture",
-        version="0.5.2",
+        description="Complete example demonstrating Router system, Scalar integration, caching, and clean architecture",
+        version="0.5.6",
         contact=Contact(
             name="Tachyon Team", email="info@tachyon.dev", url="https://tachyon.dev"
         ),
@@ -34,13 +35,13 @@ openapi_config = OpenAPIConfig(
             name="GPL-3.0", url="https://www.gnu.org/licenses/gpl-3.0.html"
         ),
     ),
-    # Scalar is now the default for /docs
-    # Swagger UI available at /swagger
-    # ReDoc available at /redoc
 )
 
+# Configure Cache (default: in-memory backend); can be replaced by Redis/Memcached adapters
+cache_config = create_cache_config(default_ttl=30)
+
 # Create main application
-app = Tachyon(openapi_config=openapi_config)
+app = Tachyon(openapi_config=openapi_config, cache_config=cache_config)
 
 # Built-in middlewares (class-based)
 app.add_middleware(
@@ -84,6 +85,14 @@ def health_check():
     return {"status": "ok", "timestamp": datetime.now().isoformat()}
 
 
+# Cached endpoint demo (value remains constant within TTL)
+@app.get("/cached/time", summary="Cached time demo")
+@cache(TTL=10)
+def cached_time():
+    """Return current time, cached for TTL seconds."""
+    return {"now": datetime.now().isoformat()}
+
+
 if __name__ == "__main__":
     import uvicorn
 
@@ -102,6 +111,7 @@ if __name__ == "__main__":
     print("📋 API Endpoints:")
     print("  • GET  /                                 - API Health Check")
     print("  • GET  /health                          - Simple Health Check")
+    print("  • GET  /cached/time                     - Cached time (TTL=10s)")
     print("  • GET  /api/v1/users/                   - Get All Users")
     print("  • GET  /api/v1/users/{user_id}          - Get User by ID")
     print("  • POST /api/v1/users/                   - Create New User")
@@ -115,5 +125,6 @@ if __name__ == "__main__":
     print("  ✅ Clean architecture (Models/Services/Repositories)")
     print("  ✅ Proper error handling and responses")
     print("  ✅ Automatic JSON serialization of Struct models")
+    print("  ✅ Cache decorator with TTL and configurable backends")
 
     uvicorn.run(app, host="0.0.0.0", port=8000)

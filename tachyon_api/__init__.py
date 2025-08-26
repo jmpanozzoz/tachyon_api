@@ -18,6 +18,17 @@ from .models import Struct
 from .params import Query, Body, Path
 from .di import injectable, Depends
 from .router import Router
+from .cache import (
+    cache,
+    CacheConfig,
+    create_cache_config,
+    set_cache_config,
+    get_cache_config,
+    InMemoryCacheBackend,
+    BaseCacheBackend,
+    RedisCacheBackend,
+    MemcachedCacheBackend,
+)
 
 __all__ = [
     "Tachyon",
@@ -28,4 +39,13 @@ __all__ = [
     "injectable",
     "Depends",
     "Router",
+    "cache",
+    "CacheConfig",
+    "create_cache_config",
+    "set_cache_config",
+    "get_cache_config",
+    "InMemoryCacheBackend",
+    "BaseCacheBackend",
+    "RedisCacheBackend",
+    "MemcachedCacheBackend",
 ]

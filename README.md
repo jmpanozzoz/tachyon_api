@@ -1,6 +1,6 @@
 # 🚀 Tachyon API
 
-![Version](https://img.shields.io/badge/version-0.5.5-blue.svg)
+![Version](https://img.shields.io/badge/version-0.5.6-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.10+-brightgreen.svg)
 ![License](https://img.shields.io/badge/license-GPL--3.0-orange.svg)
 ![Status](https://img.shields.io/badge/status-stable-brightgreen.svg)
@@ -36,6 +36,7 @@ def create_user(user: User):
 - 🛠️ **Router System** - Organize your API endpoints with powerful route grouping
 - 🧪 **Built with TDD** - Comprehensive test suite ensures stability and correctness
 - 🔄 **Middleware Support** - Both class-based and decorator-based approaches
+- 🧠 **Cache Decorator with TTL** - Pluggable backends (in-memory, Redis, Memcached) and global per-app config
 - 🚀 **High-Performance JSON** - Powered by msgspec and orjson for lightning-fast processing
 - 🪶 **Minimal Dependencies** - Lean core with only what you really need
 
@@ -157,6 +158,46 @@ async def timing_middleware(scope, receive, send, app):
 
 Both middlewares are standard ASGI middlewares and can be used with `app.add_middleware(...)`.
 
+## ⚡ Cache with TTL
+
+Tachyon includes a simple, powerful cache decorator that works for both routes and regular functions.
+
+### Quick start
+
+```python
+from tachyon_api import cache
+
+@cache(TTL=60)
+def expensive_op(a, b):
+    return a + b
+```
+
+### Configure per app (Swagger-like pattern)
+
+```python
+from tachyon_api import Tachyon, create_cache_config
+
+cache_config = create_cache_config(default_ttl=30)  # in-memory by default
+app = Tachyon(cache_config=cache_config)
+```
+
+### Use on endpoints
+
+```python
+@app.get("/items/{item_id}")
+@cache(TTL=10)
+def get_item(item_id: int, q: str = Query(None)):
+    return {"item_id": item_id, "q": q}
+```
+
+### Backends
+
+- InMemoryCacheBackend (default)
+- RedisCacheBackend(client) – pass a Redis client instance
+- MemcachedCacheBackend(client) – pass a Memcached client instance
+
+Advanced options: `key_builder(func, args, kwargs)` to customize keys and `unless(args, kwargs)` to skip caching conditionally.
+
 ## 📚 Example Application
 
 For a complete example showcasing all features, see the [example directory](./example). It demonstrates:
@@ -166,6 +207,7 @@ For a complete example showcasing all features, see the [example directory](./ex
 - Middleware implementation
 - Dependency injection patterns
 - OpenAPI documentation
+- Cache decorator usage with a cached endpoint
 
 Built-in CORS and Logger middlewares are integrated in the example for convenience. You can toggle settings in `example/app.py`.
 

@@ -7,7 +7,7 @@ from tachyon_api.di import injectable, Depends
 
 @injectable
 class MockRepository:
-    """Simula un repositorio que accede a una base de datos."""
+    """Simulates a repository accessing a database."""
 
     def find_user(self, user_id: int):
         return {"id": user_id, "source": "mock_db", "method": "implicit"}
@@ -15,7 +15,7 @@ class MockRepository:
 
 @injectable
 class MockUserService:
-    """Simula un servicio que depende del repositorio."""
+    """Simulates a service that depends on the repository."""
 
     def __init__(self, repo: MockRepository):
         self.repo = repo

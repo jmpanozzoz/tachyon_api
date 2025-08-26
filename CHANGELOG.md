@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.5.6] - 2025-08-26
+
+### Added
+
+- Cache Decorator with TTL (`tachyon_api.cache.cache`)
+  - Works with sync and async functions, including route handlers
+  - Global, app-level configuration via `create_cache_config()` and `Tachyon(cache_config=...)`
+  - Pluggable backends: `InMemoryCacheBackend` (default), `RedisCacheBackend`, `MemcachedCacheBackend`
+  - Customizable `key_builder` and `unless` predicate
+- Tests: New `tests/test_cache_decorator.py` validating caching behavior, TTL, async support, and config integration
+- Example: Added cached endpoint `/cached/time` and cache configuration in `example/app.py`
+
+### Changed
+
+- App: `Tachyon` now accepts `cache_config` and applies it on initialization (backwards compatible)
+- Documentation: README updated with cache section, quick start, configuration, and backend usage
+- Language Consistency: Standardized remaining comments/docstrings to English across touched files
+
+### Notes
+
+- Redis/Memcached backends are lightweight adapters; bring your own client instance. No hard dependencies added.
+
+---
+
 ## [0.5.5] - 2025-08-12
 
 ### Added
