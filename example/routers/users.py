@@ -6,7 +6,7 @@ import msgspec
 from tachyon_api import Router
 from tachyon_api.params import Body, Path
 from tachyon_api.responses import success_response, not_found_response
-from example.models.user import CreateUserRequest
+from example.models.user import CreateUserRequest, User
 from example.services.user import UserService
 
 # Create users router with prefix and tags
@@ -51,3 +51,20 @@ def create_user(
     return success_response(
         data=new_user_data, message="User created successfully", status_code=201
     )
+
+
+@users_router.post(
+    "/e2e",
+    summary="Create user (end-to-end safety)",
+    tags=["e2e"],
+    responses=None,
+    response_model=User,
+)
+def create_user_e2e(
+    user_service: UserService,
+    payload: CreateUserRequest = Body(description="User payload"),
+) -> User:
+    """Create a new user returning a strongly-typed response (response_model)."""
+    new_user = user_service.create_user(payload)
+    # Return plain dict; framework will validate/convert to User via response_model
+    return {"id": new_user.id, "name": new_user.name, "email": new_user.email}

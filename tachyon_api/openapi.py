@@ -1,5 +1,8 @@
-from typing import Dict, Any, Optional, List, Type
+from typing import Dict, Any, Optional, List, Type, get_origin, get_args
 from dataclasses import dataclass, field
+import datetime
+import uuid
+import typing
 
 from .models import Struct
 
@@ -7,30 +10,112 @@ from .models import Struct
 TYPE_MAP = {int: "integer", str: "string", bool: "boolean", float: "number"}
 
 
+def _schema_for_python_type(
+    py_type: Type,
+    components: Dict[str, Dict[str, Any]],
+    visited: set[Type],
+) -> Dict[str, Any]:
+    """Return OpenAPI schema for a Python type, adding components for Structs if needed."""
+    origin = get_origin(py_type)
+    args = get_args(py_type)
+
+    # Optional[T] (Union[T, None])
+    if origin is typing.Union and args:
+        non_none = [a for a in args if a is not type(None)]  # noqa: E721
+        if len(non_none) == 1:
+            inner = non_none[0]
+            schema = _schema_for_python_type(inner, components, visited)
+            schema["nullable"] = True
+            return schema
+
+    # List[T]
+    if origin in (list, List):
+        item = args[0] if args else str
+        item_schema = _schema_for_python_type(item, components, visited)
+        return {"type": "array", "items": item_schema}
+
+    # Struct subclass
+    if isinstance(py_type, type) and issubclass(py_type, Struct):
+        name = py_type.__name__
+        if py_type not in visited:
+            visited.add(py_type)
+            components[name] = _generate_struct_schema(py_type, components, visited)
+        return {"$ref": f"#/components/schemas/{name}"}
+
+    # Special formats
+    if py_type is uuid.UUID:
+        return {"type": "string", "format": "uuid"}
+    if py_type is datetime.datetime:
+        return {"type": "string", "format": "date-time"}
+    if py_type is datetime.date:
+        return {"type": "string", "format": "date"}
+
+    # Scalars
+    return {"type": TYPE_MAP.get(py_type, "string")}
+
+
+def _unwrap_optional(py_type: Type) -> tuple[Type, bool]:
+    origin = get_origin(py_type)
+    args = get_args(py_type)
+    if origin is typing.Union and args:
+        non_none = [a for a in args if a is not type(None)]  # noqa: E721
+        if len(non_none) == 1:
+            return non_none[0], True
+    return py_type, False
+
+
+def _generate_struct_schema(
+    struct_class: Type[Struct],
+    components: Dict[str, Dict[str, Any]],
+    visited: set[Type],
+) -> Dict[str, Any]:
+    """
+    Generate a JSON Schema dictionary for a msgspec Struct, populating components for nested Structs.
+    """
+    properties: Dict[str, Any] = {}
+    required: List[str] = []
+
+    annotations = getattr(struct_class, "__annotations__", {})
+    for field_name in getattr(struct_class, "__struct_fields__", annotations.keys()):
+        field_type = annotations.get(field_name, str)
+        base_type, is_opt = _unwrap_optional(field_type)
+
+        # Build property schema
+        prop_schema = _schema_for_python_type(base_type, components, visited)
+        if is_opt:
+            prop_schema["nullable"] = True
+
+        properties[field_name] = prop_schema
+
+        # Determine required: mark non-Optional fields as required
+        if not is_opt:
+            required.append(field_name)
+
+    schema: Dict[str, Any] = {"type": "object", "properties": properties}
+    if required:
+        schema["required"] = required
+    return schema
+
+
+def build_components_for_struct(struct_class: Type[Struct]) -> Dict[str, Dict[str, Any]]:
+    """
+    Build components schemas for the given Struct and all nested Structs.
+
+    Returns a dict mapping component name to schema, including the top-level struct.
+    """
+    components: Dict[str, Dict[str, Any]] = {}
+    visited: set[Type] = set()
+    name = struct_class.__name__
+    components[name] = _generate_struct_schema(struct_class, components, visited)
+    return components
+
+
 def _generate_schema_for_struct(struct_class: Type[Struct]) -> Dict[str, Any]:
     """
-    Generate a JSON Schema dictionary from a tachyon_api.models.Struct.
-
-    Args:
-        struct_class: The Struct class to generate schema for
-
-    Returns:
-        Dictionary containing the OpenAPI schema for the struct
+    Backward-compatible API: generate only the schema for the provided Struct (no nested components registration).
     """
-    properties = {}
-    required = []
-
-    # Use msgspec's introspection tools
-    for field_name in struct_class.__struct_fields__:
-        field_type = struct_class.__annotations__.get(field_name)
-        properties[field_name] = {
-            "type": TYPE_MAP.get(field_type, "string"),
-            "title": field_name.replace("_", " ").title(),
-        }
-        # For now, assume all fields are required (can be enhanced later)
-        required.append(field_name)
-
-    return {"type": "object", "properties": properties, "required": required}
+    comps = build_components_for_struct(struct_class)
+    return comps[struct_class.__name__]
 
 
 @dataclass
@@ -202,7 +287,7 @@ class OpenAPIGenerator:
             SwaggerUIBundle.presets.standalone
         ],
         layout: "BaseLayout",
-        ...{params_json}
+        ...{{}}
     }})
     </script>
 </body>
@@ -268,7 +353,6 @@ class OpenAPIGenerator:
         """
         if self._openapi_schema is None:
             self._openapi_schema = self.config.to_openapi_dict()
-
         if path not in self._openapi_schema["paths"]:
             self._openapi_schema["paths"][path] = {}
 

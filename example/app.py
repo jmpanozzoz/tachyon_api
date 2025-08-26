@@ -85,6 +85,16 @@ def health_check():
     return {"status": "ok", "timestamp": datetime.now().isoformat()}
 
 
+@app.get("/orjson-demo", summary="Default JSON serialization demo")
+def orjson_demo():
+    """Demonstrate default TachyonJSONResponse serializing complex types."""
+    import uuid
+    return {
+        "uuid": uuid.uuid4(),
+        "today": datetime.now().date(),
+    }
+
+
 # Cached endpoint demo (value remains constant within TTL)
 @app.get("/cached/time", summary="Cached time demo")
 @cache(TTL=10)
@@ -115,6 +125,7 @@ if __name__ == "__main__":
     print("  • GET  /api/v1/users/                   - Get All Users")
     print("  • GET  /api/v1/users/{user_id}          - Get User by ID")
     print("  • POST /api/v1/users/                   - Create New User")
+    print("  • POST /api/v1/users/e2e                - Create User (end-to-end safety)")
     print("  • GET  /api/v1/items/by-owner/{owner_id} - Get Items by Owner")
     print("  • GET  /admin/stats                     - System Statistics")
     print()

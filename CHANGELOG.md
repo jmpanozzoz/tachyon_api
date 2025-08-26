@@ -7,6 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.5.7] - 2025-08-26
+
+### Added
+
+- Response Model Validation: `response_model` in route decorators to enforce and serialize outputs via msgspec
+  - Converts handler payloads to the specified Struct type; 500 on response validation error
+  - OpenAPI 200 response schema references the Struct component
+- OpenAPI Parameters: Enhanced schema generation for Optional and List parameter types
+  - Optional[T] → `nullable: true` on the base type schema
+  - List[T] → `type: array` with proper `items` schema in both query and path parameters
+  - List[Optional[T]] → `items.nullable: true`
+- Default JSON Response: `TachyonJSONResponse` is now used by default for dict/Struct payloads
+  - orjson-based, supports UUID, date, datetime and msgspec Struct out of the box
+- Deep OpenAPI Schemas for Struct
+  - Nested Struct components auto-registered and referenced
+  - Field Optional/List handling with `nullable` and `array/items`
+  - Type formats for `uuid` and `date-time`/`date`
+- Standard Error Schemas in OpenAPI
+  - 422 Validation Error → `#/components/schemas/ValidationErrorResponse`
+  - 500 Response Validation Error → `#/components/schemas/ResponseValidationError`
+
+### Changed
+
+- Error Format Unification: standardized error payloads for validation and response errors
+  - 422 (request validation) → `{ "success": false, "error": "...", "code": "VALIDATION_ERROR" }`
+  - 500 (response_model validation) → `{ "success": false, "error": "Response validation error: ...", "detail": "...", "code": "RESPONSE_VALIDATION_ERROR" }`
+
+### Fixed
+
+- Query list parsing accepts both CSV (`?ids=1,2,3`) and repeated params (`?ids=1&ids=2`)
+- Runtime support for `List[Optional[T]]` in Query and Path
+  - Empty string "" and literal "null" are treated as `None` when item type is Optional
+
+### Example
+
+- Added `/api/v1/users/e2e` endpoint demonstrating end-to-end safety (Body + response_model), unified errors, and deep OpenAPI schemas.
+
+---
+
 ## [0.5.6] - 2025-08-26
 
 ### Added
