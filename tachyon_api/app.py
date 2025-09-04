@@ -23,7 +23,6 @@ from .openapi import (
     OpenAPIGenerator,
     OpenAPIConfig,
     create_openapi_config,
-    _generate_schema_for_struct,
 )
 from .params import Body, Query, Path
 from .middlewares.core import (
@@ -35,6 +34,10 @@ from .responses import (
     validation_error_response,
     response_validation_error_response,
 )
+
+# New: internal server error helper for global exception handling
+from .responses import internal_server_error_response
+
 # New: optional cache configuration support
 try:
     from .cache import set_cache_config
@@ -141,8 +144,14 @@ class Tachyon:
             if is_path_param:
                 return JSONResponse({"detail": "Not Found"}, status_code=404)
             else:
-                type_name = "integer" if target_type is int else getattr(target_type, "__name__", str(target_type))
-                return validation_error_response(f"Invalid value for {type_name} conversion")
+                type_name = (
+                    "integer"
+                    if target_type is int
+                    else getattr(target_type, "__name__", str(target_type))
+                )
+                return validation_error_response(
+                    f"Invalid value for {type_name} conversion"
+                )
 
     @staticmethod
     def _unwrap_optional(python_type: Type) -> tuple[Type, bool]:
@@ -257,137 +266,190 @@ class Tachyon:
             This handler analyzes the endpoint function signature and automatically
             injects the appropriate values based on parameter annotations and defaults.
             """
-            kwargs_to_inject = {}
-            sig = inspect.signature(endpoint_func)
-            query_params = request.query_params
-            path_params = request.path_params
-            _raw_body = None
+            try:
+                kwargs_to_inject = {}
+                sig = inspect.signature(endpoint_func)
+                query_params = request.query_params
+                path_params = request.path_params
+                _raw_body = None
 
-            # Process each parameter in the endpoint function signature
-            for param in sig.parameters.values():
-                # Determine if this parameter is a dependency
-                is_explicit_dependency = isinstance(param.default, Depends)
-                is_implicit_dependency = (
-                    param.default is inspect.Parameter.empty
-                    and param.annotation in _registry
-                )
-
-                # Process dependencies (explicit and implicit)
-                if is_explicit_dependency or is_implicit_dependency:
-                    target_class = param.annotation
-                    kwargs_to_inject[param.name] = self._resolve_dependency(
-                        target_class
+                # Process each parameter in the endpoint function signature
+                for param in sig.parameters.values():
+                    # Determine if this parameter is a dependency
+                    is_explicit_dependency = isinstance(param.default, Depends)
+                    is_implicit_dependency = (
+                        param.default is inspect.Parameter.empty
+                        and param.annotation in _registry
                     )
 
-                # Process Body parameters (JSON request body)
-                elif isinstance(param.default, Body):
-                    model_class = param.annotation
-                    if not issubclass(model_class, Struct):
-                        raise TypeError(
-                            "Body type must be an instance of Tachyon_api.models.Struct"
+                    # Process dependencies (explicit and implicit)
+                    if is_explicit_dependency or is_implicit_dependency:
+                        target_class = param.annotation
+                        kwargs_to_inject[param.name] = self._resolve_dependency(
+                            target_class
                         )
 
-                    decoder = msgspec.json.Decoder(model_class)
-                    try:
-                        if _raw_body is None:
-                            _raw_body = await request.body()
-                        validated_data = decoder.decode(_raw_body)
-                        kwargs_to_inject[param.name] = validated_data
-                    except msgspec.ValidationError as e:
-                        # Attempt to build field errors map using e.path
-                        field_errors = None
-                        try:
-                            path = getattr(e, "path", None)
-                            if path:
-                                # Choose last string-ish path element as field name
-                                field_name = None
-                                for p in reversed(path):
-                                    if isinstance(p, str):
-                                        field_name = p
-                                        break
-                                if field_name:
-                                    field_errors = {field_name: [str(e)]}
-                        except Exception:
-                            field_errors = None
-                        return validation_error_response(str(e), errors=field_errors)
-
-                # Process Query parameters (URL query string)
-                elif isinstance(param.default, Query):
-                    query_info = param.default
-                    param_name = param.name
-
-                    # Determine typing for advanced cases
-                    ann = param.annotation
-                    origin = typing.get_origin(ann)
-                    args = typing.get_args(ann)
-
-                    # List[T] handling
-                    if origin in (list, typing.List):
-                        item_type = args[0] if args else str
-                        values = []
-                        # collect repeated params
-                        if hasattr(query_params, "getlist"):
-                            values = query_params.getlist(param_name)
-                        # if not repeated, check for CSV in single value
-                        if not values and param_name in query_params:
-                            raw = query_params[param_name]
-                            values = raw.split(",") if "," in raw else [raw]
-                        # flatten CSV in any element
-                        flat_values = []
-                        for v in values:
-                            if isinstance(v, str) and "," in v:
-                                flat_values.extend(v.split(","))
-                            else:
-                                flat_values.append(v)
-                        values = flat_values
-                        if not values:
-                            if query_info.default is not ...:
-                                kwargs_to_inject[param_name] = query_info.default
-                                continue
-                            return validation_error_response(
-                                f"Missing required query parameter: {param_name}"
+                    # Process Body parameters (JSON request body)
+                    elif isinstance(param.default, Body):
+                        model_class = param.annotation
+                        if not issubclass(model_class, Struct):
+                            raise TypeError(
+                                "Body type must be an instance of Tachyon_api.models.Struct"
                             )
-                        # Unwrap Optional for item type
-                        base_item_type, item_is_opt = self._unwrap_optional(item_type)
-                        converted_list = []
-                        for v in values:
-                            if item_is_opt and (v == "" or v.lower() == "null"):
-                                converted_list.append(None)
-                                continue
+
+                        decoder = msgspec.json.Decoder(model_class)
+                        try:
+                            if _raw_body is None:
+                                _raw_body = await request.body()
+                            validated_data = decoder.decode(_raw_body)
+                            kwargs_to_inject[param.name] = validated_data
+                        except msgspec.ValidationError as e:
+                            # Attempt to build field errors map using e.path
+                            field_errors = None
+                            try:
+                                path = getattr(e, "path", None)
+                                if path:
+                                    # Choose last string-ish path element as field name
+                                    field_name = None
+                                    for p in reversed(path):
+                                        if isinstance(p, str):
+                                            field_name = p
+                                            break
+                                    if field_name:
+                                        field_errors = {field_name: [str(e)]}
+                            except Exception:
+                                field_errors = None
+                            return validation_error_response(
+                                str(e), errors=field_errors
+                            )
+
+                    # Process Query parameters (URL query string)
+                    elif isinstance(param.default, Query):
+                        query_info = param.default
+                        param_name = param.name
+
+                        # Determine typing for advanced cases
+                        ann = param.annotation
+                        origin = typing.get_origin(ann)
+                        args = typing.get_args(ann)
+
+                        # List[T] handling
+                        if origin in (list, typing.List):
+                            item_type = args[0] if args else str
+                            values = []
+                            # collect repeated params
+                            if hasattr(query_params, "getlist"):
+                                values = query_params.getlist(param_name)
+                            # if not repeated, check for CSV in single value
+                            if not values and param_name in query_params:
+                                raw = query_params[param_name]
+                                values = raw.split(",") if "," in raw else [raw]
+                            # flatten CSV in any element
+                            flat_values = []
+                            for v in values:
+                                if isinstance(v, str) and "," in v:
+                                    flat_values.extend(v.split(","))
+                                else:
+                                    flat_values.append(v)
+                            values = flat_values
+                            if not values:
+                                if query_info.default is not ...:
+                                    kwargs_to_inject[param_name] = query_info.default
+                                    continue
+                                return validation_error_response(
+                                    f"Missing required query parameter: {param_name}"
+                                )
+                            # Unwrap Optional for item type
+                            base_item_type, item_is_opt = self._unwrap_optional(
+                                item_type
+                            )
+                            converted_list = []
+                            for v in values:
+                                if item_is_opt and (v == "" or v.lower() == "null"):
+                                    converted_list.append(None)
+                                    continue
+                                converted_value = self._convert_value(
+                                    v, base_item_type, param_name, is_path_param=False
+                                )
+                                if isinstance(converted_value, JSONResponse):
+                                    return converted_value
+                                converted_list.append(converted_value)
+                            kwargs_to_inject[param_name] = converted_list
+                            continue
+
+                        # Optional[T] handling for single value
+                        base_type, _is_opt = self._unwrap_optional(ann)
+
+                        if param_name in query_params:
+                            value_str = query_params[param_name]
                             converted_value = self._convert_value(
-                                v, base_item_type, param_name, is_path_param=False
+                                value_str, base_type, param_name, is_path_param=False
                             )
                             if isinstance(converted_value, JSONResponse):
                                 return converted_value
-                            converted_list.append(converted_value)
-                        kwargs_to_inject[param_name] = converted_list
-                        continue
+                            kwargs_to_inject[param_name] = converted_value
 
-                    # Optional[T] handling for single value
-                    base_type, _is_opt = self._unwrap_optional(ann)
+                        elif query_info.default is not ...:
+                            kwargs_to_inject[param.name] = query_info.default
+                        else:
+                            return validation_error_response(
+                                f"Missing required query parameter: {param_name}"
+                            )
 
-                    if param_name in query_params:
-                        value_str = query_params[param_name]
-                        converted_value = self._convert_value(
-                            value_str, base_type, param_name, is_path_param=False
-                        )
-                        if isinstance(converted_value, JSONResponse):
-                            return converted_value
-                        kwargs_to_inject[param_name] = converted_value
+                    # Process explicit Path parameters (with Path() annotation)
+                    elif isinstance(param.default, Path):
+                        param_name = param.name
+                        if param_name in path_params:
+                            value_str = path_params[param_name]
+                            # Support List[T] in path params via CSV
+                            ann = param.annotation
+                            origin = typing.get_origin(ann)
+                            args = typing.get_args(ann)
+                            if origin in (list, typing.List):
+                                item_type = args[0] if args else str
+                                parts = value_str.split(",") if value_str else []
+                                # Unwrap Optional for item type
+                                base_item_type, item_is_opt = self._unwrap_optional(
+                                    item_type
+                                )
+                                converted_list = []
+                                for v in parts:
+                                    if item_is_opt and (v == "" or v.lower() == "null"):
+                                        converted_list.append(None)
+                                        continue
+                                    converted_value = self._convert_value(
+                                        v,
+                                        base_item_type,
+                                        param_name,
+                                        is_path_param=True,
+                                    )
+                                    if isinstance(converted_value, JSONResponse):
+                                        return converted_value
+                                    converted_list.append(converted_value)
+                                kwargs_to_inject[param_name] = converted_list
+                            else:
+                                converted_value = self._convert_value(
+                                    value_str, ann, param_name, is_path_param=True
+                                )
+                                # Return 404 if conversion failed
+                                if isinstance(converted_value, JSONResponse):
+                                    return converted_value
+                                kwargs_to_inject[param_name] = converted_value
+                        else:
+                            return JSONResponse(
+                                {"detail": "Not Found"}, status_code=404
+                            )
 
-                    elif query_info.default is not ...:
-                        kwargs_to_inject[param.name] = query_info.default
-                    else:
-                        return validation_error_response(
-                            f"Missing required query parameter: {param_name}"
-                        )
-
-                # Process explicit Path parameters (with Path() annotation)
-                elif isinstance(param.default, Path):
-                    param_name = param.name
-                    if param_name in path_params:
+                    # Process implicit Path parameters (URL path variables without Path())
+                    elif (
+                        param.default is inspect.Parameter.empty
+                        and param.name in path_params
+                        and not is_explicit_dependency
+                        and not is_implicit_dependency
+                    ):
+                        param_name = param.name
                         value_str = path_params[param_name]
-                        # Support List[T] in path params via CSV
+                        # Support List[T] via CSV
                         ann = param.annotation
                         origin = typing.get_origin(ann)
                         args = typing.get_args(ann)
@@ -395,7 +457,9 @@ class Tachyon:
                             item_type = args[0] if args else str
                             parts = value_str.split(",") if value_str else []
                             # Unwrap Optional for item type
-                            base_item_type, item_is_opt = self._unwrap_optional(item_type)
+                            base_item_type, item_is_opt = self._unwrap_optional(
+                                item_type
+                            )
                             converted_list = []
                             for v in parts:
                                 if item_is_opt and (v == "" or v.lower() == "null"):
@@ -416,75 +480,37 @@ class Tachyon:
                             if isinstance(converted_value, JSONResponse):
                                 return converted_value
                             kwargs_to_inject[param_name] = converted_value
-                    else:
-                        return JSONResponse({"detail": "Not Found"}, status_code=404)
 
-                # Process implicit Path parameters (URL path variables without Path())
-                elif (
-                    param.default is inspect.Parameter.empty
-                    and param.name in path_params
-                    and not is_explicit_dependency
-                    and not is_implicit_dependency
-                ):
-                    param_name = param.name
-                    value_str = path_params[param_name]
-                    # Support List[T] via CSV
-                    ann = param.annotation
-                    origin = typing.get_origin(ann)
-                    args = typing.get_args(ann)
-                    if origin in (list, typing.List):
-                        item_type = args[0] if args else str
-                        parts = value_str.split(",") if value_str else []
-                        # Unwrap Optional for item type
-                        base_item_type, item_is_opt = self._unwrap_optional(item_type)
-                        converted_list = []
-                        for v in parts:
-                            if item_is_opt and (v == "" or v.lower() == "null"):
-                                converted_list.append(None)
-                                continue
-                            converted_value = self._convert_value(
-                                v, base_item_type, param_name, is_path_param=True
-                            )
-                            if isinstance(converted_value, JSONResponse):
-                                return converted_value
-                            converted_list.append(converted_value)
-                        kwargs_to_inject[param_name] = converted_list
-                    else:
-                        converted_value = self._convert_value(
-                            value_str, ann, param_name, is_path_param=True
-                        )
-                        # Return 404 if conversion failed
-                        if isinstance(converted_value, JSONResponse):
-                            return converted_value
-                        kwargs_to_inject[param_name] = converted_value
+                # Call the endpoint function with injected parameters
+                if asyncio.iscoroutinefunction(endpoint_func):
+                    payload = await endpoint_func(**kwargs_to_inject)
+                else:
+                    payload = endpoint_func(**kwargs_to_inject)
 
-            # Call the endpoint function with injected parameters
-            if asyncio.iscoroutinefunction(endpoint_func):
-                payload = await endpoint_func(**kwargs_to_inject)
-            else:
-                payload = endpoint_func(**kwargs_to_inject)
+                # If the endpoint already returned a Response object, return it directly
+                if isinstance(payload, Response):
+                    return payload
 
-            # If the endpoint already returned a Response object, return it directly
-            if isinstance(payload, Response):
-                return payload
+                # Validate/convert response against response_model if provided
+                if response_model is not None:
+                    try:
+                        payload = msgspec.convert(payload, response_model)
+                    except Exception as e:
+                        return response_validation_error_response(str(e))
 
-            # Validate/convert response against response_model if provided
-            if response_model is not None:
-                try:
-                    payload = msgspec.convert(payload, response_model)
-                except Exception as e:
-                    return response_validation_error_response(str(e))
+                # Convert Struct objects to dictionaries for JSON serialization
+                if isinstance(payload, Struct):
+                    payload = msgspec.to_builtins(payload)
+                elif isinstance(payload, dict):
+                    # Convert any Struct values in the dictionary
+                    for key, value in payload.items():
+                        if isinstance(value, Struct):
+                            payload[key] = msgspec.to_builtins(value)
 
-            # Convert Struct objects to dictionaries for JSON serialization
-            if isinstance(payload, Struct):
-                payload = msgspec.to_builtins(payload)
-            elif isinstance(payload, dict):
-                # Convert any Struct values in the dictionary
-                for key, value in payload.items():
-                    if isinstance(value, Struct):
-                        payload[key] = msgspec.to_builtins(value)
-
-            return TachyonJSONResponse(payload)
+                return TachyonJSONResponse(payload)
+            except Exception:
+                # Fallback: prevent unhandled exceptions from leaking to the client
+                return internal_server_error_response()
 
         # Register the route with Starlette
         route = Route(path, endpoint=handler, methods=[method])
@@ -564,7 +590,9 @@ class Tachyon:
                     "description": "Validation Error",
                     "content": {
                         "application/json": {
-                            "schema": {"$ref": "#/components/schemas/ValidationErrorResponse"}
+                            "schema": {
+                                "$ref": "#/components/schemas/ValidationErrorResponse"
+                            }
                         }
                     },
                 },
@@ -572,7 +600,9 @@ class Tachyon:
                     "description": "Response Validation Error",
                     "content": {
                         "application/json": {
-                            "schema": {"$ref": "#/components/schemas/ResponseValidationError"}
+                            "schema": {
+                                "$ref": "#/components/schemas/ResponseValidationError"
+                            }
                         }
                     },
                 },
@@ -583,6 +613,7 @@ class Tachyon:
         response_model = kwargs.get("response_model")
         if response_model is not None and issubclass(response_model, Struct):
             from .openapi import build_components_for_struct
+
             comps = build_components_for_struct(response_model)
             for name, schema in comps.items():
                 self.openapi_generator.add_schema(name, schema)
@@ -639,6 +670,7 @@ class Tachyon:
                 model_class = param.annotation
                 if issubclass(model_class, Struct):
                     from .openapi import build_components_for_struct
+
                     comps = build_components_for_struct(model_class)
                     for name, schema in comps.items():
                         self.openapi_generator.add_schema(name, schema)

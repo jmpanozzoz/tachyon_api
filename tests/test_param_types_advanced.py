@@ -35,4 +35,3 @@ def test_list_query_param_csv_and_repeated():
     # Repeated params
     r2 = client.get("/ids?ids=4&ids=5").json()
     assert r2 == {"ids": [4, 5]}
-

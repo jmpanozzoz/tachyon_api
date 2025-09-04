@@ -3,6 +3,7 @@ from dataclasses import dataclass, field
 import datetime
 import uuid
 import typing
+import json
 
 from .models import Struct
 
@@ -97,7 +98,9 @@ def _generate_struct_schema(
     return schema
 
 
-def build_components_for_struct(struct_class: Type[Struct]) -> Dict[str, Dict[str, Any]]:
+def build_components_for_struct(
+    struct_class: Type[Struct],
+) -> Dict[str, Dict[str, Any]]:
     """
     Build components schemas for the given Struct and all nested Structs.
 
@@ -260,13 +263,8 @@ class OpenAPIGenerator:
         """Generate HTML for Swagger UI"""
         swagger_ui_parameters = self.config.swagger_ui_parameters or {}
 
-        # Convert parameters to JSON string, handling Python booleans correctly
-        params_json = (
-            str(swagger_ui_parameters)
-            .replace("'", '"')
-            .replace("True", "true")
-            .replace("False", "false")
-        )
+        # Serialize parameters to JSON safely
+        params_json = json.dumps(swagger_ui_parameters)
 
         html = f"""<!DOCTYPE html>
 <html>
@@ -287,7 +285,7 @@ class OpenAPIGenerator:
             SwaggerUIBundle.presets.standalone
         ],
         layout: "BaseLayout",
-        ...{{}}
+        ...{params_json}
     }})
     </script>
 </body>

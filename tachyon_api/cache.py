@@ -11,12 +11,12 @@ Design notes:
 - Unless predicate allows opt-out per-call
 - TTL can be provided per-decorator or falls back to global default
 """
+
 from __future__ import annotations
 
 import time
 import asyncio
 import hashlib
-import inspect
 from dataclasses import dataclass
 from functools import wraps
 from typing import Any, Callable, Optional, Tuple
@@ -28,7 +28,9 @@ class BaseCacheBackend:
     def get(self, key: str) -> Any:  # pragma: no cover - interface
         raise NotImplementedError
 
-    def set(self, key: str, value: Any, ttl: Optional[float] = None) -> None:  # pragma: no cover - interface
+    def set(
+        self, key: str, value: Any, ttl: Optional[float] = None
+    ) -> None:  # pragma: no cover - interface
         raise NotImplementedError
 
     def delete(self, key: str) -> None:  # pragma: no cover - interface
@@ -86,7 +88,9 @@ _cache_config: Optional[CacheConfig] = None
 def _default_key_builder(func: Callable, args: tuple, kwargs: dict) -> str:
     parts = [getattr(func, "__module__", ""), getattr(func, "__qualname__", ""), "|"]
     # Stable kwargs order
-    items = [repr(a) for a in args] + [f"{k}={repr(v)}" for k, v in sorted(kwargs.items())]
+    items = [repr(a) for a in args] + [
+        f"{k}={repr(v)}" for k, v in sorted(kwargs.items())
+    ]
     raw_key = ":".join(parts + items)
     return hashlib.sha256(raw_key.encode("utf-8")).hexdigest()
 
@@ -146,9 +150,14 @@ def cache(
         cfg = get_cache_config()
         be = backend or cfg.backend
         ttl_value = cfg.default_ttl if TTL is None else TTL
-        kb = key_builder or cfg.key_builder or (lambda f, a, kw: _default_key_builder(f, a, kw))
+        kb = (
+            key_builder
+            or cfg.key_builder
+            or (lambda f, a, kw: _default_key_builder(f, a, kw))
+        )
 
         if asyncio.iscoroutinefunction(func):
+
             @wraps(func)
             async def async_wrapper(*args, **kwargs):
                 if not cfg.enabled or (unless and unless(args, kwargs)):
@@ -167,6 +176,7 @@ def cache(
 
             return async_wrapper
         else:
+
             @wraps(func)
             def wrapper(*args, **kwargs):
                 if not cfg.enabled or (unless and unless(args, kwargs)):
@@ -258,4 +268,3 @@ class MemcachedCacheBackend(BaseCacheBackend):
             self.client.flush_all()
         except Exception:
             pass
-

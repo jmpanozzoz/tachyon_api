@@ -42,4 +42,3 @@ async def test_path_list_of_optional_items_runtime():
 
         bad = await client.get("/p/1,x,3")
         assert bad.status_code == 404
-

@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.5.8] - 2025-08-26
+
+### Added
+
+- Global Exception Handler: structured 500 responses for unhandled exceptions
+  - Returns `{ "success": false, "error": "Internal Server Error", "code": "INTERNAL_SERVER_ERROR" }`
+  - Prevents leaking internal exception details to clients
+- Tests: Added `test_global_unhandled_exception_is_structured_500` (TDD)
+- Documentation: README updated (error section) and example endpoint `/error-demo`
+
+---
+
 ## [0.5.7] - 2025-08-26
 
 ### Added

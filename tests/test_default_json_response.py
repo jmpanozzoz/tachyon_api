@@ -49,4 +49,3 @@ async def test_default_response_handles_struct_directly():
     assert response.status_code == 200
     data = response.json()
     assert data == {"id": 1, "created_at": "2020-01-02"}
-
