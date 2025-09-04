@@ -79,7 +79,9 @@ class LoggerMiddleware:
             receive_to_use = receive_passthrough
             if body_chunks and not more_body:
                 try:
-                    request_body_preview = b"".join(body_chunks)[:2048].decode("utf-8", "replace")
+                    request_body_preview = b"".join(body_chunks)[:2048].decode(
+                        "utf-8", "replace"
+                    )
                 except Exception:
                     request_body_preview = "<non-text body>"
         else:
@@ -113,7 +115,9 @@ class LoggerMiddleware:
         finally:
             duration = time.time() - start
             status = status_code_holder["status"] or 0
-            self.logger.log(self.level, f"<-- {method} {path} {status} ({duration:.4f}s)")
+            self.logger.log(
+                self.level, f"<-- {method} {path} {status} ({duration:.4f}s)"
+            )
             if self.include_headers and response_headers_holder:
                 res_headers = _normalized_headers(response_headers_holder)
                 self.logger.log(self.level, f"    res headers: {res_headers}")

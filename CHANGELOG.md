@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.5.9] - 2025-09-04
+
+### Added
+
+- Tests: new utility test suite in `tests/test_utils.py`
+  - TypeUtils: `unwrap_optional`, `is_list_type`, `get_type_name`
+  - TypeConverter: `convert_value` (str, int, bool, Optional) and `convert_list_values` (including Optional items)
+  - Error mapping verification: 422 for invalid query values and 404 for invalid path values
+
+### Changed
+
+- Refactor: extracted and modularized utility helpers previously located in `app.py`
+  - New modules: `tachyon_api/utils/type_utils.py` and `tachyon_api/utils/type_converter.py`
+  - No intended runtime behavior changes; improves separation of concerns and reuse
+
+---
+
+## [0.5.8] - 2025-08-26
+
+### Added
+
+- Global Exception Handler: structured 500 responses for unhandled exceptions
+  - Returns `{ "success": false, "error": "Internal Server Error", "code": "INTERNAL_SERVER_ERROR" }`
+  - Prevents leaking internal exception details to clients
+- Tests: Added `test_global_unhandled_exception_is_structured_500` (TDD)
+- Documentation: README updated (error section) and example endpoint `/error-demo`
+
+---
+
 ## [0.5.7] - 2025-08-26
 
 ### Added

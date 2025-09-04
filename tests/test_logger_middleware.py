@@ -42,7 +42,9 @@ async def test_logger_middleware_basic_logging():
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://testserver") as client:
-        response = await client.get("/log-test", headers={"X-Test": "1", "Authorization": "secret"})
+        response = await client.get(
+            "/log-test", headers={"X-Test": "1", "Authorization": "secret"}
+        )
 
     assert response.status_code == 200
 
@@ -51,8 +53,7 @@ async def test_logger_middleware_basic_logging():
     assert any(line.startswith("<-- GET /log-test 200") for line in logs)
 
     # Headers should be logged and authorization header redacted
-    headers_lines = [l for l in logs if "req headers:" in l]
+    headers_lines = [line for line in logs if "req headers:" in line]
     assert headers_lines, "Expected request headers to be logged"
     assert "authorization" in headers_lines[-1]
     assert "<redacted>" in headers_lines[-1]
-

@@ -6,7 +6,6 @@ with Starlette responses.
 """
 
 from starlette.responses import JSONResponse, HTMLResponse  # noqa
-import orjson
 from .models import encode_json
 
 
@@ -63,7 +62,27 @@ def response_validation_error_response(error="Response validation error"):
     if not msg.lower().startswith("response validation error"):
         msg = f"Response validation error: {msg}"
     return TachyonJSONResponse(
-        {"success": False, "error": msg, "detail": msg, "code": "RESPONSE_VALIDATION_ERROR"},
+        {
+            "success": False,
+            "error": msg,
+            "detail": msg,
+            "code": "RESPONSE_VALIDATION_ERROR",
+        },
+        status_code=500,
+    )
+
+
+def internal_server_error_response():
+    """Create a 500 internal server error response for unhandled exceptions.
+
+    This intentionally avoids leaking internal exception details in the payload.
+    """
+    return TachyonJSONResponse(
+        {
+            "success": False,
+            "error": "Internal Server Error",
+            "code": "INTERNAL_SERVER_ERROR",
+        },
         status_code=500,
     )
 

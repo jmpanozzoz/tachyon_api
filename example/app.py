@@ -19,6 +19,7 @@ from tachyon_api.middlewares import CORSMiddleware, LoggerMiddleware
 
 # Import all routers
 from example.routers import users_router, items_router, admin_router
+
 # Import middleware setup
 from example.middlewares import setup_middlewares
 
@@ -74,7 +75,7 @@ def root():
             "status": "healthy",
             "version": "0.4.0",
             "timestamp": datetime.now().isoformat(),
-            "message": "Tachyon API is running!"
+            "message": "Tachyon API is running!",
         }
     )
 
@@ -89,6 +90,7 @@ def health_check():
 def orjson_demo():
     """Demonstrate default TachyonJSONResponse serializing complex types."""
     import uuid
+
     return {
         "uuid": uuid.uuid4(),
         "today": datetime.now().date(),
@@ -101,6 +103,12 @@ def orjson_demo():
 def cached_time():
     """Return current time, cached for TTL seconds."""
     return {"now": datetime.now().isoformat()}
+
+
+@app.get("/error-demo", summary="Global exception handler demo")
+def error_demo():
+    """Demonstrate global exception handling returning a structured 500 without leaking details."""
+    raise RuntimeError("simulated failure")
 
 
 if __name__ == "__main__":
@@ -122,6 +130,9 @@ if __name__ == "__main__":
     print("  • GET  /                                 - API Health Check")
     print("  • GET  /health                          - Simple Health Check")
     print("  • GET  /cached/time                     - Cached time (TTL=10s)")
+    print(
+        "  • GET  /error-demo                      - Global exception handler demo (returns 500)"
+    )
     print("  • GET  /api/v1/users/                   - Get All Users")
     print("  • GET  /api/v1/users/{user_id}          - Get User by ID")
     print("  • POST /api/v1/users/                   - Create New User")

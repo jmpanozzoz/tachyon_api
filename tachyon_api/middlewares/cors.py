@@ -70,7 +70,8 @@ class CORSMiddleware:
         method = scope.get("method", "").upper()
         is_preflight = (
             method == "OPTIONS"
-            and self._get_header(req_headers, "access-control-request-method") is not None
+            and self._get_header(req_headers, "access-control-request-method")
+            is not None
         )
 
         # Build common CORS headers
@@ -89,7 +90,9 @@ class CORSMiddleware:
 
             # Credentials
             if self.allow_credentials:
-                self._append_header(headers_out, "access-control-allow-credentials", "true")
+                self._append_header(
+                    headers_out, "access-control-allow-credentials", "true"
+                )
 
             return headers_out
 
@@ -98,28 +101,42 @@ class CORSMiddleware:
             resp_headers = build_cors_headers()
             if resp_headers:
                 # Methods
-                allow_methods = ", ".join(self.allow_methods) if "*" not in self.allow_methods else "*"
-                self._append_header(resp_headers, "access-control-allow-methods", allow_methods)
+                allow_methods = (
+                    ", ".join(self.allow_methods)
+                    if "*" not in self.allow_methods
+                    else "*"
+                )
+                self._append_header(
+                    resp_headers, "access-control-allow-methods", allow_methods
+                )
 
                 # Requested headers or wildcard
-                req_acrh = self._get_header(req_headers, "access-control-request-headers")
+                req_acrh = self._get_header(
+                    req_headers, "access-control-request-headers"
+                )
                 if "*" in self.allow_headers:
                     allow_headers = req_acrh or "*"
                 else:
                     allow_headers = ", ".join(self.allow_headers)
                 if allow_headers:
-                    self._append_header(resp_headers, "access-control-allow-headers", allow_headers)
+                    self._append_header(
+                        resp_headers, "access-control-allow-headers", allow_headers
+                    )
 
                 # Max-Age
                 if self.max_age:
-                    self._append_header(resp_headers, "access-control-max-age", str(self.max_age))
+                    self._append_header(
+                        resp_headers, "access-control-max-age", str(self.max_age)
+                    )
 
                 # Respond directly
-                await send({
-                    "type": "http.response.start",
-                    "status": 200,
-                    "headers": resp_headers,
-                })
+                await send(
+                    {
+                        "type": "http.response.start",
+                        "status": 200,
+                        "headers": resp_headers,
+                    }
+                )
                 await send({"type": "http.response.body", "body": b""})
                 return
             # If origin not allowed, continue the chain (app will respond accordingly)

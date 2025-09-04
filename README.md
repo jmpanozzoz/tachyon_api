@@ -37,7 +37,7 @@ def create_user(user: User):
 - 🔄 Middlewares (class + decorator)
 - 🧠 Cache decorator with TTL (in-memory, Redis, Memcached)
 - 🚀 High-performance JSON (msgspec + orjson)
-- 🧾 Unified error format (422/500)
+- 🧾 Unified error format (422/500) + global exception handler (500)
 - 🧰 Default JSON response (TachyonJSONResponse)
 - 🔒 End-to-end safety: request Body validation + typed response_model
 - 📘 Deep OpenAPI schemas: nested Structs, Optional/List (nullable/array), formats (uuid, date-time)
@@ -60,7 +60,7 @@ Tachyon API is built with TDD principles at its core. The test suite covers rout
 
 ## 🔄 Middleware Support
 
-- Built-in: CORSMiddleware, LoggerMiddleware
+- Built-in: CORSMiddleware and LoggerMiddleware
 - Use app.add_middleware(...) or @app.middleware()
 
 ## ⚡ Cache with TTL
@@ -70,10 +70,11 @@ Tachyon API is built with TDD principles at its core. The test suite covers rout
 
 ## 📚 Example Application
 
-The example demonstrates clean architecture, routers, middlewares, caching, and now end-to-end safety with OpenAPI:
+The example demonstrates clean architecture, routers, middlewares, caching, end-to-end safety, and global exception handling:
 
 - /orjson-demo: default JSON powered by orjson
 - /api/v1/users/e2e: Body + response_model, unified errors and deep OpenAPI schemas
+- /error-demo: triggers an unhandled exception to showcase the global handler (structured 500)
 
 Run the example:
 
@@ -95,6 +96,7 @@ Docs at /docs (Scalar), /swagger, /redoc.
 - Default response: TachyonJSONResponse serializes complex types (UUID/date/datetime, Struct) via orjson and centralized encoders.
 - 422 Validation: { success: false, error, code: VALIDATION_ERROR, [errors] }.
 - 500 Response model: { success: false, error: "Response validation error: ...", detail, code: RESPONSE_VALIDATION_ERROR }.
+- 500 Unhandled exceptions (global): { success: false, error: "Internal Server Error", code: INTERNAL_SERVER_ERROR }.
 
 ## 📝 Contributing
 

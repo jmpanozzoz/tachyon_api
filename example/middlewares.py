@@ -17,8 +17,7 @@ from datetime import datetime
 
 # Configure basic logging
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger("tachyon.middleware")
 
@@ -74,7 +73,9 @@ def setup_middlewares(app):
         request_id = f"{time.time():.0f}"
 
         # Log the incoming request
-        logger.info(f"[{request_id}] Request {method} {path} started at {datetime.now().isoformat()}")
+        logger.info(
+            f"[{request_id}] Request {method} {path} started at {datetime.now().isoformat()}"
+        )
         start_time = time.time()
 
         # Create a wrapper for the send function to intercept the response

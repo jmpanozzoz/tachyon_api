@@ -23,4 +23,3 @@ async def test_openapi_query_list_of_optional_items():
     assert p["schema"]["type"] == "array"
     assert p["schema"]["items"]["type"] == "integer"
     assert p["schema"]["items"]["nullable"] is True
-

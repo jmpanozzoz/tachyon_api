@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "tachyon-api"
-version = "0.5.7"
+version = "0.5.9"
 description = "A lightweight, FastAPI-inspired web framework"
 authors = ["Juan Manuel Panozzo Zénere <jm.panozzozenere@gmail.com>"]
 license = "GPL-3.0-or-later"
@@ -12,7 +12,6 @@ starlette = "^0.47.2"
 uvicorn = "^0.35.0"
 msgspec = "^0.19.0"
 typer = "^0.16.0"
-ruff = "^0.12.7"
 orjson = "^3.11.1"
 
 
@@ -20,6 +19,7 @@ orjson = "^3.11.1"
 pytest = "^8.4.1"
 pytest-asyncio = "^1.1.0"
 httpx = "^0.28.1"
+ruff = "^0.12.7"
 
 [build-system]
 requires = ["poetry-core"]

@@ -1,5 +1,6 @@
 from httpx import AsyncClient, ASGITransport
 from typing import Optional, List
+import pytest
 
 from tachyon_api import Tachyon, Query, Path
 
@@ -18,9 +19,6 @@ def _find_param(schema: dict, path: str, method: str, name: str, where: str):
         if p["name"] == name and p["in"] == where:
             return p
     raise AssertionError(f"Param {name} in {where} not found")
-
-
-import pytest
 
 
 @pytest.mark.asyncio
@@ -59,4 +57,3 @@ async def test_openapi_path_list_param():
     assert p_ids["required"] is True
     assert p_ids["schema"]["type"] == "array"
     assert p_ids["schema"]["items"]["type"] == "integer"
-

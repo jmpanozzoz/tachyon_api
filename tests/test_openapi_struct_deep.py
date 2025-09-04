@@ -61,13 +61,23 @@ async def test_openapi_structs_nested_and_optional():
     assert uo["type"] == "object"
     assert "id" in uo["required"] and "name" in uo["required"]
     assert uo["properties"]["address"]["nullable"] is True
-    assert uo["properties"]["address"]["$ref"].endswith("#/components/schemas/Address".split("#/",1)[1]) or uo["properties"]["address"]["$ref"].endswith("#/components/schemas/Address")
+    assert uo["properties"]["address"]["$ref"].endswith(
+        "#/components/schemas/Address".split("#/", 1)[1]
+    ) or uo["properties"]["address"]["$ref"].endswith("#/components/schemas/Address")
     assert uo["properties"]["tags"]["type"] == "array"
     assert uo["properties"]["tags"]["items"]["type"] == "string"
-    assert uo["properties"]["uid"]["type"] == "string" and uo["properties"]["uid"]["format"] == "uuid"
-    assert uo["properties"]["created_at"]["type"] == "string" and uo["properties"]["created_at"]["format"] == "date-time"
+    assert (
+        uo["properties"]["uid"]["type"] == "string"
+        and uo["properties"]["uid"]["format"] == "uuid"
+    )
+    assert (
+        uo["properties"]["created_at"]["type"] == "string"
+        and uo["properties"]["created_at"]["format"] == "date-time"
+    )
 
     # Request body must reference UserIn
     op = schema["paths"]["/users"]["post"]
     rb = op["requestBody"]["content"]["application/json"]["schema"]
-    assert rb["$ref"].endswith("#/components/schemas/UserIn".split("#/",1)[1]) or rb["$ref"].endswith("#/components/schemas/UserIn")
+    assert rb["$ref"].endswith("#/components/schemas/UserIn".split("#/", 1)[1]) or rb[
+        "$ref"
+    ].endswith("#/components/schemas/UserIn")

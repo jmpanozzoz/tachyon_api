@@ -37,7 +37,10 @@ async def test_cors_preflight_allows_any_origin_no_credentials():
     # Wildcard origin allowed when no credentials
     assert response.headers.get("access-control-allow-origin") == "*"
     # Methods reflect configured methods
-    assert response.headers.get("access-control-allow-methods") in ("GET, POST", "GET, POST")
+    assert response.headers.get("access-control-allow-methods") in (
+        "GET, POST",
+        "GET, POST",
+    )
     # With allow_headers='*', it should echo requested headers
     assert response.headers.get("access-control-allow-headers") == "X-Token"
     # Max age included
@@ -100,7 +103,9 @@ async def test_cors_normal_request_injects_headers():
         response = await client.get("/items", headers={"Origin": "http://example.com"})
 
     assert response.status_code == 200
-    assert response.headers.get("access-control-allow-origin") in ("http://example.com", "*")
+    assert response.headers.get("access-control-allow-origin") in (
+        "http://example.com",
+        "*",
+    )
     # Expose headers should be present
     assert response.headers.get("access-control-expose-headers") == "X-Total-Count"
-

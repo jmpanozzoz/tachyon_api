@@ -2,7 +2,12 @@ import time
 from starlette.testclient import TestClient
 
 from tachyon_api import Tachyon, Query
-from tachyon_api.cache import cache, create_cache_config, InMemoryCacheBackend, CacheConfig
+from tachyon_api.cache import (
+    cache,
+    create_cache_config,
+    InMemoryCacheBackend,
+    CacheConfig,
+)
 
 
 def test_cache_decorator_caches_sync_function_results():
