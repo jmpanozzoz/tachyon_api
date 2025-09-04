@@ -35,13 +35,13 @@ from .responses import (
     response_validation_error_response,
 )
 
-# New: internal server error helper for global exception handling
+from .utils import TypeConverter, TypeUtils
+
 from .responses import internal_server_error_response
 
-# New: optional cache configuration support
 try:
     from .cache import set_cache_config
-except Exception:  # pragma: no cover - defensive import guard
+except ImportError:
     set_cache_config = None  # type: ignore
 
 
@@ -98,71 +98,6 @@ class Tachyon:
                 method.lower(),
                 partial(self._create_decorator, http_method=method),
             )
-
-    @staticmethod
-    def _convert_value(
-        value_str: str,
-        target_type: Type,
-        param_name: str,
-        is_path_param: bool = False,  # noqa
-    ) -> Union[Any, JSONResponse]:
-        """
-        Convert a string value to the target type with appropriate error handling.
-
-        This method handles type conversion for query and path parameters,
-        including special handling for boolean values and proper error responses.
-
-        Args:
-            value_str: The string value to convert
-            target_type: The target Python type to convert to
-            param_name: Name of the parameter (for error messages)
-            is_path_param: Whether this is a path parameter (affects error response)
-
-        Returns:
-            The converted value, or a JSONResponse with appropriate error code
-
-        Note:
-            - Boolean conversion accepts: "true", "1", "t", "yes" (case-insensitive)
-            - Path parameter errors return 404, query parameter errors return 422
-        """
-        # Unwrap Optional/Union[T, None]
-        origin = typing.get_origin(target_type)
-        args = typing.get_args(target_type)
-        if origin is Union and args:
-            non_none = [a for a in args if a is not type(None)]  # noqa: E721
-            if len(non_none) == 1:
-                target_type = non_none[0]
-
-        try:
-            if target_type is bool:
-                return value_str.lower() in ("true", "1", "t", "yes")
-            elif target_type is not str:
-                return target_type(value_str)
-            else:
-                return value_str
-        except (ValueError, TypeError):
-            if is_path_param:
-                return JSONResponse({"detail": "Not Found"}, status_code=404)
-            else:
-                type_name = (
-                    "integer"
-                    if target_type is int
-                    else getattr(target_type, "__name__", str(target_type))
-                )
-                return validation_error_response(
-                    f"Invalid value for {type_name} conversion"
-                )
-
-    @staticmethod
-    def _unwrap_optional(python_type: Type) -> tuple[Type, bool]:
-        """Return (inner_type, is_optional) for Optional[T] or (python_type, False)."""
-        origin = typing.get_origin(python_type)
-        args = typing.get_args(python_type)
-        if origin is Union and args:
-            non_none = [a for a in args if a is not type(None)]  # noqa: E721
-            if len(non_none) == 1:
-                return non_none[0], True
-        return python_type, False
 
     def _resolve_dependency(self, cls: Type) -> Any:
         """
@@ -360,7 +295,7 @@ class Tachyon:
                                     f"Missing required query parameter: {param_name}"
                                 )
                             # Unwrap Optional for item type
-                            base_item_type, item_is_opt = self._unwrap_optional(
+                            base_item_type, item_is_opt = TypeUtils.unwrap_optional(
                                 item_type
                             )
                             converted_list = []
@@ -368,7 +303,7 @@ class Tachyon:
                                 if item_is_opt and (v == "" or v.lower() == "null"):
                                     converted_list.append(None)
                                     continue
-                                converted_value = self._convert_value(
+                                converted_value = TypeConverter.convert_value(
                                     v, base_item_type, param_name, is_path_param=False
                                 )
                                 if isinstance(converted_value, JSONResponse):
@@ -378,11 +313,11 @@ class Tachyon:
                             continue
 
                         # Optional[T] handling for single value
-                        base_type, _is_opt = self._unwrap_optional(ann)
+                        base_type, _is_opt = TypeUtils.unwrap_optional(ann)
 
                         if param_name in query_params:
                             value_str = query_params[param_name]
-                            converted_value = self._convert_value(
+                            converted_value = TypeConverter.convert_value(
                                 value_str, base_type, param_name, is_path_param=False
                             )
                             if isinstance(converted_value, JSONResponse):
@@ -409,7 +344,7 @@ class Tachyon:
                                 item_type = args[0] if args else str
                                 parts = value_str.split(",") if value_str else []
                                 # Unwrap Optional for item type
-                                base_item_type, item_is_opt = self._unwrap_optional(
+                                base_item_type, item_is_opt = TypeUtils.unwrap_optional(
                                     item_type
                                 )
                                 converted_list = []
@@ -417,7 +352,7 @@ class Tachyon:
                                     if item_is_opt and (v == "" or v.lower() == "null"):
                                         converted_list.append(None)
                                         continue
-                                    converted_value = self._convert_value(
+                                    converted_value = TypeConverter.convert_value(
                                         v,
                                         base_item_type,
                                         param_name,
@@ -428,7 +363,7 @@ class Tachyon:
                                     converted_list.append(converted_value)
                                 kwargs_to_inject[param_name] = converted_list
                             else:
-                                converted_value = self._convert_value(
+                                converted_value = TypeConverter.convert_value(
                                     value_str, ann, param_name, is_path_param=True
                                 )
                                 # Return 404 if conversion failed
@@ -457,7 +392,7 @@ class Tachyon:
                             item_type = args[0] if args else str
                             parts = value_str.split(",") if value_str else []
                             # Unwrap Optional for item type
-                            base_item_type, item_is_opt = self._unwrap_optional(
+                            base_item_type, item_is_opt = TypeUtils.unwrap_optional(
                                 item_type
                             )
                             converted_list = []
@@ -465,7 +400,7 @@ class Tachyon:
                                 if item_is_opt and (v == "" or v.lower() == "null"):
                                     converted_list.append(None)
                                     continue
-                                converted_value = self._convert_value(
+                                converted_value = TypeConverter.convert_value(
                                     v, base_item_type, param_name, is_path_param=True
                                 )
                                 if isinstance(converted_value, JSONResponse):
@@ -473,7 +408,7 @@ class Tachyon:
                                 converted_list.append(converted_value)
                             kwargs_to_inject[param_name] = converted_list
                         else:
-                            converted_value = self._convert_value(
+                            converted_value = TypeConverter.convert_value(
                                 value_str, ann, param_name, is_path_param=True
                             )
                             # Return 404 if conversion failed
