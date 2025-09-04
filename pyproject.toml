@@ -1,13 +1,13 @@
 [tool.poetry]
 name = "tachyon-api"
-version = "0.5.10"
+version = "0.5.11"
 description = "A lightweight, FastAPI-inspired web framework"
 authors = ["Juan Manuel Panozzo Zénere <jm.panozzozenere@gmail.com>"]
 license = "GPL-3.0-or-later"
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = ">=3.10,<3.14"
+python = ">=3.7,<3.14"
 starlette = "^0.47.2"
 uvicorn = "^0.35.0"
 msgspec = "^0.19.0"
