@@ -8,10 +8,10 @@ allowing for better organization of routes with common prefixes, tags, and depen
 from starlette.testclient import TestClient
 
 from tachyon_api import Tachyon
-from tachyon_api.router import Router
-from tachyon_api.models import Struct
-from tachyon_api.params import Query, Path, Body
-from tachyon_api.di import injectable, Depends
+from tachyon_api.routing.router import Router
+from tachyon_api.schemas.models import Struct
+from tachyon_api.schemas.parameters import Query, Path, Body
+from tachyon_api.dependencies.injection import injectable, Depends
 
 
 class TestBasicRouter:

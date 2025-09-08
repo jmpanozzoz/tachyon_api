@@ -3,7 +3,7 @@ Item service for business logic
 """
 
 from typing import List, Optional, Tuple
-from tachyon_api.di import injectable
+from tachyon_api.dependencies.injection import injectable
 from example.models.item import Item
 from example.repositories.item import ItemRepository
 

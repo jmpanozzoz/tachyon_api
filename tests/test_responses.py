@@ -2,7 +2,7 @@ import pytest
 from httpx import AsyncClient, ASGITransport
 from starlette.responses import JSONResponse
 
-from tachyon_api.responses import (
+from tachyon_api.schemas.responses import (
     success_response,
     error_response,
     not_found_response,
@@ -210,7 +210,7 @@ class TestResponsesInEndpoints:
     def app(self):
         """Create test app with response endpoints"""
         from tachyon_api import Tachyon
-        from tachyon_api.responses import (
+        from tachyon_api.schemas.responses import (
             success_response,
             error_response,
             not_found_response,
@@ -315,7 +315,7 @@ class TestStarletteCompatibility:
 
     def test_starlette_imports_available(self):
         """Test that Starlette response imports work"""
-        from tachyon_api.responses import JSONResponse, HTMLResponse
+        from tachyon_api.schemas.responses import JSONResponse, HTMLResponse
 
         # Test that we can create responses
         json_resp = JSONResponse({"test": "data"})

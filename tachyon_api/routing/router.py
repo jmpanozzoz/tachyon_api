@@ -8,7 +8,7 @@ allowing for better organization of routes with common prefixes, tags, and depen
 from functools import partial
 from typing import List, Optional, Any, Callable, Dict
 
-from .di import Depends
+from ..dependencies.injection import Depends
 
 
 class Router:

@@ -4,8 +4,8 @@ Items router - API endpoints for item management
 
 import msgspec
 from tachyon_api import Router
-from tachyon_api.params import Path
-from tachyon_api.responses import success_response, not_found_response
+from tachyon_api.schemas.parameters import Path
+from tachyon_api.schemas.responses import success_response, not_found_response
 from example.services.item import ItemService
 from example.services.user import UserService
 

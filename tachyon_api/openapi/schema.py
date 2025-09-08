@@ -5,7 +5,7 @@ import uuid
 import typing
 import json
 
-from .models import Struct
+from ..schemas.models import Struct
 
 # Type mapping from Python types to OpenAPI schema types
 TYPE_MAP = {int: "integer", str: "string", bool: "boolean", float: "number"}

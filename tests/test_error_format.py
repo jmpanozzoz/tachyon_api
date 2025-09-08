@@ -2,7 +2,7 @@ import pytest
 from httpx import AsyncClient, ASGITransport
 
 from tachyon_api import Tachyon, Query
-from tachyon_api.models import Struct
+from tachyon_api.schemas.models import Struct
 
 
 class Out(Struct):

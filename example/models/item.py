@@ -2,7 +2,7 @@
 Item models for the Tachyon API v0.4.0 Demo
 """
 
-from tachyon_api.models import Struct
+from tachyon_api.schemas.models import Struct
 
 
 class Item(Struct):

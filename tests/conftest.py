@@ -1,8 +1,8 @@
 import pytest
 from tachyon_api import Tachyon
-from tachyon_api.params import Body, Query, Path
-from tachyon_api.models import Struct
-from tachyon_api.di import injectable, Depends
+from tachyon_api.schemas.parameters import Body, Query, Path
+from tachyon_api.schemas.models import Struct
+from tachyon_api.dependencies.injection import injectable, Depends
 
 
 @injectable

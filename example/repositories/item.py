@@ -3,7 +3,7 @@ Item repository for data access
 """
 
 from typing import List
-from tachyon_api.di import injectable
+from tachyon_api.dependencies.injection import injectable
 from example.models.item import Item
 
 

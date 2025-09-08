@@ -1,7 +1,7 @@
 import pytest
 from httpx import AsyncClient, ASGITransport
 from tachyon_api import Tachyon
-from tachyon_api.di import injectable, Depends
+from tachyon_api.dependencies.injection import injectable, Depends
 
 
 @injectable

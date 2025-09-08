@@ -3,7 +3,7 @@ User repository for data access
 """
 
 from typing import List, Optional
-from tachyon_api.di import injectable
+from tachyon_api.dependencies.injection import injectable
 from example.models.user import User, CreateUserRequest
 
 

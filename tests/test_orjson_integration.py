@@ -8,7 +8,7 @@ import datetime
 import uuid
 from typing import List, Dict, Optional
 
-from tachyon_api.models import Struct, encode_json, decode_json
+from tachyon_api.schemas.models import Struct, encode_json, decode_json
 
 # Complex test data to verify correct serialization of various types
 TEST_UUID = uuid.uuid4()
