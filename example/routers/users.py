@@ -3,9 +3,9 @@ Users router - API endpoints for user management
 """
 
 import msgspec
-from tachyon_api import Router
-from tachyon_api.params import Body, Path
-from tachyon_api.responses import success_response, not_found_response
+from tachyon_api.routing.router import Router
+from tachyon_api.schemas.parameters import Body, Path
+from tachyon_api.schemas.responses import success_response, not_found_response
 from example.models.user import CreateUserRequest, User
 from example.services.user import UserService
 

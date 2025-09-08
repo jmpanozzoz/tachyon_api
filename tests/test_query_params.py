@@ -1,7 +1,7 @@
 import pytest
 from httpx import AsyncClient, ASGITransport
 from tachyon_api import Tachyon
-from tachyon_api.params import Query
+from tachyon_api.schemas.parameters import Query
 
 
 @pytest.mark.asyncio

@@ -1,8 +1,8 @@
 import pytest
 from httpx import AsyncClient, ASGITransport
 from tachyon_api import Tachyon
-from tachyon_api.params import Body
-from tachyon_api.models import Struct
+from tachyon_api.schemas.parameters import Body
+from tachyon_api.schemas.models import Struct
 
 
 class Item(Struct):

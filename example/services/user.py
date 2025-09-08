@@ -3,7 +3,7 @@ User service for business logic
 """
 
 from typing import List, Optional
-from tachyon_api.di import injectable
+from tachyon_api.dependencies.injection import injectable
 from example.models.user import User, CreateUserRequest
 from example.repositories.user import UserRepository
 

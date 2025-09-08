@@ -4,7 +4,7 @@ import datetime
 from httpx import AsyncClient, ASGITransport
 
 from tachyon_api import Tachyon
-from tachyon_api.models import Struct
+from tachyon_api.schemas.models import Struct
 
 
 class Sample(Struct):

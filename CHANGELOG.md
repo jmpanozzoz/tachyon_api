@@ -7,6 +7,73 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.6.0] - 2025-01-09
+
+### Added
+
+- **Starlette-Native Architecture**: Complete refactor to maximize Starlette compatibility for future Rust migration
+  - `StarletteMiddlewareManager`: Thin wrapper around Starlette's native middleware API
+  - `TachyonRoute`: Extends `starlette.routing.Route` while encapsulating Tachyon functionality
+  - Direct Starlette API usage: `app.add_middleware()` and `app._router.add_route()`
+- **Modular File Organization**: Complete restructuring with meaningful directory structure
+  - `core/`: Framework core components (`app.py`)
+  - `schemas/`: Data models and validation (`models.py`, `parameters.py`, `responses.py`)
+  - `routing/`: Route management (`routes.py`, `router.py`)
+  - `dependencies/`: Dependency injection (`injection.py`, `resolver.py`)
+  - `processing/`: Request/response processing (`parameters.py`, `responses.py`)
+  - `middlewares/`: Middleware system (`manager.py`, `core.py`, `cors.py`, `logger.py`)
+  - `openapi/`: OpenAPI documentation (`schema.py`, `builder.py`)
+  - `features/`: Optional features (`cache.py`)
+  - `utils/`: Shared utilities (`type_utils.py`, `type_converter.py`)
+- **Enhanced Developer Experience**: Improved code organization and maintainability
+  - Clear separation of concerns across all modules
+  - Meaningful file and directory names
+  - Consistent import patterns throughout codebase
+  - Better code discoverability and navigation
+
+### Changed
+
+- **Middleware System Refactored**: From custom `MiddlewareManager` to `StarletteMiddlewareManager`
+  - Direct integration with Starlette's middleware stack
+  - Maintained backward compatibility for existing middleware decorators
+  - Zero breaking changes for users
+- **Route System Enhanced**: From custom handlers to `TachyonRoute` extending `starlette.routing.Route`
+  - Encapsulated DI, parameter processing, and response handling within route classes
+  - Maintained full API compatibility
+  - Better alignment with Starlette's architecture
+- **File Structure Overhaul**: Complete reorganization from monolithic `app.py` (821 lines) to modular architecture
+  - `app.py` reduced from 821 to ~240 lines
+  - 15+ focused modules with single responsibilities
+  - Improved maintainability and testability
+- **Import System Updated**: All internal imports updated to reflect new modular structure
+  - Relative imports for clean package organization
+  - Maintained public API unchanged
+  - Updated test files with new import paths
+
+### Technical Improvements
+
+- **Architecture Preparation**: Foundation laid for seamless future Rust migration
+  - Maximum Starlette API usage for easy replacement
+  - Clear boundaries between Tachyon and Starlette functionality
+  - Modular design enables component-by-component migration
+- **Code Quality**: Enhanced maintainability and developer experience
+  - Single Responsibility Principle applied throughout
+  - Clean Architecture patterns implemented
+  - Improved code readability and organization
+- **Testing Infrastructure**: All tests updated and passing (119/119)
+  - Updated import paths in all test files
+  - Maintained full test coverage
+  - Verified backward compatibility
+
+### Migration Notes
+
+- **Zero Breaking Changes**: Existing code continues to work without modification
+- **API Compatibility**: Public API remains identical
+- **Performance**: No runtime performance impact
+- **Future-Proof**: Architecture optimized for future enhancements
+
+---
+
 ## [0.5.9] - 2025-09-04
 
 ### Added

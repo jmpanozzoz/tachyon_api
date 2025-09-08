@@ -4,7 +4,7 @@ Admin router - API endpoints for system administration
 
 from datetime import datetime
 from tachyon_api import Router
-from tachyon_api.responses import success_response
+from tachyon_api.schemas.responses import success_response
 from example.services.user import UserService
 from example.services.item import ItemService
 

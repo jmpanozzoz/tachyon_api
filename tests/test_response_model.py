@@ -1,7 +1,7 @@
 from starlette.testclient import TestClient
 
 from tachyon_api import Tachyon
-from tachyon_api.models import Struct
+from tachyon_api.schemas.models import Struct
 
 
 class OutModel(Struct):

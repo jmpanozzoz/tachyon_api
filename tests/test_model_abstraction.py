@@ -1,6 +1,6 @@
 def test_struct_is_reexported_from_msgspec():
     try:
-        from tachyon_api.models import Struct as TachyonStruct
+        from tachyon_api.schemas.models import Struct as TachyonStruct
     except ImportError:
         assert False, "TachyonStruct should be imported from tachyon_api.models"
 

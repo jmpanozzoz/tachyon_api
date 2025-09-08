@@ -1,6 +1,6 @@
 # 🚀 Tachyon API
 
-![Version](https://img.shields.io/badge/version-0.5.7-blue.svg)
+![Version](https://img.shields.io/badge/version-0.6.0-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.10+-brightgreen.svg)
 ![License](https://img.shields.io/badge/license-GPL--3.0-orange.svg)
 ![Status](https://img.shields.io/badge/status-stable-brightgreen.svg)
@@ -9,9 +9,10 @@
 
 Tachyon API combines the intuitive decorator-based syntax you love with minimal dependencies and maximal performance. Built with Test-Driven Development from the ground up, it offers a cleaner, faster alternative with full ASGI compatibility.
 
+**✨ v0.6.0 introduces Starlette-Native Architecture**: Maximum Starlette compatibility for seamless future Rust migration while maintaining all Tachyon features.
+
 ```python
-from tachyon_api import Tachyon
-from tachyon_api.models import Struct
+from tachyon_api import Tachyon, Struct
 
 app = Tachyon()
 
@@ -41,6 +42,7 @@ def create_user(user: User):
 - 🧰 Default JSON response (TachyonJSONResponse)
 - 🔒 End-to-end safety: request Body validation + typed response_model
 - 📘 Deep OpenAPI schemas: nested Structs, Optional/List (nullable/array), formats (uuid, date-time)
+- 🏗️ **Starlette-Native Architecture** (v0.6.0): Maximum compatibility for future Rust migration
 
 ## 🧪 Test-Driven Development
 

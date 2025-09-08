@@ -2,7 +2,7 @@ import time
 from starlette.testclient import TestClient
 
 from tachyon_api import Tachyon, Query
-from tachyon_api.cache import (
+from tachyon_api.features.cache import (
     cache,
     create_cache_config,
     InMemoryCacheBackend,

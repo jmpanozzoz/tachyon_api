@@ -1,5 +1,5 @@
 """
-Tachyon API v0.4.0 Demo - Complete Example Application
+Tachyon API v0.6.0 Demo - Complete Example Application
 
 This example demonstrates:
 - Router system with organized endpoints
@@ -9,12 +9,13 @@ This example demonstrates:
 - Complete CRUD operations with proper error handling
 - Middleware implementation for logging and response modification
 - Cache decorator with TTL and configurable backends
+- Starlette-Native Architecture
 """
 
 from datetime import datetime
 from tachyon_api import Tachyon, cache, create_cache_config
 from tachyon_api.openapi import OpenAPIConfig, Info, Contact, License
-from tachyon_api.responses import success_response
+from tachyon_api.schemas.responses import success_response
 from tachyon_api.middlewares import CORSMiddleware, LoggerMiddleware
 
 # Import all routers
@@ -114,7 +115,7 @@ def error_demo():
 if __name__ == "__main__":
     import uvicorn
 
-    print("🚀 Starting Tachyon API v0.4.0 Complete Example")
+    print("🚀 Starting Tachyon API v0.6.0 Complete Example")
     print("📁 Clean Architecture:")
     print("  • Models: Data structures and validation")
     print("  • Repositories: Data access layer")

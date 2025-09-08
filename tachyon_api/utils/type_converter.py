@@ -9,7 +9,7 @@ to typed values expected by endpoint functions.
 from typing import Type, Union, Any
 from starlette.responses import JSONResponse
 
-from ..responses import validation_error_response
+from ..schemas.responses import validation_error_response
 from .type_utils import TypeUtils
 
 

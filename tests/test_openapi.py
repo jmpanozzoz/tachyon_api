@@ -1,8 +1,8 @@
 import pytest
 from httpx import AsyncClient, ASGITransport
 from tachyon_api import Tachyon
-from tachyon_api.params import Body, Path
-from tachyon_api.models import Struct
+from tachyon_api.schemas.parameters import Body, Path
+from tachyon_api.schemas.models import Struct
 from tachyon_api.openapi import (
     create_openapi_config,
     OpenAPIGenerator,
