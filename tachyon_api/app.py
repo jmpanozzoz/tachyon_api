@@ -9,12 +9,12 @@ parameter validation, and automatic type conversion.
 import asyncio
 import inspect
 import msgspec
-from functools import partial
-from typing import Any, Dict, Type, Union, Callable
 import typing
+from functools import partial
+from typing import Any, Dict, Type, Callable
 
 from starlette.applications import Starlette
-from starlette.responses import HTMLResponse, JSONResponse, Response
+from starlette.responses import JSONResponse, Response
 from starlette.routing import Route
 
 from .di import Depends, _registry
@@ -30,14 +30,13 @@ from .middlewares.core import (
     create_decorated_middleware_class,
 )
 from .responses import (
+    HTMLResponse,
     TachyonJSONResponse,
     validation_error_response,
     response_validation_error_response,
+    internal_server_error_response,
 )
-
 from .utils import TypeConverter, TypeUtils
-
-from .responses import internal_server_error_response
 
 try:
     from .cache import set_cache_config
@@ -641,50 +640,25 @@ class Tachyon:
         return f"{{{param_name}}}" in path
 
     @staticmethod
-    def _get_openapi_type(python_type: Type) -> str:
-        """Convert Python type to OpenAPI schema type."""
-        type_map: Dict[Type, str] = {
-            int: "integer",
-            str: "string",
-            bool: "boolean",
-            float: "number",
-        }
-        return type_map.get(python_type, "string")
-
-    @staticmethod
     def _build_param_openapi_schema(python_type: Type) -> Dict[str, Any]:
         """Build OpenAPI schema for parameter types, supporting Optional[T] and List[T]."""
-        origin = typing.get_origin(python_type)
-        args = typing.get_args(python_type)
-        nullable = False
-        # Optional[T]
-        if origin is Union and args:
-            non_none = [a for a in args if a is not type(None)]  # noqa: E721
-            if len(non_none) == 1:
-                python_type = non_none[0]
-                nullable = True
-        # List[T] (and List[Optional[T]])
-        origin = typing.get_origin(python_type)
-        args = typing.get_args(python_type)
-        if origin in (list, typing.List):
-            item_type = args[0] if args else str
-            # Unwrap Optional in items for List[Optional[T]]
-            item_origin = typing.get_origin(item_type)
-            item_args = typing.get_args(item_type)
-            item_nullable = False
-            if item_origin is Union and item_args:
-                item_non_none = [a for a in item_args if a is not type(None)]  # noqa: E721
-                if len(item_non_none) == 1:
-                    item_type = item_non_none[0]
-                    item_nullable = True
+        # Use centralized TypeUtils for type checking
+        inner_type, nullable = TypeUtils.unwrap_optional(python_type)
+
+        # Check if it's a List type
+        is_list, item_type = TypeUtils.is_list_type(inner_type)
+        if is_list:
+            # Check if item type is Optional
+            base_item_type, item_nullable = TypeUtils.unwrap_optional(item_type)
             schema = {
                 "type": "array",
-                "items": {"type": Tachyon._get_openapi_type(item_type)},
+                "items": {"type": TypeUtils.get_openapi_type(base_item_type)},
             }
             if item_nullable:
                 schema["items"]["nullable"] = True
         else:
-            schema = {"type": Tachyon._get_openapi_type(python_type)}
+            schema = {"type": TypeUtils.get_openapi_type(inner_type)}
+
         if nullable:
             schema["nullable"] = True
         return schema

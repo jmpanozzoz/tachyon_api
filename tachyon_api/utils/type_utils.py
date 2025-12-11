@@ -4,10 +4,23 @@ Tachyon API - Type Utilities
 This module provides utility functions for working with Python types,
 particularly for handling Optional types, Union types, and generic types
 used throughout the Tachyon framework.
+
+This is the centralized module for all type-related utilities to avoid
+code duplication across the framework.
 """
 
 import typing
-from typing import Type, Tuple, Union
+from typing import Type, Tuple, Union, Dict, Any
+
+
+# Centralized type mapping from Python types to OpenAPI schema types
+# Used by openapi.py and app.py for schema generation
+OPENAPI_TYPE_MAP: Dict[Type, str] = {
+    int: "integer",
+    str: "string",
+    bool: "boolean",
+    float: "number",
+}
 
 
 class TypeUtils:
@@ -99,13 +112,49 @@ class TypeUtils:
             >>> TypeUtils.get_type_name(str)
             'string'
         """
-        if python_type is int:
-            return "integer"
-        elif python_type is str:
-            return "string"
-        elif python_type is bool:
-            return "boolean"
-        elif python_type is float:
-            return "number"
-        else:
-            return getattr(python_type, "__name__", str(python_type))
+        return OPENAPI_TYPE_MAP.get(python_type, getattr(python_type, "__name__", str(python_type)))
+
+    @staticmethod
+    def get_openapi_type(python_type: Type) -> str:
+        """
+        Convert Python type to OpenAPI schema type string.
+
+        Args:
+            python_type: The Python type to convert
+
+        Returns:
+            OpenAPI type string ('integer', 'string', 'boolean', 'number')
+
+        Examples:
+            >>> TypeUtils.get_openapi_type(int)
+            'integer'
+            >>> TypeUtils.get_openapi_type(str)
+            'string'
+        """
+        return OPENAPI_TYPE_MAP.get(python_type, "string")
+
+    @staticmethod
+    def get_origin(python_type: Type) -> Any:
+        """
+        Get the origin of a generic type (wrapper for typing.get_origin).
+
+        Args:
+            python_type: The type to get the origin for
+
+        Returns:
+            The origin type or None
+        """
+        return typing.get_origin(python_type)
+
+    @staticmethod
+    def get_args(python_type: Type) -> Tuple:
+        """
+        Get the arguments of a generic type (wrapper for typing.get_args).
+
+        Args:
+            python_type: The type to get the arguments for
+
+        Returns:
+            Tuple of type arguments
+        """
+        return typing.get_args(python_type)

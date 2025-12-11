@@ -1,14 +1,11 @@
-from typing import Dict, Any, Optional, List, Type, get_origin, get_args
+from typing import Dict, Any, Optional, List, Type
 from dataclasses import dataclass, field
 import datetime
 import uuid
-import typing
 import json
 
 from .models import Struct
-
-# Type mapping from Python types to OpenAPI schema types
-TYPE_MAP = {int: "integer", str: "string", bool: "boolean", float: "number"}
+from .utils import TypeUtils, OPENAPI_TYPE_MAP
 
 
 def _schema_for_python_type(
@@ -17,22 +14,17 @@ def _schema_for_python_type(
     visited: set[Type],
 ) -> Dict[str, Any]:
     """Return OpenAPI schema for a Python type, adding components for Structs if needed."""
-    origin = get_origin(py_type)
-    args = get_args(py_type)
+    # Check if Optional[T] using centralized utility
+    inner_type, is_optional = TypeUtils.unwrap_optional(py_type)
+    if is_optional:
+        schema = _schema_for_python_type(inner_type, components, visited)
+        schema["nullable"] = True
+        return schema
 
-    # Optional[T] (Union[T, None])
-    if origin is typing.Union and args:
-        non_none = [a for a in args if a is not type(None)]  # noqa: E721
-        if len(non_none) == 1:
-            inner = non_none[0]
-            schema = _schema_for_python_type(inner, components, visited)
-            schema["nullable"] = True
-            return schema
-
-    # List[T]
-    if origin in (list, List):
-        item = args[0] if args else str
-        item_schema = _schema_for_python_type(item, components, visited)
+    # Check if List[T] using centralized utility
+    is_list, item_type = TypeUtils.is_list_type(py_type)
+    if is_list:
+        item_schema = _schema_for_python_type(item_type, components, visited)
         return {"type": "array", "items": item_schema}
 
     # Struct subclass
@@ -51,18 +43,8 @@ def _schema_for_python_type(
     if py_type is datetime.date:
         return {"type": "string", "format": "date"}
 
-    # Scalars
-    return {"type": TYPE_MAP.get(py_type, "string")}
-
-
-def _unwrap_optional(py_type: Type) -> tuple[Type, bool]:
-    origin = get_origin(py_type)
-    args = get_args(py_type)
-    if origin is typing.Union and args:
-        non_none = [a for a in args if a is not type(None)]  # noqa: E721
-        if len(non_none) == 1:
-            return non_none[0], True
-    return py_type, False
+    # Scalars - use centralized type mapping
+    return {"type": OPENAPI_TYPE_MAP.get(py_type, "string")}
 
 
 def _generate_struct_schema(
@@ -79,7 +61,8 @@ def _generate_struct_schema(
     annotations = getattr(struct_class, "__annotations__", {})
     for field_name in getattr(struct_class, "__struct_fields__", annotations.keys()):
         field_type = annotations.get(field_name, str)
-        base_type, is_opt = _unwrap_optional(field_type)
+        # Use centralized TypeUtils instead of local _unwrap_optional
+        base_type, is_opt = TypeUtils.unwrap_optional(field_type)
 
         # Build property schema
         prop_schema = _schema_for_python_type(base_type, components, visited)
@@ -111,14 +94,6 @@ def build_components_for_struct(
     name = struct_class.__name__
     components[name] = _generate_struct_schema(struct_class, components, visited)
     return components
-
-
-def _generate_schema_for_struct(struct_class: Type[Struct]) -> Dict[str, Any]:
-    """
-    Backward-compatible API: generate only the schema for the provided Struct (no nested components registration).
-    """
-    comps = build_components_for_struct(struct_class)
-    return comps[struct_class.__name__]
 
 
 @dataclass
