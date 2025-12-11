@@ -15,7 +15,7 @@ For more information, see the documentation and examples.
 
 from .app import Tachyon
 from .models import Struct
-from .params import Query, Body, Path
+from .params import Query, Body, Path, Header, Cookie
 from .di import injectable, Depends
 from .router import Router
 from .cache import (
@@ -36,6 +36,8 @@ __all__ = [
     "Query",
     "Body",
     "Path",
+    "Header",
+    "Cookie",
     "injectable",
     "Depends",
     "Router",

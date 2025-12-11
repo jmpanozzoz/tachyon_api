@@ -88,3 +88,90 @@ class Body:
             description: Optional description for API documentation.
         """
         self.description = description
+
+
+class Header:
+    """
+    Marker class for HTTP header parameters.
+
+    Use this to define parameters that should be extracted from HTTP request headers.
+    Header names are case-insensitive per HTTP specification.
+
+    Args:
+        default: Default value if header is not provided. Use ... for required headers.
+        alias: Optional custom header name. If not provided, the parameter name is used
+               with underscores converted to hyphens.
+        description: Optional description for OpenAPI documentation.
+
+    Example:
+        @app.get("/protected")
+        def protected(
+            authorization: str = Header(...),              # Required header
+            x_request_id: str = Header("default-id"),      # Optional with default
+            token: str = Header(..., alias="X-Auth-Token") # Custom header name
+        ):
+            return {"auth": authorization, "id": x_request_id}
+
+    Note:
+        - Header names are matched case-insensitively
+        - Parameter names with underscores match headers with hyphens
+          (e.g., x_request_id matches X-Request-Id)
+        - Missing required headers return 422 Unprocessable Entity
+    """
+
+    def __init__(
+        self,
+        default: Any = ...,
+        alias: Optional[str] = None,
+        description: Optional[str] = None,
+    ):
+        """
+        Initialize a Header parameter marker.
+
+        Args:
+            default: Default value for the header. Use ... (Ellipsis) for required.
+            alias: Optional custom header name to use instead of parameter name.
+            description: Optional description for API documentation.
+        """
+        self.default = default
+        self.alias = alias
+        self.description = description
+
+
+class Cookie:
+    """
+    Marker class for HTTP cookie parameters.
+
+    Use this to define parameters that should be extracted from HTTP cookies.
+
+    Args:
+        default: Default value if cookie is not provided. Use ... for required cookies.
+        alias: Optional custom cookie name.
+        description: Optional description for OpenAPI documentation.
+
+    Example:
+        @app.get("/profile")
+        def profile(session_id: str = Cookie(...)):
+            return {"session": session_id}
+
+    Note:
+        - Missing required cookies return 422 Unprocessable Entity
+    """
+
+    def __init__(
+        self,
+        default: Any = ...,
+        alias: Optional[str] = None,
+        description: Optional[str] = None,
+    ):
+        """
+        Initialize a Cookie parameter marker.
+
+        Args:
+            default: Default value for the cookie. Use ... (Ellipsis) for required.
+            alias: Optional custom cookie name to use instead of parameter name.
+            description: Optional description for API documentation.
+        """
+        self.default = default
+        self.alias = alias
+        self.description = description

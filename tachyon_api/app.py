@@ -14,6 +14,7 @@ from functools import partial
 from typing import Any, Dict, Type, Callable
 
 from starlette.applications import Starlette
+from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 from starlette.routing import Route
 
@@ -24,7 +25,7 @@ from .openapi import (
     OpenAPIConfig,
     create_openapi_config,
 )
-from .params import Body, Query, Path
+from .params import Body, Query, Path, Header, Cookie
 from .middlewares.core import (
     apply_middleware_to_router,
     create_decorated_middleware_class,
@@ -209,6 +210,12 @@ class Tachyon:
 
                 # Process each parameter in the endpoint function signature
                 for param in sig.parameters.values():
+                    # Check for Request object injection
+                    # This allows endpoints to receive the raw Starlette Request
+                    if param.annotation is Request:
+                        kwargs_to_inject[param.name] = request
+                        continue
+
                     # Determine if this parameter is a dependency
                     is_explicit_dependency = isinstance(param.default, Depends)
                     is_implicit_dependency = (
@@ -328,6 +335,46 @@ class Tachyon:
                         else:
                             return validation_error_response(
                                 f"Missing required query parameter: {param_name}"
+                            )
+
+                    # Process Header parameters
+                    elif isinstance(param.default, Header):
+                        header_info = param.default
+                        # Use alias if provided, otherwise convert param name
+                        # Python uses underscores, HTTP uses hyphens
+                        if header_info.alias:
+                            header_name = header_info.alias.lower()
+                        else:
+                            header_name = param.name.replace("_", "-").lower()
+
+                        # Get header value (case-insensitive)
+                        header_value = request.headers.get(header_name)
+
+                        if header_value is not None:
+                            kwargs_to_inject[param.name] = header_value
+                        elif header_info.default is not ...:
+                            kwargs_to_inject[param.name] = header_info.default
+                        else:
+                            return validation_error_response(
+                                f"Missing required header: {header_name}"
+                            )
+
+                    # Process Cookie parameters
+                    elif isinstance(param.default, Cookie):
+                        cookie_info = param.default
+                        # Use alias if provided, otherwise use param name
+                        cookie_name = cookie_info.alias or param.name
+
+                        # Get cookie value
+                        cookie_value = request.cookies.get(cookie_name)
+
+                        if cookie_value is not None:
+                            kwargs_to_inject[param.name] = cookie_value
+                        elif cookie_info.default is not ...:
+                            kwargs_to_inject[param.name] = cookie_info.default
+                        else:
+                            return validation_error_response(
+                                f"Missing required cookie: {cookie_name}"
                             )
 
                     # Process explicit Path parameters (with Path() annotation)
@@ -577,6 +624,30 @@ class Tachyon:
                     {
                         "name": param.name,
                         "in": "query",
+                        "required": param.default.default is ...,
+                        "schema": self._build_param_openapi_schema(param.annotation),
+                        "description": getattr(param.default, "description", ""),
+                    }
+                )
+
+            # Process header parameters
+            elif isinstance(param.default, Header):
+                parameters.append(
+                    {
+                        "name": param.name,
+                        "in": "header",
+                        "required": param.default.default is ...,
+                        "schema": self._build_param_openapi_schema(param.annotation),
+                        "description": getattr(param.default, "description", ""),
+                    }
+                )
+
+            # Process cookie parameters
+            elif isinstance(param.default, Cookie):
+                parameters.append(
+                    {
+                        "name": param.name,
+                        "in": "cookie",
                         "required": param.default.default is ...,
                         "schema": self._build_param_openapi_schema(param.annotation),
                         "description": getattr(param.default, "description", ""),
