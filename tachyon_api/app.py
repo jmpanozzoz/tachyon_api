@@ -10,8 +10,9 @@ import asyncio
 import inspect
 import msgspec
 import typing
+from contextlib import asynccontextmanager
 from functools import partial
-from typing import Any, Dict, Type, Callable, Optional
+from typing import Any, Dict, Type, Callable, Optional, List
 
 from starlette.applications import Starlette
 from starlette.requests import Request
@@ -60,7 +61,12 @@ class Tachyon:
         openapi_generator: Generator for OpenAPI schema and documentation
     """
 
-    def __init__(self, openapi_config: OpenAPIConfig = None, cache_config=None):
+    def __init__(
+        self,
+        openapi_config: OpenAPIConfig = None,
+        cache_config=None,
+        lifespan: Optional[Callable] = None,
+    ):
         """
         Initialize a new Tachyon application instance.
 
@@ -69,11 +75,22 @@ class Tachyon:
                           uses default configuration similar to FastAPI.
             cache_config: Optional cache configuration (tachyon_api.cache.CacheConfig).
                           If provided, it will be set as the active cache configuration.
+            lifespan: Optional async context manager for startup/shutdown events.
+                     Similar to FastAPI's lifespan parameter.
         """
-        self._router = Starlette()
+        # Store user-provided lifespan and event handlers
+        self._user_lifespan = lifespan
+        self._startup_handlers: List[Callable] = []
+        self._shutdown_handlers: List[Callable] = []
+
+        # Create combined lifespan that handles both custom lifespan and on_event handlers
+        self._router = Starlette(lifespan=self._create_combined_lifespan())
         self.routes = []
         self.middleware_stack = []
         self._instances_cache: Dict[Type, Any] = {}
+
+        # Expose state object for storing app-wide state (like FastAPI)
+        self.state = self._router.state
 
         # Initialize OpenAPI configuration and generator
         self.openapi_config = openapi_config or create_openapi_config()
@@ -98,6 +115,70 @@ class Tachyon:
                 method.lower(),
                 partial(self._create_decorator, http_method=method),
             )
+
+    def _create_combined_lifespan(self):
+        """
+        Create a combined lifespan context manager that handles both
+        user-provided lifespan and on_event handlers.
+
+        Note: This returns a factory that captures `self` and dynamically
+        accesses handlers at runtime (not at definition time).
+        """
+        tachyon_app = self
+
+        @asynccontextmanager
+        async def combined_lifespan(app):
+            # Run startup handlers (accessed dynamically)
+            for handler in tachyon_app._startup_handlers:
+                if asyncio.iscoroutinefunction(handler):
+                    await handler()
+                else:
+                    handler()
+
+            # Run user-provided lifespan if any
+            if tachyon_app._user_lifespan is not None:
+                async with tachyon_app._user_lifespan(tachyon_app):
+                    yield
+            else:
+                yield
+
+            # Run shutdown handlers (accessed dynamically)
+            for handler in tachyon_app._shutdown_handlers:
+                if asyncio.iscoroutinefunction(handler):
+                    await handler()
+                else:
+                    handler()
+
+        return combined_lifespan
+
+    def on_event(self, event_type: str):
+        """
+        Decorator to register startup or shutdown event handlers.
+
+        Args:
+            event_type: Either 'startup' or 'shutdown'
+
+        Returns:
+            A decorator that registers the handler function
+
+        Example:
+            @app.on_event('startup')
+            async def on_startup():
+                print('Starting up...')
+
+            @app.on_event('shutdown')
+            def on_shutdown():
+                print('Shutting down...')
+        """
+        def decorator(func: Callable):
+            if event_type == "startup":
+                self._startup_handlers.append(func)
+            elif event_type == "shutdown":
+                self._shutdown_handlers.append(func)
+            else:
+                raise ValueError(f"Invalid event type: {event_type}. Use 'startup' or 'shutdown'.")
+            return func
+        return decorator
 
     def _resolve_dependency(self, cls: Type) -> Any:
         """
