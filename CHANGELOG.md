@@ -7,6 +7,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.6.0] - 2025-12-11
+
+### Added
+
+- **Request Injection**: Endpoints can now receive the Starlette `Request` object by annotating a parameter with `request: Request`
+  - Access to headers, query params, cookies, client info, and raw request data
+  - Works alongside other parameter types (Query, Path, Body, etc.)
+
+- **Header() Parameter Marker**: Extract values from HTTP request headers
+  - Required headers: `Header(...)` returns 422 if missing
+  - Optional with default: `Header("default-value")`
+  - Case-insensitive matching (HTTP standard)
+  - Underscore-to-hyphen conversion: `x_request_id` matches `X-Request-Id`
+  - Custom header names with alias: `Header(..., alias="X-Auth-Token")`
+  - Full OpenAPI schema generation for header parameters
+
+- **Cookie() Parameter Marker**: Extract values from HTTP cookies
+  - Required cookies: `Cookie(...)` returns 422 if missing
+  - Optional with default: `Cookie("default-value")`
+  - Custom cookie names with alias: `Cookie(..., alias="session_token")`
+  - Full OpenAPI schema generation for cookie parameters
+
+- **Depends(callable) - Factory Dependencies**: Enhanced dependency injection
+  - Sync function dependencies: `Depends(get_db_connection)`
+  - Async function dependencies: `Depends(get_current_user_async)`
+  - Lambda dependencies: `Depends(lambda: {"config": "value"})`
+  - Nested dependencies: callables can have their own `Depends()` parameters
+  - Per-request caching: same callable called once per request
+  - Works alongside existing `Depends()` type-based resolution
+
+### Changed
+
+- **Refactored Type Utilities**: Centralized type handling to reduce code duplication
+  - `OPENAPI_TYPE_MAP` in `type_utils.py` as single source of truth
+  - `TypeUtils.get_openapi_type()` for type-to-schema conversion
+  - Removed duplicate `_unwrap_optional` and `TYPE_MAP` from `openapi.py`
+  - Removed dead code: `_generate_schema_for_struct`
+
+### Tests
+
+- 25 new tests (119 → 144 total)
+  - `test_request_injection.py`: 5 tests
+  - `test_header_params.py`: 8 tests
+  - `test_cookie_params.py`: 5 tests
+  - `test_depends_callable.py`: 7 tests
+
+---
+
 ## [0.5.9] - 2025-09-04
 
 ### Added

@@ -11,7 +11,7 @@ import inspect
 import msgspec
 import typing
 from functools import partial
-from typing import Any, Dict, Type, Callable
+from typing import Any, Dict, Type, Callable, Optional
 
 from starlette.applications import Starlette
 from starlette.requests import Request
@@ -149,6 +149,57 @@ class Tachyon:
         self._instances_cache[cls] = instance
         return instance
 
+    async def _resolve_callable_dependency(
+        self, dependency: Callable, cache: Dict
+    ) -> Any:
+        """
+        Resolve a callable dependency (function, lambda, or class).
+
+        This method calls the dependency function to get its value, supporting
+        both sync and async functions. It also handles nested dependencies
+        if the callable has parameters with Depends().
+
+        Args:
+            dependency: The callable to invoke
+            cache: Per-request cache to avoid calling the same dependency twice
+
+        Returns:
+            The result of calling the dependency function
+
+        Note:
+            - Results are cached per-request to avoid duplicate calls
+            - Supports async callables (coroutines)
+            - Supports nested Depends() in callable parameters
+        """
+        # Check cache first (same callable = same result per request)
+        if dependency in cache:
+            return cache[dependency]
+
+        # Check if the dependency has its own dependencies (nested)
+        sig = inspect.signature(dependency)
+        nested_kwargs = {}
+
+        for param in sig.parameters.values():
+            if isinstance(param.default, Depends):
+                if param.default.dependency is not None:
+                    # Nested callable dependency
+                    nested_kwargs[param.name] = await self._resolve_callable_dependency(
+                        param.default.dependency, cache
+                    )
+                else:
+                    # Nested type-based dependency
+                    nested_kwargs[param.name] = self._resolve_dependency(param.annotation)
+
+        # Call the dependency (sync or async)
+        if asyncio.iscoroutinefunction(dependency):
+            result = await dependency(**nested_kwargs)
+        else:
+            result = dependency(**nested_kwargs)
+
+        # Cache the result for this request
+        cache[dependency] = result
+        return result
+
     def _create_decorator(self, path: str, *, http_method: str, **kwargs):
         """
         Create a decorator for the specified HTTP method.
@@ -207,6 +258,8 @@ class Tachyon:
                 query_params = request.query_params
                 path_params = request.path_params
                 _raw_body = None
+                # Cache for callable dependencies (same callable = same result per request)
+                dependency_cache = {}
 
                 # Process each parameter in the endpoint function signature
                 for param in sig.parameters.values():
@@ -225,10 +278,18 @@ class Tachyon:
 
                     # Process dependencies (explicit and implicit)
                     if is_explicit_dependency or is_implicit_dependency:
-                        target_class = param.annotation
-                        kwargs_to_inject[param.name] = self._resolve_dependency(
-                            target_class
-                        )
+                        if is_explicit_dependency and param.default.dependency is not None:
+                            # Depends(callable) - call the factory function
+                            resolved = await self._resolve_callable_dependency(
+                                param.default.dependency, dependency_cache
+                            )
+                            kwargs_to_inject[param.name] = resolved
+                        else:
+                            # Depends() or implicit - resolve by type annotation
+                            target_class = param.annotation
+                            kwargs_to_inject[param.name] = self._resolve_dependency(
+                                target_class
+                            )
 
                     # Process Body parameters (JSON request body)
                     elif isinstance(param.default, Body):
