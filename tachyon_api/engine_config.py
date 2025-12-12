@@ -23,8 +23,8 @@ class AsgiEngine(Enum):
     """ASGI engine selection options."""
     
     STARLETTE = "starlette"
-    TACHYON = "tachyon"
-    AUTO = "auto"  # Try tachyon-engine first, fallback to Starlette
+    TACHYON = "tachyon"  # Experimental: tachyon-engine v0.1.0 has incomplete ASGI implementation
+    AUTO = "auto"  # Currently defaults to Starlette (tachyon-engine v0.1.0 not production-ready)
 
 
 class EngineConfig:
@@ -97,16 +97,11 @@ class EngineConfig:
             return StarletteApplicationAdapter(lifespan=lifespan, debug=debug)
         
         else:  # AsgiEngine.AUTO
-            # Try tachyon-engine first, fallback to Starlette
-            if TACHYON_ENGINE_AVAILABLE:
-                try:
-                    return TachyonEngineApplicationAdapter(lifespan=lifespan, debug=debug)
-                except Exception:
-                    # If tachyon-engine fails for any reason, fallback to Starlette
-                    return StarletteApplicationAdapter(lifespan=lifespan, debug=debug)
-            else:
-                # tachyon-engine not available, use Starlette
-                return StarletteApplicationAdapter(lifespan=lifespan, debug=debug)
+            # For now, AUTO defaults to Starlette because tachyon-engine v0.1.0
+            # has incomplete ASGI implementation. When tachyon-engine is production-ready,
+            # we'll change this to try tachyon-engine first.
+            # TODO: Change AUTO to prefer tachyon-engine when v0.2.0+ is released
+            return StarletteApplicationAdapter(lifespan=lifespan, debug=debug)
     
     def get_engine_name(self) -> str:
         """
