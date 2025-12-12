@@ -1,152 +1,156 @@
 """
-Tachyon API v0.4.0 Demo - Complete Example Application
+🏦 KYC Demo API - Know Your Customer Verification System
 
-This example demonstrates:
-- Router system with organized endpoints
-- Scalar API Reference as default documentation
-- Implicit dependency injection
-- Clean architecture with services, repositories, and models
-- Complete CRUD operations with proper error handling
-- Middleware implementation for logging and response modification
-- Cache decorator with TTL and configurable backends
+This example demonstrates all Tachyon features:
+- Clean Architecture (Controllers, Services, Repositories)
+- Dependency Injection (@injectable, Depends)
+- Authentication (JWT Bearer, API Keys)
+- File Uploads (Document verification)
+- Background Tasks (Async verification processing)
+- WebSockets (Real-time status updates)
+- Caching (Verification results)
+- Exception Handling (Custom exceptions)
+- Lifecycle Events (Startup/Shutdown)
+- Testing Utilities (Mocks, Overrides)
+
+Run with: uvicorn example.app:app --reload
 """
 
-from datetime import datetime
-from tachyon_api import Tachyon, cache, create_cache_config
-from tachyon_api.openapi import OpenAPIConfig, Info, Contact, License
-from tachyon_api.responses import success_response
+from contextlib import asynccontextmanager
+
+from tachyon_api import Tachyon
 from tachyon_api.middlewares import CORSMiddleware, LoggerMiddleware
+from tachyon_api.openapi import OpenAPIConfig, Info
 
-# Import all routers
-from example.routers import users_router, items_router, admin_router
+from .config import settings
+from .shared.websocket_manager import manager as ws_manager
 
-# Import middleware setup
-from example.middlewares import setup_middlewares
+# Import routers
+from .modules.auth import router as auth_router
+from .modules.customers import router as customers_router
+from .modules.verification import router as verification_router
+from .modules.documents import router as documents_router
 
-# Configure OpenAPI with Scalar as default
+
+@asynccontextmanager
+async def lifespan(app):
+    """
+    Application lifespan - startup and shutdown events.
+    
+    In production, you would:
+    - Connect to databases
+    - Initialize external service clients
+    - Load ML models for document verification
+    """
+    print("🚀 KYC API Starting...")
+    print(f"   Environment: {settings.environment}")
+    print(f"   Debug: {settings.debug}")
+    
+    # Initialize app state
+    app.state.settings = settings
+    app.state.ws_manager = ws_manager
+    
+    # Mock: Simulate connecting to verification provider
+    app.state.verification_provider = "MockVerificationProvider"
+    print("   ✅ Verification provider connected")
+    
+    yield
+    
+    # Cleanup
+    print("🛑 KYC API Shutting down...")
+    await ws_manager.disconnect_all()
+    print("   ✅ All WebSocket connections closed")
+
+
+# Create app
 openapi_config = OpenAPIConfig(
     info=Info(
-        title="Tachyon API Demo",
-        description="Complete example demonstrating Router system, Scalar integration, caching, and clean architecture",
-        version="0.5.6",
-        contact=Contact(
-            name="Tachyon Team", email="info@tachyon.dev", url="https://tachyon.dev"
-        ),
-        license=License(
-            name="GPL-3.0", url="https://www.gnu.org/licenses/gpl-3.0.html"
-        ),
-    ),
+        title="KYC Demo API",
+        description="Know Your Customer verification system demo using Tachyon",
+        version="1.0.0",
+    )
 )
 
-# Configure Cache (default: in-memory backend); can be replaced by Redis/Memcached adapters
-cache_config = create_cache_config(default_ttl=30)
+app = Tachyon(
+    openapi_config=openapi_config,
+    lifespan=lifespan,
+)
 
-# Create main application
-app = Tachyon(openapi_config=openapi_config, cache_config=cache_config)
-
-# Built-in middlewares (class-based)
+# Add middlewares
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
-    allow_credentials=False,
 )
-app.add_middleware(
-    LoggerMiddleware,
-    include_headers=False,  # set True to log headers
-)
+app.add_middleware(LoggerMiddleware)
 
-# Set up additional example middlewares using the decorator pattern
-setup_middlewares(app)
-
-# Include all routers in the main app
-app.include_router(users_router)
-app.include_router(items_router)
-app.include_router(admin_router)
+# Register routers
+app.include_router(auth_router)
+app.include_router(customers_router)
+app.include_router(verification_router)
+app.include_router(documents_router)
 
 
-# Root endpoints (directly on main app)
-@app.get("/", summary="API Health Check")
-def root():
-    """Root endpoint for API health check"""
-    return success_response(
-        data={
-            "status": "healthy",
-            "version": "0.4.0",
-            "timestamp": datetime.now().isoformat(),
-            "message": "Tachyon API is running!",
-        }
-    )
-
-
-@app.get("/health")
+# Health check
+@app.get("/", tags=["Health"])
 def health_check():
-    """Simple health check endpoint"""
-    return {"status": "ok", "timestamp": datetime.now().isoformat()}
-
-
-@app.get("/orjson-demo", summary="Default JSON serialization demo")
-def orjson_demo():
-    """Demonstrate default TachyonJSONResponse serializing complex types."""
-    import uuid
-
+    """
+    Health check endpoint.
+    
+    Returns the API status and version.
+    """
     return {
-        "uuid": uuid.uuid4(),
-        "today": datetime.now().date(),
+        "status": "healthy",
+        "service": "KYC Demo API",
+        "version": "1.0.0",
     }
 
 
-# Cached endpoint demo (value remains constant within TTL)
-@app.get("/cached/time", summary="Cached time demo")
-@cache(TTL=10)
-def cached_time():
-    """Return current time, cached for TTL seconds."""
-    return {"now": datetime.now().isoformat()}
+@app.get("/health", tags=["Health"])
+def detailed_health():
+    """
+    Detailed health check with component status.
+    """
+    return {
+        "status": "healthy",
+        "components": {
+            "api": "up",
+            "database": "up (mock)",
+            "verification_provider": "up (mock)",
+            "websocket": "up",
+        },
+        "environment": settings.environment,
+    }
 
 
-@app.get("/error-demo", summary="Global exception handler demo")
-def error_demo():
-    """Demonstrate global exception handling returning a structured 500 without leaking details."""
-    raise RuntimeError("simulated failure")
-
-
-if __name__ == "__main__":
-    import uvicorn
-
-    print("🚀 Starting Tachyon API v0.4.0 Complete Example")
-    print("📁 Clean Architecture:")
-    print("  • Models: Data structures and validation")
-    print("  • Repositories: Data access layer")
-    print("  • Services: Business logic layer")
-    print("  • Routers: API endpoint organization")
-    print()
-    print("📚 Documentation available at:")
-    print("  • Scalar (new default): http://localhost:8000/docs")
-    print("  • Swagger UI (legacy):   http://localhost:8000/swagger")
-    print("  • ReDoc:                 http://localhost:8000/redoc")
-    print()
-    print("📋 API Endpoints:")
-    print("  • GET  /                                 - API Health Check")
-    print("  • GET  /health                          - Simple Health Check")
-    print("  • GET  /cached/time                     - Cached time (TTL=10s)")
-    print(
-        "  • GET  /error-demo                      - Global exception handler demo (returns 500)"
-    )
-    print("  • GET  /api/v1/users/                   - Get All Users")
-    print("  • GET  /api/v1/users/{user_id}          - Get User by ID")
-    print("  • POST /api/v1/users/                   - Create New User")
-    print("  • POST /api/v1/users/e2e                - Create User (end-to-end safety)")
-    print("  • GET  /api/v1/items/by-owner/{owner_id} - Get Items by Owner")
-    print("  • GET  /admin/stats                     - System Statistics")
-    print()
-    print("💡 Features demonstrated:")
-    print("  ✅ Router system for endpoint organization")
-    print("  ✅ Implicit dependency injection (no Depends() needed)")
-    print("  ✅ Scalar API Reference (modern documentation)")
-    print("  ✅ Clean architecture (Models/Services/Repositories)")
-    print("  ✅ Proper error handling and responses")
-    print("  ✅ Automatic JSON serialization of Struct models")
-    print("  ✅ Cache decorator with TTL and configurable backends")
-
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+# WebSocket for real-time notifications
+@app.websocket("/ws/notifications/{customer_id}")
+async def websocket_notifications(websocket, customer_id: str):
+    """
+    WebSocket endpoint for real-time KYC status updates.
+    
+    Clients connect here to receive instant notifications
+    when their verification status changes.
+    """
+    await ws_manager.connect(websocket, customer_id)
+    
+    try:
+        # Send welcome message
+        await websocket.send_json({
+            "type": "connected",
+            "message": f"Connected to KYC notifications for customer {customer_id}",
+        })
+        
+        # Keep connection alive and handle incoming messages
+        while True:
+            data = await websocket.receive_json()
+            
+            # Handle ping/pong for keep-alive
+            if data.get("type") == "ping":
+                await websocket.send_json({"type": "pong"})
+    
+    except Exception:
+        pass
+    finally:
+        ws_manager.disconnect(websocket, customer_id)

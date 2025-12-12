@@ -1,0 +1,19 @@
+# KYC Demo API - Dependencies
+
+# Tachyon API Framework
+tachyon-api>=0.7.0
+
+# JWT for authentication
+PyJWT>=2.8.0
+
+# For async file handling
+aiofiles>=23.0.0
+
+# Testing
+pytest>=8.0.0
+pytest-asyncio>=0.23.0
+httpx>=0.27.0
+
+# Development
+uvicorn>=0.29.0
+ruff>=0.4.0

@@ -1,3 +1,9 @@
-# Copyright (C) 2025 Juan Manuel Panozzo Zénere
-# This file is part of Tachyon API Framework.
-# Licensed under GPL v3.0 - see LICENSE file for details.
+"""
+🏦 KYC Demo API
+
+A complete example demonstrating all Tachyon features.
+"""
+
+from .app import app
+
+__all__ = ["app"]
