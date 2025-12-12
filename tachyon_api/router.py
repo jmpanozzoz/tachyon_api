@@ -105,6 +105,36 @@ class Router:
 
         return decorator
 
+    def websocket(self, path: str):
+        """
+        Decorator to register a WebSocket endpoint with this router.
+
+        Args:
+            path: URL path pattern for the WebSocket endpoint
+
+        Returns:
+            A decorator that stores the WebSocket handler
+
+        Example:
+            router = Router(prefix="/api")
+
+            @router.websocket("/ws")
+            async def websocket_endpoint(websocket):
+                await websocket.accept()
+                await websocket.send_text("Hello from router!")
+                await websocket.close()
+        """
+        def decorator(endpoint_func: Callable):
+            route_info = {
+                "path": path,
+                "method": "WEBSOCKET",
+                "func": endpoint_func,
+                "is_websocket": True,
+            }
+            self.routes.append(route_info)
+            return endpoint_func
+        return decorator
+
     def get_full_path(self, path: str) -> str:
         """
         Get the full path by combining router prefix with route path.

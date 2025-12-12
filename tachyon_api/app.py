@@ -17,7 +17,8 @@ from typing import Any, Dict, Type, Callable, Optional, List
 from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
-from starlette.routing import Route
+from starlette.routing import Route, WebSocketRoute
+from starlette.websockets import WebSocket
 
 from .di import Depends, _registry
 from .models import Struct
@@ -218,6 +219,61 @@ class Tachyon:
             self._exception_handlers[exc_class] = func
             return func
         return decorator
+
+    def websocket(self, path: str):
+        """
+        Decorator to register a WebSocket endpoint.
+
+        Args:
+            path: URL path pattern for the WebSocket endpoint
+
+        Returns:
+            A decorator that registers the WebSocket handler
+
+        Example:
+            @app.websocket("/ws")
+            async def websocket_endpoint(websocket):
+                await websocket.accept()
+                data = await websocket.receive_text()
+                await websocket.send_text(f"Echo: {data}")
+                await websocket.close()
+
+            @app.websocket("/ws/{room_id}")
+            async def room_endpoint(websocket, room_id: str):
+                await websocket.accept()
+                await websocket.send_text(f"Welcome to {room_id}")
+                await websocket.close()
+        """
+        def decorator(func: Callable):
+            self._add_websocket_route(path, func)
+            return func
+        return decorator
+
+    def _add_websocket_route(self, path: str, endpoint_func: Callable):
+        """
+        Register a WebSocket route with the application.
+
+        Args:
+            path: URL path pattern (supports path parameters)
+            endpoint_func: The async WebSocket handler function
+        """
+        async def websocket_handler(websocket: WebSocket):
+            # Extract path parameters
+            path_params = websocket.path_params
+
+            # Build kwargs for the handler
+            kwargs = {"websocket": websocket}
+
+            # Inject path parameters if the handler accepts them
+            sig = inspect.signature(endpoint_func)
+            for param in sig.parameters.values():
+                if param.name != "websocket" and param.name in path_params:
+                    kwargs[param.name] = path_params[param.name]
+
+            await endpoint_func(**kwargs)
+
+        route = WebSocketRoute(path, endpoint=websocket_handler)
+        self._router.routes.append(route)
 
     def _resolve_dependency(self, cls: Type) -> Any:
         """
@@ -1108,11 +1164,17 @@ class Tachyon:
             # Get the full path with prefix
             full_path = router.get_full_path(route_info["path"])
 
+            # Check if it's a WebSocket route
+            if route_info.get("is_websocket"):
+                self._add_websocket_route(full_path, route_info["func"])
+                continue
+
             # Create a copy of route info with the full path
             route_kwargs = route_info.copy()
             route_kwargs.pop("path", None)
             route_kwargs.pop("method", None)
             route_kwargs.pop("func", None)
+            route_kwargs.pop("is_websocket", None)
 
             # Register the route with the main app
             self._add_route(
