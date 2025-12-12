@@ -7,24 +7,19 @@ parameter validation, and automatic type conversion.
 """
 
 import asyncio
-import inspect
-import msgspec
 from functools import partial
 from typing import Any, Dict, Type, Callable, Optional
 
 from starlette.applications import Starlette
 from starlette.requests import Request
-from starlette.responses import JSONResponse, Response
+from starlette.responses import JSONResponse
 from starlette.routing import Route
 
-from .di import Depends, _registry
-from .models import Struct
 from .openapi import (
     OpenAPIGenerator,
     OpenAPIConfig,
     create_openapi_config,
 )
-from .params import Body, Query, Path, Header, Cookie
 from .exceptions import HTTPException
 from .middlewares.core import (
     apply_middleware_to_router,
@@ -32,15 +27,14 @@ from .middlewares.core import (
 )
 from .responses import (
     HTMLResponse,
-    TachyonJSONResponse,
-    response_validation_error_response,
     internal_server_error_response,
 )
-from .utils import TypeUtils
 from .core.lifecycle import LifecycleManager
 from .core.websocket import WebSocketManager
 from .processing.parameters import ParameterProcessor
 from .processing.dependencies import DependencyResolver
+from .processing.response_processor import ResponseProcessor
+from .openapi_builder.builder import OpenAPIRouteBuilder
 
 try:
     from .cache import set_cache_config
@@ -110,6 +104,7 @@ class Tachyon:
         # Initialize OpenAPI configuration and generator
         self.openapi_config = openapi_config or create_openapi_config()
         self.openapi_generator = OpenAPIGenerator(self.openapi_config)
+        self._openapi_builder = OpenAPIRouteBuilder(self.openapi_generator)
         self._docs_setup = False
 
         # Apply cache configuration if provided
@@ -286,36 +281,14 @@ class Tachyon:
                     return error_response
 
                 # Call the endpoint function with injected parameters
-                if asyncio.iscoroutinefunction(endpoint_func):
-                    payload = await endpoint_func(**kwargs_to_inject)
-                else:
-                    payload = endpoint_func(**kwargs_to_inject)
-
-                # Run background tasks if any were registered
-                if _background_tasks is not None:
-                    await _background_tasks.run_tasks()
-
-                # If the endpoint already returned a Response object, return it directly
-                if isinstance(payload, Response):
-                    return payload
-
-                # Validate/convert response against response_model if provided
-                if response_model is not None:
-                    try:
-                        payload = msgspec.convert(payload, response_model)
-                    except Exception as e:
-                        return response_validation_error_response(str(e))
-
-                # Convert Struct objects to dictionaries for JSON serialization
-                if isinstance(payload, Struct):
-                    payload = msgspec.to_builtins(payload)
-                elif isinstance(payload, dict):
-                    # Convert any Struct values in the dictionary
-                    for key, value in payload.items():
-                        if isinstance(value, Struct):
-                            payload[key] = msgspec.to_builtins(value)
-
-                return TachyonJSONResponse(payload)
+                payload = await ResponseProcessor.call_endpoint(
+                    endpoint_func, kwargs_to_inject
+                )
+                
+                # Process response (validate, serialize, run background tasks)
+                return await ResponseProcessor.process_response(
+                    payload, response_model, _background_tasks
+                )
 
             except HTTPException as exc:
                 # Handle HTTPException - check for custom handler first
@@ -355,236 +328,8 @@ class Tachyon:
         # Generate OpenAPI documentation for this route
         include_in_schema = kwargs.get("include_in_schema", True)
         if include_in_schema:
-            self._generate_openapi_for_route(path, method, endpoint_func, **kwargs)
+            self._openapi_builder.generate_for_route(path, method, endpoint_func, **kwargs)
 
-    def _generate_openapi_for_route(
-        self, path: str, method: str, endpoint_func: Callable, **kwargs
-    ):
-        """
-        Generate OpenAPI documentation for a specific route.
-
-        This method analyzes the endpoint function signature and generates appropriate
-        OpenAPI schema entries for parameters, request body, and responses.
-
-        Args:
-            path: URL path pattern
-            method: HTTP method
-            endpoint_func: The endpoint function
-            **kwargs: Additional route metadata (summary, description, tags, etc.)
-        """
-        sig = inspect.signature(endpoint_func)
-
-        # Ensure common error schemas exist in components
-        self.openapi_generator.add_schema(
-            "ValidationErrorResponse",
-            {
-                "type": "object",
-                "properties": {
-                    "success": {"type": "boolean"},
-                    "error": {"type": "string"},
-                    "code": {"type": "string"},
-                    "errors": {
-                        "type": "object",
-                        "additionalProperties": {
-                            "type": "array",
-                            "items": {"type": "string"},
-                        },
-                    },
-                },
-                "required": ["success", "error", "code"],
-            },
-        )
-        self.openapi_generator.add_schema(
-            "ResponseValidationError",
-            {
-                "type": "object",
-                "properties": {
-                    "success": {"type": "boolean"},
-                    "error": {"type": "string"},
-                    "detail": {"type": "string"},
-                    "code": {"type": "string"},
-                },
-                "required": ["success", "error", "code"],
-            },
-        )
-
-        # Build the OpenAPI operation object
-        operation = {
-            "summary": kwargs.get(
-                "summary", self._generate_summary_from_function(endpoint_func)
-            ),
-            "description": kwargs.get("description", endpoint_func.__doc__ or ""),
-            "responses": {
-                "200": {
-                    "description": "Successful Response",
-                    "content": {"application/json": {"schema": {"type": "object"}}},
-                },
-                "422": {
-                    "description": "Validation Error",
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "$ref": "#/components/schemas/ValidationErrorResponse"
-                            }
-                        }
-                    },
-                },
-                "500": {
-                    "description": "Response Validation Error",
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "$ref": "#/components/schemas/ResponseValidationError"
-                            }
-                        }
-                    },
-                },
-            },
-        }
-
-        # If a response_model is provided and is a Struct, use it for the 200 response schema
-        response_model = kwargs.get("response_model")
-        if response_model is not None and issubclass(response_model, Struct):
-            from .openapi import build_components_for_struct
-
-            comps = build_components_for_struct(response_model)
-            for name, schema in comps.items():
-                self.openapi_generator.add_schema(name, schema)
-            operation["responses"]["200"]["content"]["application/json"]["schema"] = {
-                "$ref": f"#/components/schemas/{response_model.__name__}"
-            }
-
-        # Add tags if provided
-        if "tags" in kwargs:
-            operation["tags"] = kwargs["tags"]
-
-        # Process parameters from function signature
-        parameters = []
-        request_body_schema = None
-
-        for param in sig.parameters.values():
-            # Skip dependency parameters
-            if isinstance(param.default, Depends) or (
-                param.default is inspect.Parameter.empty
-                and param.annotation in _registry
-            ):
-                continue
-
-            # Process query parameters
-            elif isinstance(param.default, Query):
-                parameters.append(
-                    {
-                        "name": param.name,
-                        "in": "query",
-                        "required": param.default.default is ...,
-                        "schema": self._build_param_openapi_schema(param.annotation),
-                        "description": getattr(param.default, "description", ""),
-                    }
-                )
-
-            # Process header parameters
-            elif isinstance(param.default, Header):
-                parameters.append(
-                    {
-                        "name": param.name,
-                        "in": "header",
-                        "required": param.default.default is ...,
-                        "schema": self._build_param_openapi_schema(param.annotation),
-                        "description": getattr(param.default, "description", ""),
-                    }
-                )
-
-            # Process cookie parameters
-            elif isinstance(param.default, Cookie):
-                parameters.append(
-                    {
-                        "name": param.name,
-                        "in": "cookie",
-                        "required": param.default.default is ...,
-                        "schema": self._build_param_openapi_schema(param.annotation),
-                        "description": getattr(param.default, "description", ""),
-                    }
-                )
-
-            # Process path parameters
-            elif isinstance(param.default, Path) or self._is_path_parameter(
-                param.name, path
-            ):
-                parameters.append(
-                    {
-                        "name": param.name,
-                        "in": "path",
-                        "required": True,
-                        "schema": self._build_param_openapi_schema(param.annotation),
-                        "description": getattr(param.default, "description", "")
-                        if isinstance(param.default, Path)
-                        else "",
-                    }
-                )
-
-            # Process body parameters
-            elif isinstance(param.default, Body):
-                model_class = param.annotation
-                if issubclass(model_class, Struct):
-                    from .openapi import build_components_for_struct
-
-                    comps = build_components_for_struct(model_class)
-                    for name, schema in comps.items():
-                        self.openapi_generator.add_schema(name, schema)
-
-                    request_body_schema = {
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": f"#/components/schemas/{model_class.__name__}"
-                                }
-                            }
-                        },
-                        "required": True,
-                    }
-
-        # Add parameters to operation if any exist
-        if parameters:
-            operation["parameters"] = parameters
-
-        if request_body_schema:
-            operation["requestBody"] = request_body_schema
-
-        self.openapi_generator.add_path(path, method, operation)
-
-    @staticmethod
-    def _generate_summary_from_function(func: Callable) -> str:
-        """Generate a human-readable summary from function name."""
-        return func.__name__.replace("_", " ").title()
-
-    @staticmethod
-    def _is_path_parameter(param_name: str, path: str) -> bool:
-        """Check if a parameter name corresponds to a path parameter in the URL."""
-        return f"{{{param_name}}}" in path
-
-    @staticmethod
-    def _build_param_openapi_schema(python_type: Type) -> Dict[str, Any]:
-        """Build OpenAPI schema for parameter types, supporting Optional[T] and List[T]."""
-        # Use centralized TypeUtils for type checking
-        inner_type, nullable = TypeUtils.unwrap_optional(python_type)
-
-        # Check if it's a List type
-        is_list, item_type = TypeUtils.is_list_type(inner_type)
-        if is_list:
-            # Check if item type is Optional
-            base_item_type, item_nullable = TypeUtils.unwrap_optional(item_type)
-            schema = {
-                "type": "array",
-                "items": {"type": TypeUtils.get_openapi_type(base_item_type)},
-            }
-            if item_nullable:
-                schema["items"]["nullable"] = True
-        else:
-            schema = {"type": TypeUtils.get_openapi_type(inner_type)}
-
-        if nullable:
-            schema["nullable"] = True
-        return schema
 
     def _setup_docs(self):
         """
