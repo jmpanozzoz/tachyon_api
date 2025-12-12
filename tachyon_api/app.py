@@ -10,9 +10,8 @@ import asyncio
 import inspect
 import msgspec
 import typing
-from contextlib import asynccontextmanager
 from functools import partial
-from typing import Any, Dict, Type, Callable, Optional, List
+from typing import Any, Dict, Type, Callable, Optional
 
 from starlette.applications import Starlette
 from starlette.requests import Request
@@ -42,6 +41,7 @@ from .responses import (
     internal_server_error_response,
 )
 from .utils import TypeConverter, TypeUtils
+from .core.lifecycle import LifecycleManager
 
 try:
     from .cache import set_cache_config
@@ -81,16 +81,14 @@ class Tachyon:
             lifespan: Optional async context manager for startup/shutdown events.
                      Similar to FastAPI's lifespan parameter.
         """
-        # Store user-provided lifespan and event handlers
-        self._user_lifespan = lifespan
-        self._startup_handlers: List[Callable] = []
-        self._shutdown_handlers: List[Callable] = []
+        # Lifecycle manager for startup/shutdown events
+        self._lifecycle_manager = LifecycleManager(lifespan)
 
         # Exception handlers registry (exception_type -> handler_function)
         self._exception_handlers: Dict[Type[Exception], Callable] = {}
 
         # Create combined lifespan that handles both custom lifespan and on_event handlers
-        self._router = Starlette(lifespan=self._create_combined_lifespan())
+        self._router = Starlette(lifespan=self._lifecycle_manager.create_combined_lifespan())
         self.routes = []
         self.middleware_stack = []
         self._instances_cache: Dict[Type, Any] = {}
@@ -125,41 +123,6 @@ class Tachyon:
                 partial(self._create_decorator, http_method=method),
             )
 
-    def _create_combined_lifespan(self):
-        """
-        Create a combined lifespan context manager that handles both
-        user-provided lifespan and on_event handlers.
-
-        Note: This returns a factory that captures `self` and dynamically
-        accesses handlers at runtime (not at definition time).
-        """
-        tachyon_app = self
-
-        @asynccontextmanager
-        async def combined_lifespan(app):
-            # Run startup handlers (accessed dynamically)
-            for handler in tachyon_app._startup_handlers:
-                if asyncio.iscoroutinefunction(handler):
-                    await handler()
-                else:
-                    handler()
-
-            # Run user-provided lifespan if any
-            if tachyon_app._user_lifespan is not None:
-                async with tachyon_app._user_lifespan(tachyon_app):
-                    yield
-            else:
-                yield
-
-            # Run shutdown handlers (accessed dynamically)
-            for handler in tachyon_app._shutdown_handlers:
-                if asyncio.iscoroutinefunction(handler):
-                    await handler()
-                else:
-                    handler()
-
-        return combined_lifespan
-
     def on_event(self, event_type: str):
         """
         Decorator to register startup or shutdown event handlers.
@@ -179,19 +142,7 @@ class Tachyon:
             def on_shutdown():
                 print('Shutting down...')
         """
-
-        def decorator(func: Callable):
-            if event_type == "startup":
-                self._startup_handlers.append(func)
-            elif event_type == "shutdown":
-                self._shutdown_handlers.append(func)
-            else:
-                raise ValueError(
-                    f"Invalid event type: {event_type}. Use 'startup' or 'shutdown'."
-                )
-            return func
-
-        return decorator
+        return self._lifecycle_manager.on_event_decorator(event_type)
 
     def exception_handler(self, exc_class: Type[Exception]):
         """
