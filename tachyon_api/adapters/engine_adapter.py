@@ -51,8 +51,12 @@ class TachyonEngineApplicationAdapter(AsgiApplicationAdapter):
                 "Install it with: pip install tachyon-api[engine]"
             )
         
-        self._app = TachyonEngine(debug=debug, lifespan=lifespan)
+        # Note: tachyon-engine 0.1.0 doesn't support debug or lifespan parameters yet
+        # Initialize with no args for now
+        self._app = TachyonEngine()
         self._routes = []
+        self._debug = debug
+        # TODO: Add lifespan support when tachyon-engine implements it
     
     def add_route(
         self,
