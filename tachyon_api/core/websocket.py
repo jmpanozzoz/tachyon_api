@@ -8,10 +8,7 @@ Handles:
 """
 
 import inspect
-from typing import Callable
-
-from starlette.routing import WebSocketRoute
-from starlette.websockets import WebSocket
+from typing import Callable, Any
 
 
 class WebSocketManager:
@@ -73,8 +70,14 @@ class WebSocketManager:
             endpoint_func: The async WebSocket handler function
         """
 
-        async def websocket_handler(websocket: WebSocket):
-            # Extract path parameters
+        async def websocket_handler(websocket: Any):
+            """
+            Generic WebSocket handler that works with both Starlette and tachyon-engine.
+            
+            Args:
+                websocket: WebSocket object (Starlette or tachyon-engine)
+            """
+            # Extract path parameters (both Starlette and tachyon-engine have this)
             path_params = websocket.path_params
 
             # Build kwargs for the handler
@@ -86,10 +89,29 @@ class WebSocketManager:
                 if param.name != "websocket" and param.name in path_params:
                     kwargs[param.name] = path_params[param.name]
 
+            # Call the user's handler
             await endpoint_func(**kwargs)
 
-        route = WebSocketRoute(path, endpoint=websocket_handler)
-        self._router.routes.append(route)
+        # Register the WebSocket route with the native router
+        # Detect which engine we're using by checking the class name
+        router_class_name = type(self._router).__name__
+        
+        if router_class_name == 'TachyonEngine':
+            # tachyon-engine style
+            try:
+                from tachyon_engine import WebSocketRoute as EngineWSRoute
+                route = EngineWSRoute(path, websocket_handler)
+                self._router.add_websocket_route(route)
+            except ImportError:
+                # Fallback to Starlette if tachyon-engine not available
+                from starlette.routing import WebSocketRoute
+                route = WebSocketRoute(path, endpoint=websocket_handler)
+                self._router.routes.append(route)
+        else:
+            # Starlette style (or any other router with .routes list)
+            from starlette.routing import WebSocketRoute
+            route = WebSocketRoute(path, endpoint=websocket_handler)
+            self._router.routes.append(route)
 
 
 
