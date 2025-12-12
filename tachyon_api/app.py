@@ -266,18 +266,19 @@ class Tachyon:
         return instance
 
     async def _resolve_callable_dependency(
-        self, dependency: Callable, cache: Dict
+        self, dependency: Callable, cache: Dict, request: Request
     ) -> Any:
         """
         Resolve a callable dependency (function, lambda, or class).
 
         This method calls the dependency function to get its value, supporting
         both sync and async functions. It also handles nested dependencies
-        if the callable has parameters with Depends().
+        if the callable has parameters with Depends() or Request annotations.
 
         Args:
             dependency: The callable to invoke
             cache: Per-request cache to avoid calling the same dependency twice
+            request: The current request object for injection
 
         Returns:
             The result of calling the dependency function
@@ -286,6 +287,7 @@ class Tachyon:
             - Results are cached per-request to avoid duplicate calls
             - Supports async callables (coroutines)
             - Supports nested Depends() in callable parameters
+            - Automatically injects Request when parameter is annotated with Request
         """
         # Check cache first (same callable = same result per request)
         if dependency in cache:
@@ -296,21 +298,25 @@ class Tachyon:
         nested_kwargs = {}
 
         for param in sig.parameters.values():
-            if isinstance(param.default, Depends):
+            # Inject Request object if parameter is annotated with Request
+            if param.annotation is Request:
+                nested_kwargs[param.name] = request
+            elif isinstance(param.default, Depends):
                 if param.default.dependency is not None:
                     # Nested callable dependency
                     nested_kwargs[param.name] = await self._resolve_callable_dependency(
-                        param.default.dependency, cache
+                        param.default.dependency, cache, request
                     )
                 else:
                     # Nested type-based dependency
                     nested_kwargs[param.name] = self._resolve_dependency(param.annotation)
 
         # Call the dependency (sync or async)
-        if asyncio.iscoroutinefunction(dependency):
-            result = await dependency(**nested_kwargs)
-        else:
-            result = dependency(**nested_kwargs)
+        # Note: asyncio.iscoroutinefunction doesn't work for async __call__ methods,
+        # so we check if the result is a coroutine
+        result = dependency(**nested_kwargs)
+        if asyncio.iscoroutine(result):
+            result = await result
 
         # Cache the result for this request
         cache[dependency] = result
@@ -398,7 +404,7 @@ class Tachyon:
                         if is_explicit_dependency and param.default.dependency is not None:
                             # Depends(callable) - call the factory function
                             resolved = await self._resolve_callable_dependency(
-                                param.default.dependency, dependency_cache
+                                param.default.dependency, dependency_cache, request
                             )
                             kwargs_to_inject[param.name] = resolved
                         else:
