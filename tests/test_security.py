@@ -11,10 +11,11 @@ from httpx import AsyncClient, ASGITransport
 # HTTPBearer Tests
 # =============================================================================
 
+
 @pytest.mark.asyncio
 async def test_http_bearer_valid_token():
     """HTTPBearer should extract Bearer token from Authorization header."""
-    from tachyon_api import Tachyon, Depends, HTTPException
+    from tachyon_api import Tachyon, Depends
     from tachyon_api.security import HTTPBearer, HTTPAuthorizationCredentials
 
     app = Tachyon()
@@ -28,8 +29,7 @@ async def test_http_bearer_valid_token():
         transport=ASGITransport(app=app), base_url="http://test"
     ) as client:
         response = await client.get(
-            "/protected",
-            headers={"Authorization": "Bearer my-secret-token"}
+            "/protected", headers={"Authorization": "Bearer my-secret-token"}
         )
         assert response.status_code == 200
         data = response.json()
@@ -74,8 +74,7 @@ async def test_http_bearer_invalid_scheme():
         transport=ASGITransport(app=app), base_url="http://test"
     ) as client:
         response = await client.get(
-            "/protected",
-            headers={"Authorization": "Basic dXNlcjpwYXNz"}
+            "/protected", headers={"Authorization": "Basic dXNlcjpwYXNz"}
         )
         assert response.status_code == 403
 
@@ -91,7 +90,9 @@ async def test_http_bearer_auto_error_false():
     security = HTTPBearer(auto_error=False)
 
     @app.get("/optional")
-    def optional_auth(credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)):
+    def optional_auth(
+        credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
+    ):
         if credentials is None:
             return {"authenticated": False}
         return {"authenticated": True, "token": credentials.credentials}
@@ -106,8 +107,7 @@ async def test_http_bearer_auto_error_false():
 
         # With token
         response = await client.get(
-            "/optional",
-            headers={"Authorization": "Bearer valid-token"}
+            "/optional", headers={"Authorization": "Bearer valid-token"}
         )
         assert response.status_code == 200
         data = response.json()
@@ -118,6 +118,7 @@ async def test_http_bearer_auto_error_false():
 # =============================================================================
 # HTTPBasic Tests
 # =============================================================================
+
 
 @pytest.mark.asyncio
 async def test_http_basic_valid_credentials():
@@ -139,8 +140,7 @@ async def test_http_basic_valid_credentials():
         # Encode "admin:secret123"
         encoded = base64.b64encode(b"admin:secret123").decode()
         response = await client.get(
-            "/basic",
-            headers={"Authorization": f"Basic {encoded}"}
+            "/basic", headers={"Authorization": f"Basic {encoded}"}
         )
         assert response.status_code == 200
         data = response.json()
@@ -174,6 +174,7 @@ async def test_http_basic_missing_header():
 # APIKey Tests
 # =============================================================================
 
+
 @pytest.mark.asyncio
 async def test_api_key_header():
     """APIKeyHeader should extract API key from header."""
@@ -190,10 +191,7 @@ async def test_api_key_header():
     async with AsyncClient(
         transport=ASGITransport(app=app), base_url="http://test"
     ) as client:
-        response = await client.get(
-            "/api",
-            headers={"X-API-Key": "my-api-key-123"}
-        )
+        response = await client.get("/api", headers={"X-API-Key": "my-api-key-123"})
         assert response.status_code == 200
         assert response.json() == {"api_key": "my-api-key-123"}
 
@@ -255,10 +253,7 @@ async def test_api_key_cookie():
     async with AsyncClient(
         transport=ASGITransport(app=app), base_url="http://test"
     ) as client:
-        response = await client.get(
-            "/api",
-            cookies={"session_token": "cookie-key-789"}
-        )
+        response = await client.get("/api", cookies={"session_token": "cookie-key-789"})
         assert response.status_code == 200
         assert response.json() == {"api_key": "cookie-key-789"}
 
@@ -266,6 +261,7 @@ async def test_api_key_cookie():
 # =============================================================================
 # OAuth2PasswordBearer Tests
 # =============================================================================
+
 
 @pytest.mark.asyncio
 async def test_oauth2_password_bearer():
@@ -284,8 +280,7 @@ async def test_oauth2_password_bearer():
         transport=ASGITransport(app=app), base_url="http://test"
     ) as client:
         response = await client.get(
-            "/users/me",
-            headers={"Authorization": "Bearer jwt-token-here"}
+            "/users/me", headers={"Authorization": "Bearer jwt-token-here"}
         )
         assert response.status_code == 200
         assert response.json() == {"token": "jwt-token-here"}

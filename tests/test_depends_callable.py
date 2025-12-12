@@ -19,6 +19,7 @@ from tachyon_api.params import Header
 
 # --- Test fixtures (functions to be used as dependencies) ---
 
+
 def get_db_connection():
     """Simulates getting a database connection."""
     return {"type": "postgres", "connected": True}
@@ -41,6 +42,7 @@ def get_settings():
 
 # --- Tests ---
 
+
 @pytest.mark.asyncio
 async def test_depends_with_sync_function():
     """
@@ -49,7 +51,7 @@ async def test_depends_with_sync_function():
     app = Tachyon()
 
     @app.get("/db")
-    def check_db(db = Depends(get_db_connection)):
+    def check_db(db=Depends(get_db_connection)):
         return {"db_type": db["type"], "connected": db["connected"]}
 
     transport = ASGITransport(app=app)
@@ -70,7 +72,7 @@ async def test_depends_with_async_function():
     app = Tachyon()
 
     @app.get("/service")
-    async def check_service(svc = Depends(get_async_service)):
+    async def check_service(svc=Depends(get_async_service)):
         return {"service": svc["service"], "ready": svc["ready"]}
 
     transport = ASGITransport(app=app)
@@ -91,7 +93,7 @@ async def test_depends_with_lambda():
     app = Tachyon()
 
     @app.get("/config")
-    def get_config(config = Depends(lambda: {"env": "test", "port": 8000})):
+    def get_config(config=Depends(lambda: {"env": "test", "port": 8000})):
         return config
 
     transport = ASGITransport(app=app)
@@ -113,9 +115,9 @@ async def test_depends_multiple_callables():
 
     @app.get("/status")
     def get_status(
-        db = Depends(get_db_connection),
-        user = Depends(get_current_user),
-        settings = Depends(get_settings),
+        db=Depends(get_db_connection),
+        user=Depends(get_current_user),
+        settings=Depends(get_settings),
     ):
         return {
             "db_connected": db["connected"],
@@ -147,7 +149,7 @@ async def test_depends_callable_with_other_params():
     def search(
         q: str = Query(...),
         authorization: str = Header("anonymous"),
-        user = Depends(get_current_user),
+        user=Depends(get_current_user),
     ):
         return {
             "query": q,
@@ -158,8 +160,7 @@ async def test_depends_callable_with_other_params():
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://testserver") as client:
         response = await client.get(
-            "/search?q=tachyon",
-            headers={"Authorization": "Bearer token"}
+            "/search?q=tachyon", headers={"Authorization": "Bearer token"}
         )
 
     assert response.status_code == 200
@@ -179,11 +180,11 @@ async def test_depends_nested_callables():
     def get_db():
         return {"connection": "active"}
 
-    def get_user_repo(db = Depends(get_db)):
+    def get_user_repo(db=Depends(get_db)):
         return {"repo": "users", "db": db}
 
     @app.get("/repo")
-    def check_repo(repo = Depends(get_user_repo)):
+    def check_repo(repo=Depends(get_user_repo)):
         return {
             "repo_name": repo["repo"],
             "db_status": repo["db"]["connection"],
@@ -215,8 +216,8 @@ async def test_depends_callable_caching():
 
     @app.get("/count")
     def get_count(
-        dep1 = Depends(counted_dependency),
-        dep2 = Depends(counted_dependency),
+        dep1=Depends(counted_dependency),
+        dep2=Depends(counted_dependency),
     ):
         # Both should receive the same instance (cached)
         return {"dep1": dep1["count"], "dep2": dep2["count"]}

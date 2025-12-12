@@ -11,6 +11,7 @@ from httpx import AsyncClient, ASGITransport
 # HTTPException Tests
 # =============================================================================
 
+
 @pytest.mark.asyncio
 async def test_http_exception_basic():
     """HTTPException should return correct status and detail."""
@@ -80,7 +81,7 @@ async def test_http_exception_with_headers():
         raise HTTPException(
             status_code=401,
             detail="Authentication required",
-            headers={"WWW-Authenticate": "Bearer"}
+            headers={"WWW-Authenticate": "Bearer"},
         )
 
     async with AsyncClient(
@@ -115,6 +116,7 @@ async def test_http_exception_500_server_error():
 # Custom Exception Handler Tests
 # =============================================================================
 
+
 @pytest.mark.asyncio
 async def test_custom_exception_handler_decorator():
     """@app.exception_handler should register custom handler."""
@@ -129,10 +131,8 @@ async def test_custom_exception_handler_decorator():
     @app.exception_handler(CustomError)
     async def handle_custom_error(request, exc):
         from tachyon_api.responses import JSONResponse
-        return JSONResponse(
-            status_code=418,
-            content={"custom_error": exc.message}
-        )
+
+        return JSONResponse(status_code=418, content={"custom_error": exc.message})
 
     @app.get("/custom")
     def raise_custom():
@@ -159,10 +159,7 @@ async def test_custom_exception_handler_sync():
 
     @app.exception_handler(ValidationError)
     def handle_validation(request, exc):
-        return JSONResponse(
-            status_code=400,
-            content={"error": "Validation failed"}
-        )
+        return JSONResponse(status_code=400, content={"error": "Validation failed"})
 
     @app.get("/validate")
     def validate():
@@ -189,10 +186,7 @@ async def test_exception_handler_receives_request():
 
     @app.exception_handler(PathError)
     async def handle_path_error(request, exc):
-        return JSONResponse(
-            status_code=500,
-            content={"path": str(request.url.path)}
-        )
+        return JSONResponse(status_code=500, content={"path": str(request.url.path)})
 
     @app.get("/test-path")
     def test_path():
@@ -259,8 +253,7 @@ async def test_override_http_exception_handler():
     @app.exception_handler(HTTPException)
     async def custom_http_handler(request, exc):
         return JSONResponse(
-            status_code=exc.status_code,
-            content={"error": exc.detail, "custom": True}
+            status_code=exc.status_code, content={"error": exc.detail, "custom": True}
         )
 
     @app.get("/not-found")

@@ -12,7 +12,6 @@ Features to test:
 
 import pytest
 from httpx import AsyncClient, ASGITransport
-import io
 
 from tachyon_api import Tachyon
 from tachyon_api.params import Form, File
@@ -20,6 +19,7 @@ from tachyon_api.files import UploadFile
 
 
 # --- Test Form() parameter ---
+
 
 @pytest.mark.asyncio
 async def test_form_required_parameter():
@@ -35,8 +35,7 @@ async def test_form_required_parameter():
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://testserver") as client:
         response = await client.post(
-            "/login",
-            data={"username": "john", "password": "secret123"}
+            "/login", data={"username": "john", "password": "secret123"}
         )
 
     assert response.status_code == 200
@@ -89,6 +88,7 @@ async def test_form_optional_with_default():
 
 
 # --- Test File() and UploadFile ---
+
 
 @pytest.mark.asyncio
 async def test_file_upload_basic():

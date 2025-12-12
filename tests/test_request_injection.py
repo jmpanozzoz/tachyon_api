@@ -78,8 +78,7 @@ async def test_request_injection_access_headers():
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://testserver") as client:
         response = await client.get(
-            "/headers",
-            headers={"X-Custom-Header": "test-value"}
+            "/headers", headers={"X-Custom-Header": "test-value"}
         )
 
     assert response.status_code == 200
@@ -134,10 +133,7 @@ async def test_request_injection_in_post_with_body():
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://testserver") as client:
-        response = await client.post(
-            "/items",
-            json={"name": "Test Item"}
-        )
+        response = await client.post("/items", json={"name": "Test Item"})
 
     assert response.status_code == 200
     data = response.json()

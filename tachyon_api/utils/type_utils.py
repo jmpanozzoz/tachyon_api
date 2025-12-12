@@ -112,7 +112,9 @@ class TypeUtils:
             >>> TypeUtils.get_type_name(str)
             'string'
         """
-        return OPENAPI_TYPE_MAP.get(python_type, getattr(python_type, "__name__", str(python_type)))
+        return OPENAPI_TYPE_MAP.get(
+            python_type, getattr(python_type, "__name__", str(python_type))
+        )
 
     @staticmethod
     def get_openapi_type(python_type: Type) -> str:

@@ -62,7 +62,9 @@ class HTTPBearer:
     def __init__(self, auto_error: bool = True):
         self.auto_error = auto_error
 
-    async def __call__(self, request: Request) -> Optional[HTTPAuthorizationCredentials]:
+    async def __call__(
+        self, request: Request
+    ) -> Optional[HTTPAuthorizationCredentials]:
         authorization = request.headers.get("Authorization")
 
         if not authorization:
@@ -73,14 +75,18 @@ class HTTPBearer:
         parts = authorization.split()
         if len(parts) != 2:
             if self.auto_error:
-                raise HTTPException(status_code=403, detail="Invalid authorization header")
+                raise HTTPException(
+                    status_code=403, detail="Invalid authorization header"
+                )
             return None
 
         scheme, credentials = parts
 
         if scheme.lower() != "bearer":
             if self.auto_error:
-                raise HTTPException(status_code=403, detail="Invalid authentication scheme")
+                raise HTTPException(
+                    status_code=403, detail="Invalid authentication scheme"
+                )
             return None
 
         return HTTPAuthorizationCredentials(scheme=scheme, credentials=credentials)
@@ -119,7 +125,7 @@ class HTTPBasic:
                 raise HTTPException(
                     status_code=401,
                     detail="Not authenticated",
-                    headers={"WWW-Authenticate": f'Basic realm="{self.realm}"'}
+                    headers={"WWW-Authenticate": f'Basic realm="{self.realm}"'},
                 )
             return None
 
@@ -129,7 +135,7 @@ class HTTPBasic:
                 raise HTTPException(
                     status_code=401,
                     detail="Invalid authentication credentials",
-                    headers={"WWW-Authenticate": f'Basic realm="{self.realm}"'}
+                    headers={"WWW-Authenticate": f'Basic realm="{self.realm}"'},
                 )
             return None
 
@@ -142,7 +148,7 @@ class HTTPBasic:
                 raise HTTPException(
                     status_code=401,
                     detail="Invalid authentication credentials",
-                    headers={"WWW-Authenticate": f'Basic realm="{self.realm}"'}
+                    headers={"WWW-Authenticate": f'Basic realm="{self.realm}"'},
                 )
             return None
 
@@ -272,7 +278,7 @@ class OAuth2PasswordBearer:
                 raise HTTPException(
                     status_code=401,
                     detail="Not authenticated",
-                    headers={"WWW-Authenticate": "Bearer"}
+                    headers={"WWW-Authenticate": "Bearer"},
                 )
             return None
 
@@ -282,7 +288,7 @@ class OAuth2PasswordBearer:
                 raise HTTPException(
                     status_code=401,
                     detail="Invalid authentication credentials",
-                    headers={"WWW-Authenticate": "Bearer"}
+                    headers={"WWW-Authenticate": "Bearer"},
                 )
             return None
 

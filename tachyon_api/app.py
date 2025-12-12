@@ -28,7 +28,6 @@ from .openapi import (
     create_openapi_config,
 )
 from .params import Body, Query, Path, Header, Cookie, Form, File
-from .files import UploadFile
 from .exceptions import HTTPException
 from .background import BackgroundTasks
 from .middlewares.core import (
@@ -180,14 +179,18 @@ class Tachyon:
             def on_shutdown():
                 print('Shutting down...')
         """
+
         def decorator(func: Callable):
             if event_type == "startup":
                 self._startup_handlers.append(func)
             elif event_type == "shutdown":
                 self._shutdown_handlers.append(func)
             else:
-                raise ValueError(f"Invalid event type: {event_type}. Use 'startup' or 'shutdown'.")
+                raise ValueError(
+                    f"Invalid event type: {event_type}. Use 'startup' or 'shutdown'."
+                )
             return func
+
         return decorator
 
     def exception_handler(self, exc_class: Type[Exception]):
@@ -215,9 +218,11 @@ class Tachyon:
                     content={"error": exc.detail, "custom": True}
                 )
         """
+
         def decorator(func: Callable):
             self._exception_handlers[exc_class] = func
             return func
+
         return decorator
 
     def websocket(self, path: str):
@@ -244,9 +249,11 @@ class Tachyon:
                 await websocket.send_text(f"Welcome to {room_id}")
                 await websocket.close()
         """
+
         def decorator(func: Callable):
             self._add_websocket_route(path, func)
             return func
+
         return decorator
 
     def _add_websocket_route(self, path: str, endpoint_func: Callable):
@@ -257,6 +264,7 @@ class Tachyon:
             path: URL path pattern (supports path parameters)
             endpoint_func: The async WebSocket handler function
         """
+
         async def websocket_handler(websocket: WebSocket):
             # Extract path parameters
             path_params = websocket.path_params
@@ -393,7 +401,9 @@ class Tachyon:
                     )
                 else:
                     # Nested type-based dependency
-                    nested_kwargs[param.name] = self._resolve_dependency(param.annotation)
+                    nested_kwargs[param.name] = self._resolve_dependency(
+                        param.annotation
+                    )
 
         # Call the dependency (sync or async)
         # Note: asyncio.iscoroutinefunction doesn't work for async __call__ methods,
@@ -494,7 +504,10 @@ class Tachyon:
 
                     # Process dependencies (explicit and implicit)
                     if is_explicit_dependency or is_implicit_dependency:
-                        if is_explicit_dependency and param.default.dependency is not None:
+                        if (
+                            is_explicit_dependency
+                            and param.default.dependency is not None
+                        ):
                             # Depends(callable) - call the factory function
                             resolved = await self._resolve_callable_dependency(
                                 param.default.dependency, dependency_cache, request
@@ -684,7 +697,7 @@ class Tachyon:
                         if field_name in _form_data:
                             uploaded_file = _form_data[field_name]
                             # Check if it's actually a file (UploadFile)
-                            if hasattr(uploaded_file, 'filename'):
+                            if hasattr(uploaded_file, "filename"):
                                 kwargs_to_inject[param.name] = uploaded_file
                             elif file_info.default is not ...:
                                 kwargs_to_inject[param.name] = file_info.default
@@ -826,8 +839,7 @@ class Tachyon:
                         return handler(request, exc)
                 # Default HTTPException handling
                 response = JSONResponse(
-                    {"detail": exc.detail},
-                    status_code=exc.status_code
+                    {"detail": exc.detail}, status_code=exc.status_code
                 )
                 if exc.headers:
                     for key, value in exc.headers.items():

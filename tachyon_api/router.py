@@ -124,6 +124,7 @@ class Router:
                 await websocket.send_text("Hello from router!")
                 await websocket.close()
         """
+
         def decorator(endpoint_func: Callable):
             route_info = {
                 "path": path,
@@ -133,6 +134,7 @@ class Router:
             }
             self.routes.append(route_info)
             return endpoint_func
+
         return decorator
 
     def get_full_path(self, path: str) -> str:

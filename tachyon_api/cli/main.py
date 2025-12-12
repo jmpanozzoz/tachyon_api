@@ -22,7 +22,11 @@ app = typer.Typer(
 )
 
 # Register sub-commands
-app.add_typer(generate.app, name="generate", help="Generate components (service, controller, etc.)")
+app.add_typer(
+    generate.app,
+    name="generate",
+    help="Generate components (service, controller, etc.)",
+)
 app.add_typer(generate.app, name="g", help="Alias for 'generate'", hidden=True)
 app.add_typer(openapi.app, name="openapi", help="OpenAPI schema utilities")
 app.add_typer(lint.app, name="lint", help="Code quality tools (ruff wrapper)")
@@ -32,18 +36,21 @@ app.add_typer(lint.app, name="lint", help="Code quality tools (ruff wrapper)")
 def new(
     name: str = typer.Argument(..., help="Project name"),
     path: Optional[Path] = typer.Option(
-        None, "--path", "-p",
-        help="Parent directory for the project (default: current directory)"
+        None,
+        "--path",
+        "-p",
+        help="Parent directory for the project (default: current directory)",
     ),
 ):
     """
     🏗️  Create a new Tachyon project with clean architecture.
-    
+
     Example:
         tachyon new my-api
         tachyon new my-api --path ./projects
     """
     from .commands.new import create_project
+
     create_project(name, path)
 
 

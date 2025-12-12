@@ -72,7 +72,7 @@ class Settings:
 settings = Settings()
 '''
 
-    REQUIREMENTS = '''# Tachyon API Framework
+    REQUIREMENTS = """# Tachyon API Framework
 tachyon-api>=0.6.0
 
 # Server
@@ -83,7 +83,7 @@ pytest>=8.0.0
 pytest-asyncio>=0.23.0
 httpx>=0.27.0
 ruff>=0.4.0
-'''
+"""
 
     MODULES_INIT = '''"""
 Application modules.

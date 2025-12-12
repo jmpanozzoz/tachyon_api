@@ -12,7 +12,6 @@ Note: We use Starlette's TestClient because httpx.ASGITransport
 doesn't execute lifespan events by default.
 """
 
-import pytest
 from starlette.testclient import TestClient
 from contextlib import asynccontextmanager
 
@@ -20,6 +19,7 @@ from tachyon_api import Tachyon
 
 
 # --- Test with lifespan context manager ---
+
 
 def test_lifespan_startup_and_shutdown():
     """
@@ -44,7 +44,7 @@ def test_lifespan_startup_and_shutdown():
     with TestClient(app) as client:
         # At this point, startup should have run
         assert "startup" in events
-        
+
         response = client.get("/check")
         assert response.status_code == 200
 
@@ -57,6 +57,7 @@ def test_lifespan_with_app_state():
     """
     Test that lifespan can set up app state that endpoints can access.
     """
+
     @asynccontextmanager
     async def lifespan(app):
         # Simulate database connection on startup
@@ -78,6 +79,7 @@ def test_lifespan_with_app_state():
 
 
 # --- Test with on_event decorators ---
+
 
 def test_on_event_startup():
     """

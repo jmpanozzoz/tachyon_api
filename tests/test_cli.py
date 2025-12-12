@@ -2,9 +2,7 @@
 Tests for Tachyon CLI.
 """
 
-import pytest
 import tempfile
-import shutil
 from pathlib import Path
 from typer.testing import CliRunner
 
@@ -20,17 +18,17 @@ class TestNewCommand:
         """Should create complete project structure."""
         with tempfile.TemporaryDirectory() as tmpdir:
             result = runner.invoke(app, ["new", "my-api", "--path", tmpdir])
-            
+
             assert result.exit_code == 0
             assert "Creating Tachyon project" in result.stdout
-            
+
             project_path = Path(tmpdir) / "my-api"
-            
+
             # Check directories
             assert (project_path / "modules").exists()
             assert (project_path / "shared").exists()
             assert (project_path / "tests").exists()
-            
+
             # Check files
             assert (project_path / "app.py").exists()
             assert (project_path / "config.py").exists()
@@ -44,10 +42,10 @@ class TestNewCommand:
         with tempfile.TemporaryDirectory() as tmpdir:
             # Create project once
             runner.invoke(app, ["new", "existing", "--path", tmpdir])
-            
+
             # Try to create again
             result = runner.invoke(app, ["new", "existing", "--path", tmpdir])
-            
+
             assert result.exit_code == 1
             assert "already exists" in result.stdout
 
@@ -60,17 +58,16 @@ class TestGenerateCommand:
         with tempfile.TemporaryDirectory() as tmpdir:
             modules_path = Path(tmpdir) / "modules"
             modules_path.mkdir()
-            
+
             result = runner.invoke(
-                app, 
-                ["generate", "service", "auth", "--path", str(modules_path)]
+                app, ["generate", "service", "auth", "--path", str(modules_path)]
             )
-            
+
             assert result.exit_code == 0
             assert "Generating service" in result.stdout
-            
+
             service_path = modules_path / "auth"
-            
+
             # Check all files created
             assert (service_path / "__init__.py").exists()
             assert (service_path / "auth_controller.py").exists()
@@ -84,17 +81,24 @@ class TestGenerateCommand:
         with tempfile.TemporaryDirectory() as tmpdir:
             modules_path = Path(tmpdir) / "modules"
             modules_path.mkdir()
-            
+
             result = runner.invoke(
                 app,
-                ["generate", "service", "products", "--path", str(modules_path), "--crud"]
+                [
+                    "generate",
+                    "service",
+                    "products",
+                    "--path",
+                    str(modules_path),
+                    "--crud",
+                ],
             )
-            
+
             assert result.exit_code == 0
-            
+
             controller_path = modules_path / "products" / "products_controller.py"
             content = controller_path.read_text()
-            
+
             # Should have CRUD endpoints
             assert "def list_products" in content
             assert "def get_product" in content
@@ -107,14 +111,21 @@ class TestGenerateCommand:
         with tempfile.TemporaryDirectory() as tmpdir:
             modules_path = Path(tmpdir) / "modules"
             modules_path.mkdir()
-            
+
             result = runner.invoke(
                 app,
-                ["generate", "service", "users", "--path", str(modules_path), "--no-tests"]
+                [
+                    "generate",
+                    "service",
+                    "users",
+                    "--path",
+                    str(modules_path),
+                    "--no-tests",
+                ],
             )
-            
+
             assert result.exit_code == 0
-            
+
             service_path = modules_path / "users"
             assert (service_path / "users_controller.py").exists()
             assert not (service_path / "tests" / "test_users_service.py").exists()
@@ -123,10 +134,9 @@ class TestGenerateCommand:
         """Should generate only controller."""
         with tempfile.TemporaryDirectory() as tmpdir:
             result = runner.invoke(
-                app,
-                ["generate", "controller", "items", "--path", tmpdir]
+                app, ["generate", "controller", "items", "--path", tmpdir]
             )
-            
+
             assert result.exit_code == 0
             assert (Path(tmpdir) / "items_controller.py").exists()
 
@@ -134,21 +144,17 @@ class TestGenerateCommand:
         """Should generate only repository."""
         with tempfile.TemporaryDirectory() as tmpdir:
             result = runner.invoke(
-                app,
-                ["generate", "repository", "items", "--path", tmpdir]
+                app, ["generate", "repository", "items", "--path", tmpdir]
             )
-            
+
             assert result.exit_code == 0
             assert (Path(tmpdir) / "items_repository.py").exists()
 
     def test_generate_dto_only(self):
         """Should generate only DTO."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            result = runner.invoke(
-                app,
-                ["generate", "dto", "items", "--path", tmpdir]
-            )
-            
+            result = runner.invoke(app, ["generate", "dto", "items", "--path", tmpdir])
+
             assert result.exit_code == 0
             assert (Path(tmpdir) / "items_dto.py").exists()
 
@@ -157,14 +163,14 @@ class TestGenerateCommand:
         with tempfile.TemporaryDirectory() as tmpdir:
             modules_path = Path(tmpdir) / "modules"
             modules_path.mkdir()
-            
+
             result = runner.invoke(
                 app,
-                ["generate", "service", "user-profile", "--path", str(modules_path)]
+                ["generate", "service", "user-profile", "--path", str(modules_path)],
             )
-            
+
             assert result.exit_code == 0
-            
+
             # Should use snake_case
             service_path = modules_path / "user_profile"
             assert service_path.exists()
@@ -177,7 +183,7 @@ class TestVersionCommand:
     def test_version_shows_version(self):
         """Should display version."""
         result = runner.invoke(app, ["version"])
-        
+
         assert result.exit_code == 0
         assert "Tachyon" in result.stdout
 
@@ -191,9 +197,9 @@ class TestLintCommand:
             # Create a simple Python file
             test_file = Path(tmpdir) / "test.py"
             test_file.write_text("x = 1\n")
-            
+
             result = runner.invoke(app, ["lint", "check", tmpdir])
-            
+
             # Exit code depends on whether ruff is installed and file issues
             # We just check it runs without crashing
             assert result.exit_code in [0, 1]
@@ -205,31 +211,31 @@ class TestOpenAPICommand:
     def test_openapi_validate_valid_schema(self):
         """Should validate a correct OpenAPI schema."""
         import json
-        
+
         with tempfile.TemporaryDirectory() as tmpdir:
             schema_path = Path(tmpdir) / "openapi.json"
             schema = {
                 "openapi": "3.0.0",
                 "info": {"title": "Test API", "version": "1.0.0"},
-                "paths": {}
+                "paths": {},
             }
             schema_path.write_text(json.dumps(schema))
-            
+
             result = runner.invoke(app, ["openapi", "validate", str(schema_path)])
-            
+
             assert result.exit_code == 0
             assert "valid" in result.stdout.lower()
 
     def test_openapi_validate_invalid_schema(self):
         """Should reject invalid schema."""
         import json
-        
+
         with tempfile.TemporaryDirectory() as tmpdir:
             schema_path = Path(tmpdir) / "openapi.json"
             schema = {"invalid": "schema"}
             schema_path.write_text(json.dumps(schema))
-            
+
             result = runner.invoke(app, ["openapi", "validate", str(schema_path)])
-            
+
             assert result.exit_code == 1
             assert "missing" in result.stdout.lower()

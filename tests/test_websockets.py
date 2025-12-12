@@ -3,13 +3,13 @@ Tests for WebSocket support (TDD).
 Release 0.7.0 - WebSockets
 """
 
-import pytest
 from starlette.testclient import TestClient
 
 
 # =============================================================================
 # WebSocket Decorator Tests
 # =============================================================================
+
 
 class TestWebSocketDecorator:
     """Tests for @app.websocket decorator."""
@@ -133,6 +133,7 @@ class TestWebSocketDecorator:
 # WebSocket in Router Tests
 # =============================================================================
 
+
 class TestWebSocketRouter:
     """Tests for WebSocket routes in Router."""
 
@@ -186,6 +187,7 @@ class TestWebSocketRouter:
 # =============================================================================
 # WebSocket Error Handling Tests
 # =============================================================================
+
 
 class TestWebSocketErrors:
     """Tests for WebSocket error scenarios."""

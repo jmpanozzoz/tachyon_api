@@ -11,6 +11,7 @@ from httpx import AsyncClient, ASGITransport
 # BackgroundTasks Tests
 # =============================================================================
 
+
 @pytest.mark.asyncio
 async def test_background_task_basic():
     """BackgroundTasks should run tasks after response is sent."""
@@ -116,10 +117,7 @@ async def test_background_task_with_kwargs():
     @app.get("/email")
     def email_task(background_tasks: BackgroundTasks):
         background_tasks.add_task(
-            send_email,
-            to="user@example.com",
-            subject="Hello",
-            body="World"
+            send_email, to="user@example.com", subject="Hello", body="World"
         )
         return {"sent": True}
 
@@ -149,7 +147,7 @@ async def test_background_task_with_other_params():
     def action_endpoint(
         action: str = Query(...),
         user: str = Query("anonymous"),
-        background_tasks: BackgroundTasks = None
+        background_tasks: BackgroundTasks = None,
     ):
         if background_tasks:
             background_tasks.add_task(log_action, action, user)

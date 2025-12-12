@@ -109,10 +109,10 @@ async def test_cookie_openapi_schema():
 
     assert response.status_code == 200
     schema = response.json()
-    
+
     path_info = schema["paths"].get("/check", {}).get("get", {})
     params = path_info.get("parameters", [])
-    
+
     session_param = next((p for p in params if p["name"] == "session"), None)
     assert session_param is not None
     assert session_param["in"] == "cookie"

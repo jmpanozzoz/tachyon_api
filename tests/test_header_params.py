@@ -25,8 +25,7 @@ async def test_header_required_parameter():
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://testserver") as client:
         response = await client.get(
-            "/protected",
-            headers={"Authorization": "Bearer token123"}
+            "/protected", headers={"Authorization": "Bearer token123"}
         )
 
     assert response.status_code == 200
@@ -166,7 +165,7 @@ async def test_multiple_headers():
                 "Authorization": "Bearer xyz",
                 "X-Request-Id": "req-456",
                 "Accept-Language": "es",
-            }
+            },
         )
 
     assert response.status_code == 200
@@ -193,11 +192,11 @@ async def test_header_openapi_schema():
 
     assert response.status_code == 200
     schema = response.json()
-    
+
     # Check that the path exists and has parameters
     path_info = schema["paths"].get("/secure", {}).get("get", {})
     params = path_info.get("parameters", [])
-    
+
     # Find the authorization header parameter
     auth_param = next((p for p in params if p["name"] == "authorization"), None)
     assert auth_param is not None

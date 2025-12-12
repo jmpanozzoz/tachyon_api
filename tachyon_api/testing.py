@@ -4,7 +4,7 @@ Tachyon Testing Utilities
 Provides test clients and utilities for testing Tachyon applications.
 """
 
-from typing import Any, Dict, Optional
+from typing import Optional
 from starlette.testclient import TestClient
 from httpx import AsyncClient, ASGITransport
 
@@ -40,7 +40,7 @@ class TachyonTestClient(TestClient):
         app,
         base_url: str = "http://test",
         raise_server_exceptions: bool = True,
-        **kwargs
+        **kwargs,
     ):
         """
         Initialize the test client.
@@ -55,7 +55,7 @@ class TachyonTestClient(TestClient):
             app,
             base_url=base_url,
             raise_server_exceptions=raise_server_exceptions,
-            **kwargs
+            **kwargs,
         )
 
 
@@ -81,12 +81,7 @@ class AsyncTachyonTestClient:
                 assert response.status_code == 200
     """
 
-    def __init__(
-        self,
-        app,
-        base_url: str = "http://test",
-        **kwargs
-    ):
+    def __init__(self, app, base_url: str = "http://test", **kwargs):
         """
         Initialize the async test client.
 
@@ -105,7 +100,7 @@ class AsyncTachyonTestClient:
         self._client = AsyncClient(
             transport=ASGITransport(app=self._app),
             base_url=self._base_url,
-            **self._kwargs
+            **self._kwargs,
         )
         return self._client
 
