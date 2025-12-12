@@ -28,6 +28,7 @@ from .openapi import (
 )
 from .params import Body, Query, Path, Header, Cookie, Form, File
 from .files import UploadFile
+from .exceptions import HTTPException
 from .middlewares.core import (
     apply_middleware_to_router,
     create_decorated_middleware_class,
@@ -83,6 +84,9 @@ class Tachyon:
         self._user_lifespan = lifespan
         self._startup_handlers: List[Callable] = []
         self._shutdown_handlers: List[Callable] = []
+
+        # Exception handlers registry (exception_type -> handler_function)
+        self._exception_handlers: Dict[Type[Exception], Callable] = {}
 
         # Create combined lifespan that handles both custom lifespan and on_event handlers
         self._router = Starlette(lifespan=self._create_combined_lifespan())
@@ -178,6 +182,36 @@ class Tachyon:
                 self._shutdown_handlers.append(func)
             else:
                 raise ValueError(f"Invalid event type: {event_type}. Use 'startup' or 'shutdown'.")
+            return func
+        return decorator
+
+    def exception_handler(self, exc_class: Type[Exception]):
+        """
+        Decorator to register a custom exception handler.
+
+        Args:
+            exc_class: The exception class to handle
+
+        Returns:
+            A decorator that registers the handler function
+
+        Example:
+            @app.exception_handler(ValueError)
+            async def handle_value_error(request, exc):
+                return JSONResponse(
+                    status_code=400,
+                    content={"error": str(exc)}
+                )
+
+            @app.exception_handler(HTTPException)
+            async def custom_http_handler(request, exc):
+                return JSONResponse(
+                    status_code=exc.status_code,
+                    content={"error": exc.detail, "custom": True}
+                )
+        """
+        def decorator(func: Callable):
+            self._exception_handlers[exc_class] = func
             return func
         return decorator
 
@@ -678,7 +712,33 @@ class Tachyon:
                             payload[key] = msgspec.to_builtins(value)
 
                 return TachyonJSONResponse(payload)
-            except Exception:
+
+            except HTTPException as exc:
+                # Handle HTTPException - check for custom handler first
+                handler = self._exception_handlers.get(HTTPException)
+                if handler is not None:
+                    if asyncio.iscoroutinefunction(handler):
+                        return await handler(request, exc)
+                    else:
+                        return handler(request, exc)
+                # Default HTTPException handling
+                response = JSONResponse(
+                    {"detail": exc.detail},
+                    status_code=exc.status_code
+                )
+                if exc.headers:
+                    for key, value in exc.headers.items():
+                        response.headers[key] = value
+                return response
+
+            except Exception as exc:
+                # Check for custom exception handler
+                for exc_class, handler in self._exception_handlers.items():
+                    if isinstance(exc, exc_class):
+                        if asyncio.iscoroutinefunction(handler):
+                            return await handler(request, exc)
+                        else:
+                            return handler(request, exc)
                 # Fallback: prevent unhandled exceptions from leaking to the client
                 return internal_server_error_response()
 

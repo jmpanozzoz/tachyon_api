@@ -18,6 +18,7 @@ from .models import Struct
 from .params import Query, Body, Path, Header, Cookie, Form, File
 from .files import UploadFile
 from .di import injectable, Depends
+from .exceptions import HTTPException
 from .router import Router
 from .cache import (
     cache,
@@ -44,6 +45,7 @@ __all__ = [
     "UploadFile",
     "injectable",
     "Depends",
+    "HTTPException",
     "Router",
     "cache",
     "CacheConfig",
