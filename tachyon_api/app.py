@@ -29,6 +29,7 @@ from .openapi import (
 from .params import Body, Query, Path, Header, Cookie, Form, File
 from .files import UploadFile
 from .exceptions import HTTPException
+from .background import BackgroundTasks
 from .middlewares.core import (
     apply_middleware_to_router,
     create_decorated_middleware_class,
@@ -383,6 +384,8 @@ class Tachyon:
                 _form_data = None  # Lazy-loaded form data for Form/File params
                 # Cache for callable dependencies (same callable = same result per request)
                 dependency_cache = {}
+                # Background tasks instance (created on demand)
+                _background_tasks = None
 
                 # Process each parameter in the endpoint function signature
                 for param in sig.parameters.values():
@@ -390,6 +393,13 @@ class Tachyon:
                     # This allows endpoints to receive the raw Starlette Request
                     if param.annotation is Request:
                         kwargs_to_inject[param.name] = request
+                        continue
+
+                    # Check for BackgroundTasks injection
+                    if param.annotation is BackgroundTasks:
+                        if _background_tasks is None:
+                            _background_tasks = BackgroundTasks()
+                        kwargs_to_inject[param.name] = _background_tasks
                         continue
 
                     # Determine if this parameter is a dependency
@@ -696,6 +706,10 @@ class Tachyon:
                     payload = await endpoint_func(**kwargs_to_inject)
                 else:
                     payload = endpoint_func(**kwargs_to_inject)
+
+                # Run background tasks if any were registered
+                if _background_tasks is not None:
+                    await _background_tasks.run_tasks()
 
                 # If the endpoint already returned a Response object, return it directly
                 if isinstance(payload, Response):
