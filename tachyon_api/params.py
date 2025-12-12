@@ -175,3 +175,94 @@ class Cookie:
         self.default = default
         self.alias = alias
         self.description = description
+
+
+class Form:
+    """
+    Marker class for form data parameters.
+
+    Use this to define parameters that should be extracted from
+    application/x-www-form-urlencoded or multipart/form-data request bodies.
+
+    Args:
+        default: Default value if field is not provided. Use ... for required fields.
+        alias: Optional custom field name.
+        description: Optional description for OpenAPI documentation.
+
+    Example:
+        @app.post("/login")
+        async def login(
+            username: str = Form(...),
+            password: str = Form(...),
+        ):
+            return {"username": username}
+
+    Note:
+        - Missing required form fields return 422 Unprocessable Entity
+        - Works with multipart/form-data for file uploads
+    """
+
+    def __init__(
+        self,
+        default: Any = ...,
+        alias: Optional[str] = None,
+        description: Optional[str] = None,
+    ):
+        """
+        Initialize a Form parameter marker.
+
+        Args:
+            default: Default value for the field. Use ... (Ellipsis) for required.
+            alias: Optional custom field name to use instead of parameter name.
+            description: Optional description for API documentation.
+        """
+        self.default = default
+        self.alias = alias
+        self.description = description
+
+
+class File:
+    """
+    Marker class for file upload parameters.
+
+    Use this to define parameters that should be extracted from
+    multipart/form-data file uploads. The parameter type should be UploadFile.
+
+    Args:
+        default: Default value if file is not provided. Use ... for required files,
+                 None for optional files.
+        description: Optional description for OpenAPI documentation.
+
+    Example:
+        from tachyon_api.files import UploadFile
+
+        @app.post("/upload")
+        async def upload(file: UploadFile = File(...)):
+            content = await file.read()
+            return {"filename": file.filename, "size": len(content)}
+
+        @app.post("/optional-upload")
+        async def optional(file: UploadFile = File(None)):
+            if file is None:
+                return {"uploaded": False}
+            return {"uploaded": True, "filename": file.filename}
+
+    Note:
+        - Missing required files return 422 Unprocessable Entity
+        - Use UploadFile type annotation for file parameters
+    """
+
+    def __init__(
+        self,
+        default: Any = ...,
+        description: Optional[str] = None,
+    ):
+        """
+        Initialize a File parameter marker.
+
+        Args:
+            default: Default value. Use ... for required, None for optional.
+            description: Optional description for API documentation.
+        """
+        self.default = default
+        self.description = description

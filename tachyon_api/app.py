@@ -26,7 +26,8 @@ from .openapi import (
     OpenAPIConfig,
     create_openapi_config,
 )
-from .params import Body, Query, Path, Header, Cookie
+from .params import Body, Query, Path, Header, Cookie, Form, File
+from .files import UploadFile
 from .middlewares.core import (
     apply_middleware_to_router,
     create_decorated_middleware_class,
@@ -339,6 +340,7 @@ class Tachyon:
                 query_params = request.query_params
                 path_params = request.path_params
                 _raw_body = None
+                _form_data = None  # Lazy-loaded form data for Form/File params
                 # Cache for callable dependencies (same callable = same result per request)
                 dependency_cache = {}
 
@@ -517,6 +519,51 @@ class Tachyon:
                         else:
                             return validation_error_response(
                                 f"Missing required cookie: {cookie_name}"
+                            )
+
+                    # Process Form parameters (form data)
+                    elif isinstance(param.default, Form):
+                        # Parse form data if not already done
+                        if _form_data is None:
+                            _form_data = await request.form()
+
+                        form_info = param.default
+                        field_name = form_info.alias or param.name
+
+                        if field_name in _form_data:
+                            kwargs_to_inject[param.name] = _form_data[field_name]
+                        elif form_info.default is not ...:
+                            kwargs_to_inject[param.name] = form_info.default
+                        else:
+                            return validation_error_response(
+                                f"Missing required form field: {field_name}"
+                            )
+
+                    # Process File parameters (file uploads)
+                    elif isinstance(param.default, File):
+                        # Parse form data if not already done
+                        if _form_data is None:
+                            _form_data = await request.form()
+
+                        file_info = param.default
+                        field_name = param.name
+
+                        if field_name in _form_data:
+                            uploaded_file = _form_data[field_name]
+                            # Check if it's actually a file (UploadFile)
+                            if hasattr(uploaded_file, 'filename'):
+                                kwargs_to_inject[param.name] = uploaded_file
+                            elif file_info.default is not ...:
+                                kwargs_to_inject[param.name] = file_info.default
+                            else:
+                                return validation_error_response(
+                                    f"Invalid file upload for: {field_name}"
+                                )
+                        elif file_info.default is not ...:
+                            kwargs_to_inject[param.name] = file_info.default
+                        else:
+                            return validation_error_response(
+                                f"Missing required file: {field_name}"
                             )
 
                     # Process explicit Path parameters (with Path() annotation)
