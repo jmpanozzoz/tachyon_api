@@ -1,5 +1,0 @@
----
-alwaysApply: true
----
-
-- Use poetry, not pip for installations
