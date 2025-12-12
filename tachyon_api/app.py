@@ -11,7 +11,6 @@ import inspect
 from functools import partial
 from typing import Any, Dict, Type, Callable, Optional
 
-from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.routing import Route
@@ -25,6 +24,7 @@ from .openapi import (
 )
 from .params import Body, Query, Path, Header, Cookie
 from .exceptions import HTTPException
+from .engine_config import AsgiEngine, EngineConfig
 from .middlewares.core import (
     apply_middleware_to_router,
     create_decorated_middleware_class,
@@ -66,6 +66,8 @@ class Tachyon:
         openapi_config: OpenAPIConfig = None,
         cache_config=None,
         lifespan: Optional[Callable] = None,
+        engine: Optional[AsgiEngine] = None,
+        debug: bool = False,
     ):
         """
         Initialize a new Tachyon application instance.
@@ -77,6 +79,10 @@ class Tachyon:
                           If provided, it will be set as the active cache configuration.
             lifespan: Optional async context manager for startup/shutdown events.
                      Similar to FastAPI's lifespan parameter.
+            engine: Optional ASGI engine selection (AsgiEngine.STARLETTE, AsgiEngine.TACHYON, or AsgiEngine.AUTO).
+                   If None, uses AUTO mode (tries tachyon-engine, falls back to Starlette).
+                   Can also be controlled via TACHYON_ENGINE environment variable.
+            debug: Enable debug mode.
         """
         # Lifecycle manager for startup/shutdown events
         self._lifecycle_manager = LifecycleManager(lifespan)
@@ -84,10 +90,20 @@ class Tachyon:
         # Exception handlers registry (exception_type -> handler_function)
         self._exception_handlers: Dict[Type[Exception], Callable] = {}
 
-        # Create combined lifespan that handles both custom lifespan and on_event handlers
-        self._router = Starlette(lifespan=self._lifecycle_manager.create_combined_lifespan())
+        # Engine configuration - handles switching between Starlette and tachyon-engine
+        self._engine_config = EngineConfig(engine)
         
-        # WebSocket manager
+        # Get the appropriate ASGI adapter (Starlette or tachyon-engine)
+        # Create combined lifespan that handles both custom lifespan and on_event handlers
+        self._adapter = self._engine_config.get_adapter(
+            lifespan=self._lifecycle_manager.create_combined_lifespan(),
+            debug=debug
+        )
+        
+        # For backward compatibility, keep _router as alias to adapter
+        self._router = self._adapter.get_native() if hasattr(self._adapter, 'get_native') else self._adapter
+        
+        # WebSocket manager - pass the native router for compatibility
         self._websocket_manager = WebSocketManager(self._router)
         
         # Parameter processor
@@ -100,7 +116,7 @@ class Tachyon:
         self._instances_cache: Dict[Type, Any] = {}
 
         # Expose state object for storing app-wide state (like FastAPI)
-        self.state = self._router.state
+        self.state = self._adapter.get_state()
 
         # Dependency overrides for testing (like FastAPI)
         self.dependency_overrides: Dict[Any, Any] = {}
@@ -321,9 +337,8 @@ class Tachyon:
                 # Fallback: prevent unhandled exceptions from leaking to the client
                 return internal_server_error_response()
 
-        # Register the route with Starlette
-        route = Route(path, endpoint=handler, methods=[method])
-        self._router.routes.append(route)
+        # Register the route with the ASGI adapter (Starlette or tachyon-engine)
+        self._adapter.add_route(path, handler, methods=[method])
         self.routes.append(
             {"path": path, "method": method, "func": endpoint_func, **kwargs}
         )
@@ -611,13 +626,13 @@ class Tachyon:
         """
         ASGI application entry point.
 
-        Delegates request handling to the internal Starlette application.
+        Delegates request handling to the internal ASGI adapter (Starlette or tachyon-engine).
         This makes Tachyon compatible with ASGI servers like Uvicorn.
         """
         # Setup documentation endpoints on first request
         if not self._docs_setup:
             self._setup_docs()
-        await self._router(scope, receive, send)
+        await self._adapter(scope, receive, send)
 
     def include_router(self, router, **kwargs):
         """
