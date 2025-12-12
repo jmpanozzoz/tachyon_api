@@ -9,7 +9,6 @@ parameter validation, and automatic type conversion.
 import asyncio
 import inspect
 import msgspec
-import typing
 from functools import partial
 from typing import Any, Dict, Type, Callable, Optional
 
@@ -25,9 +24,8 @@ from .openapi import (
     OpenAPIConfig,
     create_openapi_config,
 )
-from .params import Body, Query, Path, Header, Cookie, Form, File
+from .params import Body, Query, Path, Header, Cookie
 from .exceptions import HTTPException
-from .background import BackgroundTasks
 from .middlewares.core import (
     apply_middleware_to_router,
     create_decorated_middleware_class,
@@ -35,13 +33,13 @@ from .middlewares.core import (
 from .responses import (
     HTMLResponse,
     TachyonJSONResponse,
-    validation_error_response,
     response_validation_error_response,
     internal_server_error_response,
 )
-from .utils import TypeConverter, TypeUtils
+from .utils import TypeUtils
 from .core.lifecycle import LifecycleManager
 from .core.websocket import WebSocketManager
+from .processing.parameters import ParameterProcessor
 
 try:
     from .cache import set_cache_config
@@ -92,6 +90,9 @@ class Tachyon:
         
         # WebSocket manager
         self._websocket_manager = WebSocketManager(self._router)
+        
+        # Parameter processor
+        self._parameter_processor = ParameterProcessor(self)
         self.routes = []
         self.middleware_stack = []
         self._instances_cache: Dict[Type, Any] = {}
@@ -391,333 +392,15 @@ class Tachyon:
             injects the appropriate values based on parameter annotations and defaults.
             """
             try:
-                kwargs_to_inject = {}
-                sig = inspect.signature(endpoint_func)
-                query_params = request.query_params
-                path_params = request.path_params
-                _raw_body = None
-                _form_data = None  # Lazy-loaded form data for Form/File params
-                # Cache for callable dependencies (same callable = same result per request)
+                # Process all parameters using ParameterProcessor
                 dependency_cache = {}
-                # Background tasks instance (created on demand)
-                _background_tasks = None
-
-                # Process each parameter in the endpoint function signature
-                for param in sig.parameters.values():
-                    # Check for Request object injection
-                    # This allows endpoints to receive the raw Starlette Request
-                    if param.annotation is Request:
-                        kwargs_to_inject[param.name] = request
-                        continue
-
-                    # Check for BackgroundTasks injection
-                    if param.annotation is BackgroundTasks:
-                        if _background_tasks is None:
-                            _background_tasks = BackgroundTasks()
-                        kwargs_to_inject[param.name] = _background_tasks
-                        continue
-
-                    # Determine if this parameter is a dependency
-                    is_explicit_dependency = isinstance(param.default, Depends)
-                    is_implicit_dependency = (
-                        param.default is inspect.Parameter.empty
-                        and param.annotation in _registry
-                    )
-
-                    # Process dependencies (explicit and implicit)
-                    if is_explicit_dependency or is_implicit_dependency:
-                        if (
-                            is_explicit_dependency
-                            and param.default.dependency is not None
-                        ):
-                            # Depends(callable) - call the factory function
-                            resolved = await self._resolve_callable_dependency(
-                                param.default.dependency, dependency_cache, request
-                            )
-                            kwargs_to_inject[param.name] = resolved
-                        else:
-                            # Depends() or implicit - resolve by type annotation
-                            target_class = param.annotation
-                            kwargs_to_inject[param.name] = self._resolve_dependency(
-                                target_class
-                            )
-
-                    # Process Body parameters (JSON request body)
-                    elif isinstance(param.default, Body):
-                        model_class = param.annotation
-                        if not issubclass(model_class, Struct):
-                            raise TypeError(
-                                "Body type must be an instance of Tachyon_api.models.Struct"
-                            )
-
-                        decoder = msgspec.json.Decoder(model_class)
-                        try:
-                            if _raw_body is None:
-                                _raw_body = await request.body()
-                            validated_data = decoder.decode(_raw_body)
-                            kwargs_to_inject[param.name] = validated_data
-                        except msgspec.ValidationError as e:
-                            # Attempt to build field errors map using e.path
-                            field_errors = None
-                            try:
-                                path = getattr(e, "path", None)
-                                if path:
-                                    # Choose last string-ish path element as field name
-                                    field_name = None
-                                    for p in reversed(path):
-                                        if isinstance(p, str):
-                                            field_name = p
-                                            break
-                                    if field_name:
-                                        field_errors = {field_name: [str(e)]}
-                            except Exception:
-                                field_errors = None
-                            return validation_error_response(
-                                str(e), errors=field_errors
-                            )
-
-                    # Process Query parameters (URL query string)
-                    elif isinstance(param.default, Query):
-                        query_info = param.default
-                        param_name = param.name
-
-                        # Determine typing for advanced cases
-                        ann = param.annotation
-                        origin = typing.get_origin(ann)
-                        args = typing.get_args(ann)
-
-                        # List[T] handling
-                        if origin in (list, typing.List):
-                            item_type = args[0] if args else str
-                            values = []
-                            # collect repeated params
-                            if hasattr(query_params, "getlist"):
-                                values = query_params.getlist(param_name)
-                            # if not repeated, check for CSV in single value
-                            if not values and param_name in query_params:
-                                raw = query_params[param_name]
-                                values = raw.split(",") if "," in raw else [raw]
-                            # flatten CSV in any element
-                            flat_values = []
-                            for v in values:
-                                if isinstance(v, str) and "," in v:
-                                    flat_values.extend(v.split(","))
-                                else:
-                                    flat_values.append(v)
-                            values = flat_values
-                            if not values:
-                                if query_info.default is not ...:
-                                    kwargs_to_inject[param_name] = query_info.default
-                                    continue
-                                return validation_error_response(
-                                    f"Missing required query parameter: {param_name}"
-                                )
-                            # Unwrap Optional for item type
-                            base_item_type, item_is_opt = TypeUtils.unwrap_optional(
-                                item_type
-                            )
-                            converted_list = []
-                            for v in values:
-                                if item_is_opt and (v == "" or v.lower() == "null"):
-                                    converted_list.append(None)
-                                    continue
-                                converted_value = TypeConverter.convert_value(
-                                    v, base_item_type, param_name, is_path_param=False
-                                )
-                                if isinstance(converted_value, JSONResponse):
-                                    return converted_value
-                                converted_list.append(converted_value)
-                            kwargs_to_inject[param_name] = converted_list
-                            continue
-
-                        # Optional[T] handling for single value
-                        base_type, _is_opt = TypeUtils.unwrap_optional(ann)
-
-                        if param_name in query_params:
-                            value_str = query_params[param_name]
-                            converted_value = TypeConverter.convert_value(
-                                value_str, base_type, param_name, is_path_param=False
-                            )
-                            if isinstance(converted_value, JSONResponse):
-                                return converted_value
-                            kwargs_to_inject[param_name] = converted_value
-
-                        elif query_info.default is not ...:
-                            kwargs_to_inject[param.name] = query_info.default
-                        else:
-                            return validation_error_response(
-                                f"Missing required query parameter: {param_name}"
-                            )
-
-                    # Process Header parameters
-                    elif isinstance(param.default, Header):
-                        header_info = param.default
-                        # Use alias if provided, otherwise convert param name
-                        # Python uses underscores, HTTP uses hyphens
-                        if header_info.alias:
-                            header_name = header_info.alias.lower()
-                        else:
-                            header_name = param.name.replace("_", "-").lower()
-
-                        # Get header value (case-insensitive)
-                        header_value = request.headers.get(header_name)
-
-                        if header_value is not None:
-                            kwargs_to_inject[param.name] = header_value
-                        elif header_info.default is not ...:
-                            kwargs_to_inject[param.name] = header_info.default
-                        else:
-                            return validation_error_response(
-                                f"Missing required header: {header_name}"
-                            )
-
-                    # Process Cookie parameters
-                    elif isinstance(param.default, Cookie):
-                        cookie_info = param.default
-                        # Use alias if provided, otherwise use param name
-                        cookie_name = cookie_info.alias or param.name
-
-                        # Get cookie value
-                        cookie_value = request.cookies.get(cookie_name)
-
-                        if cookie_value is not None:
-                            kwargs_to_inject[param.name] = cookie_value
-                        elif cookie_info.default is not ...:
-                            kwargs_to_inject[param.name] = cookie_info.default
-                        else:
-                            return validation_error_response(
-                                f"Missing required cookie: {cookie_name}"
-                            )
-
-                    # Process Form parameters (form data)
-                    elif isinstance(param.default, Form):
-                        # Parse form data if not already done
-                        if _form_data is None:
-                            _form_data = await request.form()
-
-                        form_info = param.default
-                        field_name = form_info.alias or param.name
-
-                        if field_name in _form_data:
-                            kwargs_to_inject[param.name] = _form_data[field_name]
-                        elif form_info.default is not ...:
-                            kwargs_to_inject[param.name] = form_info.default
-                        else:
-                            return validation_error_response(
-                                f"Missing required form field: {field_name}"
-                            )
-
-                    # Process File parameters (file uploads)
-                    elif isinstance(param.default, File):
-                        # Parse form data if not already done
-                        if _form_data is None:
-                            _form_data = await request.form()
-
-                        file_info = param.default
-                        field_name = param.name
-
-                        if field_name in _form_data:
-                            uploaded_file = _form_data[field_name]
-                            # Check if it's actually a file (UploadFile)
-                            if hasattr(uploaded_file, "filename"):
-                                kwargs_to_inject[param.name] = uploaded_file
-                            elif file_info.default is not ...:
-                                kwargs_to_inject[param.name] = file_info.default
-                            else:
-                                return validation_error_response(
-                                    f"Invalid file upload for: {field_name}"
-                                )
-                        elif file_info.default is not ...:
-                            kwargs_to_inject[param.name] = file_info.default
-                        else:
-                            return validation_error_response(
-                                f"Missing required file: {field_name}"
-                            )
-
-                    # Process explicit Path parameters (with Path() annotation)
-                    elif isinstance(param.default, Path):
-                        param_name = param.name
-                        if param_name in path_params:
-                            value_str = path_params[param_name]
-                            # Support List[T] in path params via CSV
-                            ann = param.annotation
-                            origin = typing.get_origin(ann)
-                            args = typing.get_args(ann)
-                            if origin in (list, typing.List):
-                                item_type = args[0] if args else str
-                                parts = value_str.split(",") if value_str else []
-                                # Unwrap Optional for item type
-                                base_item_type, item_is_opt = TypeUtils.unwrap_optional(
-                                    item_type
-                                )
-                                converted_list = []
-                                for v in parts:
-                                    if item_is_opt and (v == "" or v.lower() == "null"):
-                                        converted_list.append(None)
-                                        continue
-                                    converted_value = TypeConverter.convert_value(
-                                        v,
-                                        base_item_type,
-                                        param_name,
-                                        is_path_param=True,
-                                    )
-                                    if isinstance(converted_value, JSONResponse):
-                                        return converted_value
-                                    converted_list.append(converted_value)
-                                kwargs_to_inject[param_name] = converted_list
-                            else:
-                                converted_value = TypeConverter.convert_value(
-                                    value_str, ann, param_name, is_path_param=True
-                                )
-                                # Return 404 if conversion failed
-                                if isinstance(converted_value, JSONResponse):
-                                    return converted_value
-                                kwargs_to_inject[param_name] = converted_value
-                        else:
-                            return JSONResponse(
-                                {"detail": "Not Found"}, status_code=404
-                            )
-
-                    # Process implicit Path parameters (URL path variables without Path())
-                    elif (
-                        param.default is inspect.Parameter.empty
-                        and param.name in path_params
-                        and not is_explicit_dependency
-                        and not is_implicit_dependency
-                    ):
-                        param_name = param.name
-                        value_str = path_params[param_name]
-                        # Support List[T] via CSV
-                        ann = param.annotation
-                        origin = typing.get_origin(ann)
-                        args = typing.get_args(ann)
-                        if origin in (list, typing.List):
-                            item_type = args[0] if args else str
-                            parts = value_str.split(",") if value_str else []
-                            # Unwrap Optional for item type
-                            base_item_type, item_is_opt = TypeUtils.unwrap_optional(
-                                item_type
-                            )
-                            converted_list = []
-                            for v in parts:
-                                if item_is_opt and (v == "" or v.lower() == "null"):
-                                    converted_list.append(None)
-                                    continue
-                                converted_value = TypeConverter.convert_value(
-                                    v, base_item_type, param_name, is_path_param=True
-                                )
-                                if isinstance(converted_value, JSONResponse):
-                                    return converted_value
-                                converted_list.append(converted_value)
-                            kwargs_to_inject[param_name] = converted_list
-                        else:
-                            converted_value = TypeConverter.convert_value(
-                                value_str, ann, param_name, is_path_param=True
-                            )
-                            # Return 404 if conversion failed
-                            if isinstance(converted_value, JSONResponse):
-                                return converted_value
-                            kwargs_to_inject[param_name] = converted_value
+                kwargs_to_inject, error_response, _background_tasks = await self._parameter_processor.process_parameters(
+                    endpoint_func, request, dependency_cache
+                )
+                
+                # Return early if parameter processing failed
+                if error_response is not None:
+                    return error_response
 
                 # Call the endpoint function with injected parameters
                 if asyncio.iscoroutinefunction(endpoint_func):
