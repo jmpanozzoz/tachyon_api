@@ -8,13 +8,12 @@ parameter validation, and automatic type conversion.
 
 import asyncio
 import inspect
-import msgspec
 from functools import partial
 from typing import Any, Dict, Type, Callable, Optional
 
 from starlette.applications import Starlette
 from starlette.requests import Request
-from starlette.responses import JSONResponse, Response
+from starlette.responses import JSONResponse
 from starlette.routing import Route
 
 from .di import Depends, _registry
@@ -32,8 +31,6 @@ from .middlewares.core import (
 )
 from .responses import (
     HTMLResponse,
-    TachyonJSONResponse,
-    response_validation_error_response,
     internal_server_error_response,
 )
 from .utils import TypeUtils
@@ -41,6 +38,7 @@ from .core.lifecycle import LifecycleManager
 from .core.websocket import WebSocketManager
 from .processing.parameters import ParameterProcessor
 from .processing.dependencies import DependencyResolver
+from .processing.response_processor import ResponseProcessor
 
 try:
     from .cache import set_cache_config
@@ -286,36 +284,14 @@ class Tachyon:
                     return error_response
 
                 # Call the endpoint function with injected parameters
-                if asyncio.iscoroutinefunction(endpoint_func):
-                    payload = await endpoint_func(**kwargs_to_inject)
-                else:
-                    payload = endpoint_func(**kwargs_to_inject)
-
-                # Run background tasks if any were registered
-                if _background_tasks is not None:
-                    await _background_tasks.run_tasks()
-
-                # If the endpoint already returned a Response object, return it directly
-                if isinstance(payload, Response):
-                    return payload
-
-                # Validate/convert response against response_model if provided
-                if response_model is not None:
-                    try:
-                        payload = msgspec.convert(payload, response_model)
-                    except Exception as e:
-                        return response_validation_error_response(str(e))
-
-                # Convert Struct objects to dictionaries for JSON serialization
-                if isinstance(payload, Struct):
-                    payload = msgspec.to_builtins(payload)
-                elif isinstance(payload, dict):
-                    # Convert any Struct values in the dictionary
-                    for key, value in payload.items():
-                        if isinstance(value, Struct):
-                            payload[key] = msgspec.to_builtins(value)
-
-                return TachyonJSONResponse(payload)
+                payload = await ResponseProcessor.call_endpoint(
+                    endpoint_func, kwargs_to_inject
+                )
+                
+                # Process response (validate, serialize, run background tasks)
+                return await ResponseProcessor.process_response(
+                    payload, response_model, _background_tasks
+                )
 
             except HTTPException as exc:
                 # Handle HTTPException - check for custom handler first
