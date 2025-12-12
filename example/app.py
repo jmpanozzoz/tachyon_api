@@ -18,9 +18,14 @@ Run with: uvicorn example.app:app --reload
 
 from contextlib import asynccontextmanager
 
-from tachyon_api import Tachyon
+from tachyon_api import Tachyon, AsgiEngine
 from tachyon_api.middlewares import CORSMiddleware, LoggerMiddleware
 from tachyon_api.openapi import OpenAPIConfig, Info
+
+# Note: Tachyon v1.0.0 supports engine selection:
+# - AsgiEngine.STARLETTE (default, stable)
+# - AsgiEngine.TACHYON (experimental, requires tachyon-engine v0.2.0+)
+# Example: app = Tachyon(..., engine=AsgiEngine.TACHYON)
 
 from .config import settings
 from .shared.websocket_manager import manager as ws_manager

@@ -1,9 +1,9 @@
 # 🚀 Tachyon API
 
-![Version](https://img.shields.io/badge/version-0.9.0-blue.svg)
+![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.10+-brightgreen.svg)
 ![License](https://img.shields.io/badge/license-GPL--3.0-orange.svg)
-![Tests](https://img.shields.io/badge/tests-235%20passed-brightgreen.svg)
+![Tests](https://img.shields.io/badge/tests-223%20passed-brightgreen.svg)
 ![Status](https://img.shields.io/badge/status-stable-brightgreen.svg)
 
 **A lightweight, high-performance API framework for Python with the elegance of FastAPI and the speed of light.**
@@ -40,6 +40,30 @@ uvicorn app:app --reload
 ```
 
 📖 **Docs:** http://localhost:8000/docs
+
+---
+
+## ⚡ Performance with tachyon-engine (Experimental)
+
+Tachyon API v1.0.0 includes adapter infrastructure for **tachyon-engine**, a Rust-powered ASGI implementation:
+
+```python
+from tachyon_api import Tachyon, AsgiEngine
+
+# Default: Stable Starlette engine (production-ready)
+app = Tachyon()
+
+# Experimental: Rust-powered engine (4-7x faster when complete)
+app = Tachyon(engine=AsgiEngine.TACHYON)
+```
+
+**Current Status**: tachyon-engine v0.1.0 is experimental. Production default uses Starlette. See [`docs/tachyon-engine.md`](./docs/tachyon-engine.md) for details.
+
+**Performance Goals** (when tachyon-engine v0.2.0+ is ready):
+- 10x faster path matching
+- 2-3x faster request processing  
+- 1.7x faster JSON serialization
+- 2-4x overall throughput improvement
 
 ---
 
@@ -81,6 +105,7 @@ Complete documentation is available in the [`docs/`](./docs/) folder:
 | [Request Lifecycle](./docs/13-request-lifecycle.md) | How requests are processed |
 | [Migration from FastAPI](./docs/14-migration-fastapi.md) | Migration guide |
 | [Best Practices](./docs/15-best-practices.md) | Recommended patterns |
+| [tachyon-engine](./docs/tachyon-engine.md) | Rust engine (experimental) |
 
 ---
 
