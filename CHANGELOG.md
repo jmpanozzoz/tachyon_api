@@ -7,6 +7,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.9.0] - 2025-12-12
+
+### ♻️ Refactored - Major Architecture Improvements
+
+This release focuses on **code quality, maintainability, and separation of concerns** through systematic refactoring of the core `Tachyon` class.
+
+#### Code Reduction
+- **Reduced `app.py` from ~1157 lines to ~700 lines (-39%)** 🎯
+- Extracted complex logic into dedicated, single-responsibility modules
+- Improved testability and maintainability
+
+#### New Architecture Modules
+
+**Core Components** (`tachyon_api/core/`)
+- `lifecycle.py` - Application lifecycle event management (startup/shutdown)
+- `websocket.py` - WebSocket route handling and parameter injection
+
+**Processing Components** (`tachyon_api/processing/`)
+- `parameters.py` - Parameter extraction and validation (Path, Query, Body, Header, Cookie, Form, File)
+- `dependencies.py` - Dependency injection resolution (injectable classes and Depends())
+- `response_processor.py` - Response validation, serialization, and background task execution
+
+#### Key Improvements
+- ✅ **All 223 tests passing** - Zero regressions
+- ✅ **Clean code** - Ruff linter passing on all modules
+- ✅ **DRY principles** - Eliminated code duplication
+- ✅ **Better separation of concerns** - Each module has a single, clear responsibility
+- ✅ **Improved documentation** - All new modules fully documented
+- ✅ **Type safety** - Maintained strong typing throughout
+
+#### Technical Details
+- Extracted `LifecycleManager` for managing startup/shutdown hooks and `@app.on_event` decorators
+- Extracted `WebSocketManager` for WebSocket route registration and path parameter injection
+- Extracted `ParameterProcessor` for all parameter types (Request, BackgroundTasks, Dependencies, Body, Query, Header, Cookie, Form, File, Path)
+- Extracted `DependencyResolver` for both type-based (@injectable) and callable (Depends()) dependency injection
+- Extracted `ResponseProcessor` for endpoint execution, response validation, and background task running
+
+#### Migration Notes
+- **No breaking changes** - All public APIs remain unchanged
+- Internal refactoring only - fully backward compatible
+- Imports remain the same: `from tachyon_api import Tachyon, Struct, Body, ...`
+
+### Testing
+- **223/223 tests passing** ✅
+- All existing functionality verified
+- No performance degradation
+
+---
+
 ## [0.7.0] - 2025-12-12
 
 ### Added

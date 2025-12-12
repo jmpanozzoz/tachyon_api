@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "tachyon-api"
-version = "0.7.0"
+version = "0.9.0"
 description = "A lightweight, FastAPI-inspired web framework"
 authors = ["Juan Manuel Panozzo Zénere <jm.panozzozenere@gmail.com>"]
 license = "GPL-3.0-or-later"
