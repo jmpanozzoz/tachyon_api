@@ -56,6 +56,98 @@ This release focuses on **code quality, maintainability, and separation of conce
 
 ---
 
+## [0.8.0] - 2025-12-12
+
+### ♻️ Refactored
+
+- **Extracted Response Processing** to `tachyon_api/processing/response_processor.py`
+  - Created `ResponseProcessor` class for response handling
+  - Extracted `call_endpoint()` method for endpoint execution
+  - Extracted `process_response()` method for response validation and serialization
+  - Handles background task execution after response
+  - Validates against `response_model` if provided
+  - Converts `Struct` objects to JSON-serializable dicts
+  - Removed ~35 lines from `app.py`
+
+### Testing
+- **223/223 tests passing** ✅
+
+---
+
+## [0.7.4] - 2025-12-12
+
+### ♻️ Refactored
+
+- **Extracted Dependency Resolution** to `tachyon_api/processing/dependencies.py`
+  - Created `DependencyResolver` class for DI resolution
+  - Extracted `resolve_dependency()` for type-based (@injectable) DI
+  - Extracted `resolve_callable_dependency()` for Depends() DI
+  - Handles nested dependencies recursively
+  - Supports dependency_overrides for testing
+  - Manages singleton pattern for injectable classes
+  - Removed ~130 lines from `app.py`
+
+### Testing
+- **223/223 tests passing** ✅
+
+---
+
+## [0.7.3] - 2025-12-12
+
+### ♻️ Refactored
+
+- **Extracted Parameter Processing** to `tachyon_api/processing/parameters.py`
+  - Created `ParameterProcessor` class for parameter extraction
+  - Extracted processing for all parameter types:
+    - Request injection
+    - BackgroundTasks injection
+    - Dependency injection (explicit and implicit)
+    - Body parameters (JSON)
+    - Query parameters (single and lists)
+    - Header parameters
+    - Cookie parameters
+    - Form parameters
+    - File uploads
+    - Path parameters (explicit and implicit)
+  - Removed ~331 lines from `app.py`
+
+### Testing
+- **223/223 tests passing** ✅
+
+---
+
+## [0.7.2] - 2025-12-12
+
+### ♻️ Refactored
+
+- **Extracted WebSocket Handling** to `tachyon_api/core/websocket.py`
+  - Created `WebSocketManager` class for WebSocket route management
+  - Extracted `websocket_decorator()` method
+  - Extracted `add_websocket_route()` method
+  - Handles path parameter injection for WebSocket routes
+  - Removed ~37 lines from `app.py`
+
+### Testing
+- **223/223 tests passing** ✅
+
+---
+
+## [0.7.1] - 2025-12-12
+
+### ♻️ Refactored
+
+- **Extracted Lifecycle Management** to `tachyon_api/core/lifecycle.py`
+  - Created `LifecycleManager` class for lifecycle event management
+  - Extracted `create_combined_lifespan()` method
+  - Extracted `on_event_decorator()` method
+  - Manages both `@app.on_event` decorators and context manager lifespans
+  - Removed ~55 lines from `app.py`
+
+### Testing
+- **223/223 tests passing** ✅
+
+---
+
 ## [0.7.0] - 2025-12-12
 
 ### Added
