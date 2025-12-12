@@ -7,7 +7,7 @@ license = "GPL-3.0-or-later"
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = ">=3.9,<3.14"
+python = "^3.10"
 starlette = "^0.47.2"
 uvicorn = "^0.35.0"
 msgspec = "^0.19.0"
