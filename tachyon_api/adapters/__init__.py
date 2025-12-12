@@ -21,6 +21,15 @@ from .starlette_adapter import (
     StarletteWebSocketAdapter,
     StarletteMiddlewareAdapter,
 )
+from .engine_adapter import (
+    TachyonEngineApplicationAdapter,
+    TachyonEngineRequestAdapter,
+    TachyonEngineResponseAdapter,
+    TachyonEngineRouteAdapter,
+    TachyonEngineWebSocketAdapter,
+    TachyonEngineMiddlewareAdapter,
+    TACHYON_ENGINE_AVAILABLE,
+)
 
 __all__ = [
     # Base interfaces
@@ -37,4 +46,12 @@ __all__ = [
     "StarletteRouteAdapter",
     "StarletteWebSocketAdapter",
     "StarletteMiddlewareAdapter",
+    # tachyon-engine adapters
+    "TachyonEngineApplicationAdapter",
+    "TachyonEngineRequestAdapter",
+    "TachyonEngineResponseAdapter",
+    "TachyonEngineRouteAdapter",
+    "TachyonEngineWebSocketAdapter",
+    "TachyonEngineMiddlewareAdapter",
+    "TACHYON_ENGINE_AVAILABLE",
 ]

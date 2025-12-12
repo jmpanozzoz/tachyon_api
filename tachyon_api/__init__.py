@@ -20,6 +20,7 @@ from .files import UploadFile
 from .di import injectable, Depends
 from .exceptions import HTTPException
 from .router import Router
+from .engine_config import AsgiEngine, EngineConfig
 from .cache import (
     cache,
     CacheConfig,
@@ -47,6 +48,8 @@ __all__ = [
     "Depends",
     "HTTPException",
     "Router",
+    "AsgiEngine",
+    "EngineConfig",
     "cache",
     "CacheConfig",
     "create_cache_config",
