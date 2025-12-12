@@ -12,7 +12,7 @@ import typer
 from typing import Optional
 from pathlib import Path
 
-from .commands import new, generate, openapi, lint
+from .commands import generate, openapi, lint
 
 app = typer.Typer(
     name="tachyon",
