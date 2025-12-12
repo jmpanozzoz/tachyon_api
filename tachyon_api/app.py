@@ -13,7 +13,6 @@ from typing import Any, Dict, Type, Callable, Optional
 
 from starlette.requests import Request
 from starlette.responses import JSONResponse
-from starlette.routing import Route
 
 from .di import Depends, _registry
 from .models import Struct
