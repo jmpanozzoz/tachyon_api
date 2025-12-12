@@ -98,6 +98,9 @@ class Tachyon:
         # Expose state object for storing app-wide state (like FastAPI)
         self.state = self._router.state
 
+        # Dependency overrides for testing (like FastAPI)
+        self.dependency_overrides: Dict[Any, Any] = {}
+
         # Initialize OpenAPI configuration and generator
         self.openapi_config = openapi_config or create_openapi_config()
         self.openapi_generator = OpenAPIGenerator(self.openapi_config)
@@ -236,7 +239,20 @@ class Tachyon:
             - Uses singleton pattern - instances are cached and reused
             - Supports both @injectable decorated classes and simple classes
             - Recursively resolves constructor dependencies
+            - Checks dependency_overrides for test mocking
         """
+        # Check for dependency override (for testing)
+        if cls in self.dependency_overrides:
+            override = self.dependency_overrides[cls]
+            # If override is callable, call it to get the instance
+            if callable(override) and not isinstance(override, type):
+                return override()
+            # If it's a class, instantiate it
+            elif isinstance(override, type):
+                return override()
+            # Otherwise return as-is
+            return override
+
         # Return cached instance if available (singleton pattern)
         if cls in self._instances_cache:
             return self._instances_cache[cls]
@@ -290,6 +306,17 @@ class Tachyon:
             - Supports nested Depends() in callable parameters
             - Automatically injects Request when parameter is annotated with Request
         """
+        # Check for dependency override (for testing)
+        if dependency in self.dependency_overrides:
+            override = self.dependency_overrides[dependency]
+            # If override is callable, call it
+            if callable(override):
+                result = override()
+                if asyncio.iscoroutine(result):
+                    result = await result
+                return result
+            return override
+
         # Check cache first (same callable = same result per request)
         if dependency in cache:
             return cache[dependency]
