@@ -170,3 +170,4 @@ class DependencyResolver:
         # Cache the result for this request
         cache[dependency] = result
         return result
+

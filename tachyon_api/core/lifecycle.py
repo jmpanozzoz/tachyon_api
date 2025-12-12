@@ -104,3 +104,4 @@ class LifecycleManager:
             return func
 
         return decorator
+

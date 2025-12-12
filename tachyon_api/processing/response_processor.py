@@ -91,3 +91,4 @@ class ResponseProcessor:
             return await endpoint_func(**kwargs_to_inject)
         else:
             return endpoint_func(**kwargs_to_inject)
+
