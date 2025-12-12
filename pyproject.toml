@@ -15,12 +15,16 @@ typer = "^0.16.0"
 orjson = "^3.11.1"
 python-multipart = "^0.0.20"
 ruff = "0.14.9"
+tachyon-engine = {version = "^0.1.0", optional = true}
 
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.4.1"
 pytest-asyncio = "^1.1.0"
 httpx = "^0.28.1"
+
+[tool.poetry.extras]
+engine = ["tachyon-engine"]
 
 [tool.poetry.scripts]
 tachyon = "tachyon_api.cli:app"

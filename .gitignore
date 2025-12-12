@@ -211,3 +211,6 @@ __marimo__/
 
 # Project-specific
 ROADMAP.md
+STARLETTE_DEPENDENCIES.md
+IMPLEMENTATION_NOTES.md
+tachyon engine/
