@@ -7,6 +7,211 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.7.0] - 2025-12-12
+
+### Added
+
+- **WebSocket Support**: Real-time bidirectional communication
+  - `@app.websocket(path)` decorator for WebSocket endpoints
+  - `@router.websocket(path)` for WebSocket routes in routers
+  - Path and query parameter support in WebSocket routes
+  - Text, JSON, and binary message handling
+  - Automatic injection of WebSocket object into handler functions
+
+- **Complete Documentation**: 16 comprehensive guides in `docs/`
+  - Getting Started, Architecture, Dependency Injection
+  - Parameters, Validation, Security
+  - Caching, Lifecycle Events, Background Tasks
+  - WebSockets, Testing, CLI Tools
+  - Request Lifecycle, FastAPI Migration, Best Practices
+
+- **KYC Demo Example**: Production-ready example in `example/`
+  - Complete Know Your Customer verification system
+  - JWT authentication with `@injectable` services
+  - Customer CRUD with clean architecture
+  - Document uploads with validation
+  - Background task processing for verification
+  - WebSocket notifications for real-time updates
+  - 12 tests demonstrating mocking and dependency overrides
+
+### Changed
+
+- Example project completely rewritten from simple CRUD to comprehensive KYC system
+- README updated with feature matrix and documentation links
+- Version badge updated to 0.7.0
+
+### Tests
+
+- 12 new tests for WebSockets (223 → 235 total)
+  - Basic echo, JSON/binary messages, path/query params
+  - Router integration, multiple routes, disconnect handling
+- 12 new tests for KYC example
+  - Authentication, customers, verification modules
+
+---
+
+## [0.6.7] - 2025-12-12
+
+### Added
+
+- **Testing Utilities**: Comprehensive testing support
+  - `TachyonTestClient`: Synchronous test client wrapping `starlette.testclient.TestClient`
+  - `AsyncTachyonTestClient`: Asynchronous test client with `httpx.AsyncClient` and `ASGITransport`
+  - `app.dependency_overrides`: Dictionary for mocking dependencies in tests
+  - Supports overriding `@injectable` classes and `Depends()` callables
+
+### Tests
+
+- 12 new tests for testing utilities (211 → 223 total)
+  - TachyonTestClient (GET/POST, headers, query, cookies, context manager)
+  - AsyncTachyonTestClient (async GET/POST)
+  - dependency_overrides (classes, callables, lambdas, multiple overrides)
+
+---
+
+## [0.6.6] - 2025-12-12
+
+### Added
+
+- **CLI Tools**: NestJS-inspired command-line interface
+  - `tachyon new <project>`: Scaffold new project with clean architecture
+  - `tachyon generate service <name>`: Generate complete module (controller, service, repository, dto, tests)
+  - `tachyon generate controller/repository/dto`: Generate individual components
+  - `tachyon openapi export`: Export OpenAPI schema to JSON
+  - `tachyon openapi validate`: Validate OpenAPI schema files
+  - `tachyon lint check/fix/format/all`: Code quality tools (ruff wrapper)
+  - Project scaffolding includes: app.py, config.py, modules/, shared/, tests/
+  - `--crud` flag for generating CRUD operations
+  - `--no-tests` flag to skip test generation
+
+### Changed
+
+- Added `[tool.poetry.scripts]` entry point: `tachyon = "tachyon_api.cli:app"`
+
+### Tests
+
+- 13 new tests for CLI (198 → 211 total)
+  - Project creation, existing directory handling
+  - Service generation (basic, CRUD, no-tests, individual components)
+  - Kebab-case conversion (user-profile → user_profile)
+  - Version command, lint check, openapi validate
+
+---
+
+## [0.6.5] - 2025-12-12
+
+### Added
+
+- **Background Tasks**: Fire-and-forget task execution after response
+  - `BackgroundTasks` class with `add_task(func, *args, **kwargs)` method
+  - Automatic injection when `background_tasks: BackgroundTasks` parameter present
+  - Supports sync and async functions
+  - Error handling: failed tasks don't affect response
+  - Tasks execute in order after response is sent
+
+### Tests
+
+- 6 new tests for background tasks (192 → 198 total)
+  - Basic sync/async tasks
+  - Multiple tasks, keyword arguments
+  - Coexistence with other parameters
+  - Error handling in tasks
+
+---
+
+## [0.6.4] - 2025-12-12
+
+### Added
+
+- **Security Foundation**: Authentication and authorization schemes
+  - `HTTPBearer`: Extract Bearer token from Authorization header
+  - `HTTPBasic`: Extract and decode Basic auth credentials
+  - `OAuth2PasswordBearer`: OAuth2 password flow with configurable token URL
+  - `APIKeyHeader`, `APIKeyQuery`, `APIKeyCookie`: API key extraction
+  - All schemes support `auto_error=False` for optional authentication
+  - Credential classes: `HTTPAuthorizationCredentials`, `HTTPBasicCredentials`
+  - All security schemes are callable dependencies compatible with `Depends()`
+
+### Tests
+
+- 12 new tests for security (180 → 192 total)
+  - HTTPBearer (valid/missing/invalid token, auto_error=False)
+  - HTTPBasic (valid/missing credentials, base64 decoding)
+  - API Keys (header, query, cookie)
+  - OAuth2PasswordBearer (valid/missing token)
+
+---
+
+## [0.6.3] - 2025-12-12
+
+### Added
+
+- **Exception Handling System**: Custom exceptions and handlers
+  - `HTTPException` class with `status_code`, `detail`, and optional `headers`
+  - `@app.exception_handler(ExceptionClass)` decorator for custom handlers
+  - Supports sync and async exception handlers
+  - Request object injection in handlers via `request: Request` parameter
+  - Multiple exception handlers for different exception types
+  - Allows overriding default `HTTPException` handler
+
+### Tests
+
+- 11 new tests for exception handling (169 → 180 total)
+  - Basic HTTPException (401, 403, 500, custom headers)
+  - Custom exception handler decorator
+  - Sync/async handlers
+  - Request injection into handlers
+  - Multiple handlers, overriding HTTPException handler
+  - Unhandled exceptions fallback
+
+---
+
+## [0.6.2] - 2025-12-12
+
+### Added
+
+- **File Handling**: Form data and file uploads
+  - `Form()` parameter marker for `application/x-www-form-urlencoded` data
+  - `File()` parameter marker for `multipart/form-data` uploads
+  - `UploadFile` class wrapping Starlette's UploadFile
+  - Support for multiple file uploads (List[UploadFile])
+  - Mixed form data and file uploads in same endpoint
+  - Async file operations (read, seek, close)
+  - Dependency: `python-multipart` for form parsing
+
+### Tests
+
+- 8 new tests for file handling (161 → 169 total)
+  - Form data parsing (single, multiple fields)
+  - File uploads (single, multiple, optional)
+  - Mixed form + file
+  - UploadFile properties (filename, content_type, size)
+
+---
+
+## [0.6.1] - 2025-12-12
+
+### Added
+
+- **Lifecycle Events**: Application startup and shutdown hooks
+  - `lifespan` context manager parameter in `Tachyon.__init__`
+  - `@app.on_event("startup")` decorator for startup tasks
+  - `@app.on_event("shutdown")` decorator for shutdown tasks
+  - Supports both sync and async event handlers
+  - `app.state` for storing application-wide state
+  - Combined lifespan merging decorator-based and context manager events
+
+### Tests
+
+- 17 new tests for lifecycle (144 → 161 total)
+  - Lifespan context manager (startup/shutdown execution)
+  - on_event decorators (sync/async)
+  - app.state usage
+  - Combined lifespan + on_event
+  - Execution order verification
+
+---
+
 ## [0.6.0] - 2025-12-11
 
 ### Added
