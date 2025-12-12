@@ -40,6 +40,7 @@ from .utils import TypeUtils
 from .core.lifecycle import LifecycleManager
 from .core.websocket import WebSocketManager
 from .processing.parameters import ParameterProcessor
+from .processing.dependencies import DependencyResolver
 
 try:
     from .cache import set_cache_config
@@ -93,6 +94,9 @@ class Tachyon:
         
         # Parameter processor
         self._parameter_processor = ParameterProcessor(self)
+        
+        # Dependency resolver
+        self._dependency_resolver = DependencyResolver(self)
         self.routes = []
         self.middleware_stack = []
         self._instances_cache: Dict[Type, Any] = {}
@@ -207,137 +211,16 @@ class Tachyon:
         return self._websocket_manager.websocket_decorator(path)
 
     def _resolve_dependency(self, cls: Type) -> Any:
-        """
-        Resolve a dependency and its sub-dependencies recursively.
-
-        This method implements dependency injection with singleton pattern,
-        automatically resolving constructor dependencies and caching instances.
-
-        Args:
-            cls: The class type to resolve and instantiate
-
-        Returns:
-            An instance of the requested class with all dependencies resolved
-
-        Raises:
-            TypeError: If the class cannot be instantiated or is not marked as injectable
-
-        Note:
-            - Uses singleton pattern - instances are cached and reused
-            - Supports both @injectable decorated classes and simple classes
-            - Recursively resolves constructor dependencies
-            - Checks dependency_overrides for test mocking
-        """
-        # Check for dependency override (for testing)
-        if cls in self.dependency_overrides:
-            override = self.dependency_overrides[cls]
-            # If override is callable, call it to get the instance
-            if callable(override) and not isinstance(override, type):
-                return override()
-            # If it's a class, instantiate it
-            elif isinstance(override, type):
-                return override()
-            # Otherwise return as-is
-            return override
-
-        # Return cached instance if available (singleton pattern)
-        if cls in self._instances_cache:
-            return self._instances_cache[cls]
-
-        # For non-injectable classes, try to create without arguments
-        if cls not in _registry:
-            try:
-                # Works for classes without __init__ or with no-arg __init__
-                return cls()
-            except TypeError:
-                raise TypeError(
-                    f"Cannot resolve dependency '{cls.__name__}'. "
-                    f"Did you forget to mark it with @injectable?"
-                )
-
-        # For injectable classes, resolve constructor dependencies
-        sig = inspect.signature(cls)
-        dependencies = {}
-
-        # Recursively resolve each constructor parameter
-        for param in sig.parameters.values():
-            if param.name != "self":
-                dependencies[param.name] = self._resolve_dependency(param.annotation)
-
-        # Create instance with resolved dependencies and cache it
-        instance = cls(**dependencies)
-        self._instances_cache[cls] = instance
-        return instance
+        """Delegate to DependencyResolver."""
+        return self._dependency_resolver.resolve_dependency(cls)
 
     async def _resolve_callable_dependency(
         self, dependency: Callable, cache: Dict, request: Request
     ) -> Any:
-        """
-        Resolve a callable dependency (function, lambda, or class).
-
-        This method calls the dependency function to get its value, supporting
-        both sync and async functions. It also handles nested dependencies
-        if the callable has parameters with Depends() or Request annotations.
-
-        Args:
-            dependency: The callable to invoke
-            cache: Per-request cache to avoid calling the same dependency twice
-            request: The current request object for injection
-
-        Returns:
-            The result of calling the dependency function
-
-        Note:
-            - Results are cached per-request to avoid duplicate calls
-            - Supports async callables (coroutines)
-            - Supports nested Depends() in callable parameters
-            - Automatically injects Request when parameter is annotated with Request
-        """
-        # Check for dependency override (for testing)
-        if dependency in self.dependency_overrides:
-            override = self.dependency_overrides[dependency]
-            # If override is callable, call it
-            if callable(override):
-                result = override()
-                if asyncio.iscoroutine(result):
-                    result = await result
-                return result
-            return override
-
-        # Check cache first (same callable = same result per request)
-        if dependency in cache:
-            return cache[dependency]
-
-        # Check if the dependency has its own dependencies (nested)
-        sig = inspect.signature(dependency)
-        nested_kwargs = {}
-
-        for param in sig.parameters.values():
-            # Inject Request object if parameter is annotated with Request
-            if param.annotation is Request:
-                nested_kwargs[param.name] = request
-            elif isinstance(param.default, Depends):
-                if param.default.dependency is not None:
-                    # Nested callable dependency
-                    nested_kwargs[param.name] = await self._resolve_callable_dependency(
-                        param.default.dependency, cache, request
-                    )
-                else:
-                    # Nested type-based dependency
-                    nested_kwargs[param.name] = self._resolve_dependency(
-                        param.annotation
-                    )
-
-        # Call the dependency (sync or async)
-        # Note: asyncio.iscoroutinefunction doesn't work for async __call__ methods,
-        # so we check if the result is a coroutine
-        result = dependency(**nested_kwargs)
-        if asyncio.iscoroutine(result):
-            result = await result
-
-        # Cache the result for this request
-        cache[dependency] = result
-        return result
+        """Delegate to DependencyResolver."""
+        return await self._dependency_resolver.resolve_callable_dependency(
+            dependency, cache, request
+        )
 
     def _create_decorator(self, path: str, *, http_method: str, **kwargs):
         """

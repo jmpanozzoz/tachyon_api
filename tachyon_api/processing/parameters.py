@@ -103,14 +103,14 @@ class ParameterProcessor:
                     and param.default.dependency is not None
                 ):
                     # Depends(callable) - call the factory function
-                    resolved = await self.app._resolve_callable_dependency(
+                    resolved = await self.app._dependency_resolver.resolve_callable_dependency(
                         param.default.dependency, dependency_cache, request
                     )
                     kwargs_to_inject[param.name] = resolved
                 else:
                     # Depends() or implicit - resolve by type annotation
                     target_class = param.annotation
-                    kwargs_to_inject[param.name] = self.app._resolve_dependency(
+                    kwargs_to_inject[param.name] = self.app._dependency_resolver.resolve_dependency(
                         target_class
                     )
             
