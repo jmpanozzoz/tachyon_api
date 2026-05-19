@@ -444,23 +444,12 @@ class Tachyon:
         self.middleware_stack.append({"func": middleware_class, "options": options})
 
     def middleware(self, middleware_type="http"):
-        """
-        Decorator for adding a middleware to the application.
-        Similar to route decorators (@app.get, etc.)
-
-        Args:
-            middleware_type: Type of middleware ('http' by default)
-
-        Returns:
-            A decorator that registers the decorated function as middleware.
-        """
+        """Decorator to register a function as ASGI middleware."""
 
         def decorator(middleware_func):
-            # Create a middleware class from the decorated function
             DecoratedMiddleware = create_decorated_middleware_class(
                 middleware_func, middleware_type
             )
-            # Register the middleware using the existing method
             self.add_middleware(DecoratedMiddleware)
             return middleware_func
 
