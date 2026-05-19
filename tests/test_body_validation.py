@@ -1,6 +1,6 @@
 import pytest
-from httpx import AsyncClient, ASGITransport
 from tachyon_api import Tachyon
+from tests.helpers import create_client
 from tachyon_api.params import Body
 from tachyon_api.models import Struct
 
@@ -29,8 +29,7 @@ async def test_valid_body_is_processed():
             "item_price": item.price,
         }
 
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+    async with create_client(app) as client:
         response = await client.post(
             "/items", json={"name": "Tachyon Core", "price": 99.99}
         )
@@ -56,8 +55,7 @@ async def test_invalid_body_returns_422():
             "item_price": item.price,
         }
 
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+    async with create_client(app) as client:
         response = await client.post(
             "/items", json={"name": "Defective Core", "price": "barato"}
         )

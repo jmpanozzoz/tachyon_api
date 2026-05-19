@@ -5,9 +5,8 @@ TDD: These tests are written BEFORE the implementation.
 """
 
 import pytest
-from httpx import AsyncClient, ASGITransport
-
 from tachyon_api import Tachyon
+from tests.helpers import create_client
 from tachyon_api.params import Header
 
 
@@ -22,8 +21,7 @@ async def test_header_required_parameter():
     def protected(authorization: str = Header(...)):
         return {"auth": authorization}
 
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+    async with create_client(app) as client:
         response = await client.get(
             "/protected", headers={"Authorization": "Bearer token123"}
         )
@@ -43,8 +41,7 @@ async def test_header_missing_required_returns_422():
     def protected(authorization: str = Header(...)):
         return {"auth": authorization}
 
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+    async with create_client(app) as client:
         response = await client.get("/protected")
 
     assert response.status_code == 422
@@ -62,8 +59,7 @@ async def test_header_optional_with_default():
     def get_info(x_request_id: str = Header("default-id")):
         return {"request_id": x_request_id}
 
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+    async with create_client(app) as client:
         # Without header
         response = await client.get("/info")
         assert response.status_code == 200
@@ -86,8 +82,7 @@ async def test_header_case_insensitive():
     def check(x_custom_header: str = Header(...)):
         return {"value": x_custom_header}
 
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+    async with create_client(app) as client:
         # Lowercase
         response = await client.get("/check", headers={"x-custom-header": "value1"})
         assert response.status_code == 200
@@ -111,8 +106,7 @@ async def test_header_with_underscore_converts_to_hyphen():
     def api_call(x_api_key: str = Header(...)):
         return {"key": x_api_key}
 
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+    async with create_client(app) as client:
         response = await client.get("/api", headers={"X-API-Key": "secret123"})
 
     assert response.status_code == 200
@@ -130,8 +124,7 @@ async def test_header_with_alias():
     def custom(token: str = Header(..., alias="X-Auth-Token")):
         return {"token": token}
 
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+    async with create_client(app) as client:
         response = await client.get("/custom", headers={"X-Auth-Token": "my-token"})
 
     assert response.status_code == 200
@@ -157,8 +150,7 @@ async def test_multiple_headers():
             "lang": accept_language,
         }
 
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+    async with create_client(app) as client:
         response = await client.get(
             "/multi",
             headers={
@@ -186,8 +178,7 @@ async def test_header_openapi_schema():
     def secure(authorization: str = Header(..., description="Bearer token")):
         return {"ok": True}
 
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+    async with create_client(app) as client:
         response = await client.get("/openapi.json")
 
     assert response.status_code == 200

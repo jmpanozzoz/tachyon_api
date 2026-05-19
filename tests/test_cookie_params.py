@@ -5,9 +5,8 @@ TDD: These tests are written BEFORE the implementation (Cookie already implement
 """
 
 import pytest
-from httpx import AsyncClient, ASGITransport
-
 from tachyon_api import Tachyon
+from tests.helpers import create_client
 from tachyon_api.params import Cookie
 
 
@@ -22,8 +21,7 @@ async def test_cookie_required_parameter():
     def profile(session_id: str = Cookie(...)):
         return {"session": session_id}
 
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+    async with create_client(app) as client:
         response = await client.get("/profile", cookies={"session_id": "abc123"})
 
     assert response.status_code == 200
@@ -41,8 +39,7 @@ async def test_cookie_missing_required_returns_422():
     def profile(session_id: str = Cookie(...)):
         return {"session": session_id}
 
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+    async with create_client(app) as client:
         response = await client.get("/profile")
 
     assert response.status_code == 422
@@ -60,8 +57,7 @@ async def test_cookie_optional_with_default():
     def get_prefs(theme: str = Cookie("light")):
         return {"theme": theme}
 
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+    async with create_client(app) as client:
         # Without cookie
         response = await client.get("/prefs")
         assert response.status_code == 200
@@ -84,8 +80,7 @@ async def test_cookie_with_alias():
     def session(token: str = Cookie(..., alias="auth_token")):
         return {"token": token}
 
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+    async with create_client(app) as client:
         response = await client.get("/session", cookies={"auth_token": "xyz789"})
 
     assert response.status_code == 200
@@ -103,8 +98,7 @@ async def test_cookie_openapi_schema():
     def check(session: str = Cookie(..., description="Session cookie")):
         return {"ok": True}
 
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+    async with create_client(app) as client:
         response = await client.get("/openapi.json")
 
     assert response.status_code == 200

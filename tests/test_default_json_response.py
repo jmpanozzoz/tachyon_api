@@ -1,9 +1,8 @@
 import pytest
 import uuid
 import datetime
-from httpx import AsyncClient, ASGITransport
-
 from tachyon_api import Tachyon
+from tests.helpers import create_client
 from tachyon_api.models import Struct
 
 
@@ -24,8 +23,7 @@ async def test_default_response_serializes_datetime_and_uuid_with_orjson():
         # Return types that standard JSONResponse can't serialize by default
         return {"uuid": test_uuid, "today": test_date}
 
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+    async with create_client(app) as client:
         response = await client.get("/info")
 
     assert response.status_code == 200
@@ -42,8 +40,7 @@ async def test_default_response_handles_struct_directly():
     def get_struct():
         return Sample(id=1, created_at=datetime.date(2020, 1, 2))
 
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+    async with create_client(app) as client:
         response = await client.get("/struct")
 
     assert response.status_code == 200
