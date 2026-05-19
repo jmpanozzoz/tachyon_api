@@ -14,9 +14,6 @@ class Item(Struct):
 
 @pytest.mark.asyncio
 async def test_valid_body_is_processed():
-    """
-    Test that a valid body is processed correctly by the endpoint.
-    """
     # Create a Tachyon instance for this specific test
     app = Tachyon()
 
@@ -40,9 +37,6 @@ async def test_valid_body_is_processed():
 
 @pytest.mark.asyncio
 async def test_invalid_body_returns_422():
-    """
-    Test that an invalid body returns a 422 status code with validation errors.
-    """
     # Create a Tachyon instance for this specific test
     app = Tachyon()
 

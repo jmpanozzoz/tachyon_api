@@ -12,10 +12,7 @@ from tachyon_api.responses import (
 
 
 class TestSimpleResponseHelpers:
-    """Test suite for simple response helper functions"""
-
     def test_success_response_default(self):
-        """Test success response with default message"""
         response = success_response({"user_id": 123})
 
         assert isinstance(response, JSONResponse)
@@ -32,7 +29,6 @@ class TestSimpleResponseHelpers:
         assert data["data"] == {"user_id": 123}
 
     def test_success_response_custom_message(self):
-        """Test success response with custom message and status"""
         response = success_response(
             {"user_id": 123}, message="User created successfully", status_code=201
         )
@@ -49,7 +45,6 @@ class TestSimpleResponseHelpers:
         assert data["data"] == {"user_id": 123}
 
     def test_success_response_no_data(self):
-        """Test success response without data"""
         response = success_response(message="Operation completed")
 
         content = response.body.decode()
@@ -62,7 +57,6 @@ class TestSimpleResponseHelpers:
         assert data["data"] is None
 
     def test_error_response_basic(self):
-        """Test basic error response"""
         response = error_response("Something went wrong")
 
         assert response.status_code == 400
@@ -77,7 +71,6 @@ class TestSimpleResponseHelpers:
         assert "code" not in data
 
     def test_error_response_with_code(self):
-        """Test error response with error code and custom status"""
         response = error_response(
             "Invalid input", status_code=422, code="VALIDATION_ERROR"
         )
@@ -94,7 +87,6 @@ class TestSimpleResponseHelpers:
         assert data["code"] == "VALIDATION_ERROR"
 
     def test_not_found_response_default(self):
-        """Test not found response with default message"""
         response = not_found_response()
 
         assert response.status_code == 404
@@ -109,7 +101,6 @@ class TestSimpleResponseHelpers:
         assert data["code"] == "NOT_FOUND"
 
     def test_not_found_response_custom(self):
-        """Test not found response with custom message"""
         response = not_found_response("User not found")
 
         assert response.status_code == 404
@@ -124,7 +115,6 @@ class TestSimpleResponseHelpers:
         assert data["code"] == "NOT_FOUND"
 
     def test_conflict_response_default(self):
-        """Test conflict response with default message"""
         response = conflict_response()
 
         assert response.status_code == 409
@@ -139,7 +129,6 @@ class TestSimpleResponseHelpers:
         assert data["code"] == "CONFLICT"
 
     def test_conflict_response_custom(self):
-        """Test conflict response with custom message"""
         response = conflict_response("Item already exists")
 
         assert response.status_code == 409
@@ -154,7 +143,6 @@ class TestSimpleResponseHelpers:
         assert data["code"] == "CONFLICT"
 
     def test_validation_error_response_basic(self):
-        """Test validation error response without field errors"""
         response = validation_error_response()
 
         assert response.status_code == 422
@@ -170,7 +158,6 @@ class TestSimpleResponseHelpers:
         assert "errors" not in data
 
     def test_validation_error_response_with_errors(self):
-        """Test validation error response with field errors"""
         field_errors = {
             "name": ["This field is required"],
             "email": ["Invalid email format", "Email already exists"],
@@ -193,7 +180,6 @@ class TestSimpleResponseHelpers:
         assert data["errors"] == field_errors
 
     def test_response_headers(self):
-        """Test that responses accept custom headers"""
         response = JSONResponse(
             {"test": "data"}, headers={"X-Custom-Header": "custom-value"}
         )

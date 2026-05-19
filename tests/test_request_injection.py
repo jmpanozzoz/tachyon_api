@@ -13,10 +13,6 @@ from tachyon_api import Tachyon
 
 @pytest.mark.asyncio
 async def test_request_object_is_injected_when_annotated():
-    """
-    Test that a Request object is automatically injected when
-    a parameter is annotated with Request type.
-    """
     app = Tachyon()
 
     @app.get("/info")
@@ -37,9 +33,6 @@ async def test_request_object_is_injected_when_annotated():
 
 @pytest.mark.asyncio
 async def test_request_injection_with_other_params():
-    """
-    Test that Request can be combined with other parameter types.
-    """
     app = Tachyon()
 
     @app.get("/users/{user_id}")
@@ -61,9 +54,6 @@ async def test_request_injection_with_other_params():
 
 @pytest.mark.asyncio
 async def test_request_injection_access_headers():
-    """
-    Test that the Request object provides access to headers.
-    """
     app = Tachyon()
 
     @app.get("/headers")
@@ -85,9 +75,6 @@ async def test_request_injection_access_headers():
 
 @pytest.mark.asyncio
 async def test_request_injection_access_query_params():
-    """
-    Test that the Request object provides access to query parameters.
-    """
     app = Tachyon()
 
     @app.get("/search")
@@ -108,9 +95,6 @@ async def test_request_injection_access_query_params():
 
 @pytest.mark.asyncio
 async def test_request_injection_in_post_with_body():
-    """
-    Test that Request injection works with POST requests that have a body.
-    """
     from tachyon_api.models import Struct
     from tachyon_api.params import Body
 

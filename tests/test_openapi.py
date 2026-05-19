@@ -85,7 +85,6 @@ async def test_openapi_schema_generation():
 
 
 def test_default_openapi_config():
-    """Test that the default configuration works"""
     config = create_openapi_config()
 
     assert config.info.title == "Tachyon API"
@@ -98,7 +97,6 @@ def test_default_openapi_config():
 
 
 def test_custom_openapi_config():
-    """Test for custom configuration similar to FastAPI"""
     contact = Contact(
         name="Development Team",
         url="https://example.com/contact",
@@ -135,7 +133,6 @@ def test_custom_openapi_config():
 
 
 def test_openapi_generator():
-    """Test that the OpenAPI generator works correctly"""
     config = create_openapi_config(title="Test API", description="Test API")
 
     generator = OpenAPIGenerator(config)
@@ -149,7 +146,6 @@ def test_openapi_generator():
 
 
 def test_swagger_ui_html_generation():
-    """Test HTML generation for Swagger UI"""
     config = create_openapi_config(title="Test API")
     generator = OpenAPIGenerator(config)
 
@@ -162,7 +158,6 @@ def test_swagger_ui_html_generation():
 
 
 def test_redoc_html_generation():
-    """Test HTML generation for ReDoc"""
     config = create_openapi_config(title="Test API")
     generator = OpenAPIGenerator(config)
 
@@ -175,7 +170,6 @@ def test_redoc_html_generation():
 
 
 def test_add_path_to_schema():
-    """Test adding routes to the OpenAPI schema"""
     generator = OpenAPIGenerator()
 
     operation_data = {
@@ -198,7 +192,6 @@ def test_add_path_to_schema():
 
 
 def test_contact_to_dict():
-    """Test conversion of Contact to dictionary"""
     contact = Contact(
         name="John Doe", url="https://example.com", email="john@example.com"
     )
@@ -211,7 +204,6 @@ def test_contact_to_dict():
 
 
 def test_license_to_dict():
-    """Test conversion of License to dictionary"""
     license = License(name="Apache 2.0", url="https://apache.org/licenses/LICENSE-2.0")
 
     result = license.to_dict()
@@ -221,7 +213,6 @@ def test_license_to_dict():
 
 
 def test_server_to_dict():
-    """Test conversion of Server to dictionary"""
     server = Server(url="https://api.example.com", description="Main server")
 
     result = server.to_dict()
@@ -231,7 +222,6 @@ def test_server_to_dict():
 
 
 def test_scalar_html_generation():
-    """Test HTML generation for Scalar API Reference"""
     config = create_openapi_config(title="Test API")
     generator = OpenAPIGenerator(config)
 

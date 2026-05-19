@@ -12,9 +12,6 @@ from tachyon_api.params import Cookie
 
 @pytest.mark.asyncio
 async def test_cookie_required_parameter():
-    """
-    Test that a required Cookie parameter is extracted correctly.
-    """
     app = Tachyon()
 
     @app.get("/profile")
@@ -30,9 +27,6 @@ async def test_cookie_required_parameter():
 
 @pytest.mark.asyncio
 async def test_cookie_missing_required_returns_422():
-    """
-    Test that missing required cookie returns 422.
-    """
     app = Tachyon()
 
     @app.get("/profile")
@@ -48,9 +42,6 @@ async def test_cookie_missing_required_returns_422():
 
 @pytest.mark.asyncio
 async def test_cookie_optional_with_default():
-    """
-    Test that optional cookie uses default value when not provided.
-    """
     app = Tachyon()
 
     @app.get("/prefs")
@@ -71,9 +62,6 @@ async def test_cookie_optional_with_default():
 
 @pytest.mark.asyncio
 async def test_cookie_with_alias():
-    """
-    Test that Cookie can use an alias for custom cookie name.
-    """
     app = Tachyon()
 
     @app.get("/session")
@@ -89,9 +77,6 @@ async def test_cookie_with_alias():
 
 @pytest.mark.asyncio
 async def test_cookie_openapi_schema():
-    """
-    Test that Cookie parameters appear in OpenAPI schema.
-    """
     app = Tachyon()
 
     @app.get("/check")
