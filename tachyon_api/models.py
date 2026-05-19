@@ -1,10 +1,4 @@
-"""
-Tachyon Web Framework - Data Models Module
-
-This module provides the base model class for request/response data validation
-using msgspec for high-performance JSON serialization and validation.
-The module enhances msgspec with orjson for even faster JSON processing.
-"""
+"""msgspec Struct + orjson-powered JSON encoding/decoding."""
 
 import datetime
 import uuid
@@ -31,43 +25,14 @@ def _orjson_default(obj: Any) -> Any:
 
 
 def encode_json(obj: Any, option: Optional[int] = None) -> bytes:
-    """
-    Encode a Python object to JSON using orjson.
-
-    Args:
-        obj: Object to encode (can be a Struct instance or any JSON-serializable object)
-        option: orjson option flags (e.g., orjson.OPT_INDENT_2)
-
-    Returns:
-        JSON-encoded bytes
-    """
-    opts = (
-        option
-        or orjson.OPT_SERIALIZE_DATACLASS | orjson.OPT_SERIALIZE_UUID | orjson.OPT_UTC_Z
-    )
+    opts = option or orjson.OPT_SERIALIZE_DATACLASS | orjson.OPT_SERIALIZE_UUID | orjson.OPT_UTC_Z
     return orjson.dumps(obj, default=_orjson_default, option=opts)
 
 
 def decode_json(data: Union[bytes, str], type_: Type[T] = Dict[str, Any]) -> T:
-    """
-    Decode JSON to a Python object using orjson.
-    If a Struct type is provided, the decoded data will be converted to that type.
-
-    Args:
-        data: JSON data as bytes or string
-        type_: Target type (default is Dict[str, Any])
-
-    Returns:
-        Decoded object of the specified type
-    """
     if isinstance(data, str):
         data = data.encode("utf-8")
-
-    # First use orjson for fast JSON parsing
     parsed_data = orjson.loads(data)
-
-    # If the target type is a Struct or similar msgspec type, use msgspec.convert
     if isinstance(type_, type) and issubclass(type_, Struct):
         return msgspec.convert(parsed_data, type_)
-
     return parsed_data
