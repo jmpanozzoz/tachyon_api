@@ -181,13 +181,10 @@ class OpenAPIConfig:
     docs_url: str = "/docs"
     redoc_url: str = "/redoc"
     openapi_url: str = "/openapi.json"
-    include_in_schema: bool = True
     # Scalar configuration
     scalar_js_url: str = "https://cdn.jsdelivr.net/npm/@scalar/api-reference"
     scalar_favicon_url: str = "https://fastapi.tiangolo.com/img/favicon.png"
     # Swagger UI configuration (legacy support)
-    swagger_ui_oauth2_redirect_url: Optional[str] = None
-    swagger_ui_init_oauth: Optional[Dict[str, Any]] = None
     swagger_ui_parameters: Optional[Dict[str, Any]] = None
     swagger_favicon_url: str = "https://fastapi.tiangolo.com/img/favicon.png"
     swagger_js_url: str = (
