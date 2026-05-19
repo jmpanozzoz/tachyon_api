@@ -1,6 +1,6 @@
 import pytest
-from httpx import AsyncClient, ASGITransport
 from starlette.responses import JSONResponse
+from tests.helpers import create_client
 
 from tachyon_api.responses import (
     success_response,
@@ -244,10 +244,7 @@ class TestResponsesInEndpoints:
 
     async def test_success_response_in_endpoint(self, app):
         """Test success response helper in actual endpoint"""
-        transport = ASGITransport(app=app)
-        async with AsyncClient(
-            transport=transport, base_url="http://testserver"
-        ) as client:
+        async with create_client(app) as client:
             response = await client.get("/success")
 
         assert response.status_code == 200
@@ -258,10 +255,7 @@ class TestResponsesInEndpoints:
 
     async def test_error_response_in_endpoint(self, app):
         """Test error response helper in actual endpoint"""
-        transport = ASGITransport(app=app)
-        async with AsyncClient(
-            transport=transport, base_url="http://testserver"
-        ) as client:
+        async with create_client(app) as client:
             response = await client.get("/error")
 
         assert response.status_code == 400
@@ -271,10 +265,7 @@ class TestResponsesInEndpoints:
 
     async def test_not_found_response_in_endpoint(self, app):
         """Test not found response helper in actual endpoint"""
-        transport = ASGITransport(app=app)
-        async with AsyncClient(
-            transport=transport, base_url="http://testserver"
-        ) as client:
+        async with create_client(app) as client:
             response = await client.get("/not-found")
 
         assert response.status_code == 404
@@ -285,10 +276,7 @@ class TestResponsesInEndpoints:
 
     async def test_conflict_response_in_endpoint(self, app):
         """Test conflict response helper in actual endpoint"""
-        transport = ASGITransport(app=app)
-        async with AsyncClient(
-            transport=transport, base_url="http://testserver"
-        ) as client:
+        async with create_client(app) as client:
             response = await client.get("/conflict")
 
         assert response.status_code == 409
@@ -299,10 +287,7 @@ class TestResponsesInEndpoints:
 
     async def test_regular_json_still_works(self, app):
         """Test that regular JSON responses still work alongside helpers"""
-        transport = ASGITransport(app=app)
-        async with AsyncClient(
-            transport=transport, base_url="http://testserver"
-        ) as client:
+        async with create_client(app) as client:
             response = await client.get("/regular-json")
 
         assert response.status_code == 200

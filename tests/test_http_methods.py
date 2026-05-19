@@ -1,6 +1,6 @@
 import pytest
-from httpx import AsyncClient, ASGITransport
 from tachyon_api import Tachyon
+from tests.helpers import create_client
 
 http_test_cases = [
     ("get", "/get", {"method": "GET", "message": "GET request successful"}),
@@ -32,8 +32,7 @@ async def test_all_http_methods(http_method, path, expected_payload):
     def delete_endpoint():
         return {"method": "DELETE", "message": "DELETE request successful"}
 
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+    async with create_client(app) as client:
         response = await getattr(client, http_method)(path)
 
     assert response.status_code == 200
@@ -49,8 +48,7 @@ async def test_invalid_method():
     def get_endpoint():
         return {"method": "GET", "message": "GET request successful"}
 
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+    async with create_client(app) as client:
         response = await client.patch("/get")
         assert response.status_code == 405
         assert response.text == "Method Not Allowed"

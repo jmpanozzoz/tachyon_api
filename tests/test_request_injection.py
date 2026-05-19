@@ -5,8 +5,8 @@ TDD: These tests are written BEFORE the implementation.
 """
 
 import pytest
-from httpx import AsyncClient, ASGITransport
 from starlette.requests import Request
+from tests.helpers import create_client
 
 from tachyon_api import Tachyon
 
@@ -26,8 +26,7 @@ async def test_request_object_is_injected_when_annotated():
             "path": request.url.path,
         }
 
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+    async with create_client(app) as client:
         response = await client.get("/info")
 
     assert response.status_code == 200
@@ -51,8 +50,7 @@ async def test_request_injection_with_other_params():
             "path": request.url.path,
         }
 
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+    async with create_client(app) as client:
         response = await client.get("/users/123")
 
     assert response.status_code == 200
@@ -75,8 +73,7 @@ async def test_request_injection_access_headers():
             "custom_header": request.headers.get("x-custom-header", "not-set"),
         }
 
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+    async with create_client(app) as client:
         response = await client.get(
             "/headers", headers={"X-Custom-Header": "test-value"}
         )
@@ -100,8 +97,7 @@ async def test_request_injection_access_query_params():
             "page": request.query_params.get("page", "1"),
         }
 
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+    async with create_client(app) as client:
         response = await client.get("/search?q=tachyon&page=2")
 
     assert response.status_code == 200
@@ -131,8 +127,7 @@ async def test_request_injection_in_post_with_body():
             "content_type": request.headers.get("content-type", "") if request else "",
         }
 
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+    async with create_client(app) as client:
         response = await client.post("/items", json={"name": "Test Item"})
 
     assert response.status_code == 200

@@ -1,6 +1,6 @@
 import pytest
-from httpx import AsyncClient, ASGITransport
 from tachyon_api import Tachyon
+from tests.helpers import create_client
 from tachyon_api.di import injectable, Depends
 
 
@@ -32,8 +32,7 @@ async def test_explicit_dependency_injection():
     def get_user_explicitly(user_id: int, service: MockUserService = Depends()):
         return service.get_user_data(user_id)
 
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+    async with create_client(app) as client:
         response = await client.get("/di_explicit/123")
 
     assert response.status_code == 200
@@ -49,8 +48,7 @@ async def test_implicit_dependency_injection():
     def get_user_implicitly(user_id: int, service: MockUserService):
         return service.get_user_data(user_id)
 
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+    async with create_client(app) as client:
         response = await client.get("/di_implicit/456")
 
     assert response.status_code == 200

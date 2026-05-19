@@ -1,7 +1,6 @@
 import pytest
-from httpx import AsyncClient, ASGITransport
-
 from tachyon_api import Tachyon, Query
+from tests.helpers import create_client
 from tachyon_api.models import Struct
 
 
@@ -17,8 +16,7 @@ async def test_422_validation_error_structure_for_query():
     def items(limit: int = Query(...)):
         return {"limit": limit}
 
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+    async with create_client(app) as client:
         response = await client.get("/items?limit=bad")
 
     assert response.status_code == 422
@@ -37,8 +35,7 @@ async def test_500_response_validation_error_structure():
         # Return wrong shape to force response_model validation error
         return {"value": "not-an-int"}
 
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+    async with create_client(app) as client:
         response = await client.get("/bad")
 
     assert response.status_code == 500
@@ -56,8 +53,7 @@ async def test_global_unhandled_exception_is_structured_500():
     def explode():
         raise RuntimeError("boom")
 
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+    async with create_client(app) as client:
         response = await client.get("/explode")
 
     assert response.status_code == 500

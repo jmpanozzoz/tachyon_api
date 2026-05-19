@@ -1,6 +1,6 @@
 import pytest
-from httpx import AsyncClient, ASGITransport
 from tachyon_api import Tachyon
+from tests.helpers import create_client
 
 
 # Middleware defined as a class (traditional approach)
@@ -48,8 +48,7 @@ async def test_class_middleware():
     wrapped_app = SimpleHeaderMiddleware(app)
 
     # Use the wrapped application in the ASGI transport
-    transport = ASGITransport(app=wrapped_app)
-    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+    async with create_client(wrapped_app) as client:
         response = await client.get("/test_class_middleware")
 
     # Verify that the response is correct
@@ -92,8 +91,7 @@ async def test_decorator_middleware():
         return {"ok": True}
 
     # Use the application in the ASGI transport
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+    async with create_client(app) as client:
         response = await client.get("/test_decorator_middleware")
 
     # Verify that the response is correct
@@ -157,8 +155,7 @@ async def test_multiple_middlewares():
         return {"ok": True}
 
     # Use the wrapped application in the ASGI transport
-    transport = ASGITransport(app=wrapped_app)
-    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+    async with create_client(wrapped_app) as client:
         response = await client.get("/test_multiple_middlewares")
 
     # Verify that the response is correct

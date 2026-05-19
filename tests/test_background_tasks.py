@@ -4,7 +4,7 @@ Release 0.6.5 - Background Tasks
 """
 
 import pytest
-from httpx import AsyncClient, ASGITransport
+from tests.helpers import create_client
 
 
 # =============================================================================
@@ -29,9 +29,7 @@ async def test_background_task_basic():
         background_tasks.add_task(write_log, "notification sent")
         return {"message": "Notification scheduled"}
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as client:
+    async with create_client(app) as client:
         response = await client.get("/send-notification")
         assert response.status_code == 200
         assert response.json() == {"message": "Notification scheduled"}
@@ -58,9 +56,7 @@ async def test_background_task_async():
         background_tasks.add_task(async_write, "async done")
         return {"status": "ok"}
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as client:
+    async with create_client(app) as client:
         response = await client.get("/async-task")
         assert response.status_code == 200
         assert results == ["async done"]
@@ -91,9 +87,7 @@ async def test_background_task_multiple():
         background_tasks.add_task(task3)
         return {"tasks": 3}
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as client:
+    async with create_client(app) as client:
         response = await client.get("/multi")
         assert response.status_code == 200
         assert len(results) == 3
@@ -121,9 +115,7 @@ async def test_background_task_with_kwargs():
         )
         return {"sent": True}
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as client:
+    async with create_client(app) as client:
         response = await client.get("/email")
         assert response.status_code == 200
         assert len(results) == 1
@@ -153,9 +145,7 @@ async def test_background_task_with_other_params():
             background_tasks.add_task(log_action, action, user)
         return {"action": action, "user": user}
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as client:
+    async with create_client(app) as client:
         response = await client.get("/action?action=login&user=john")
         assert response.status_code == 200
         assert response.json() == {"action": "login", "user": "john"}
@@ -183,9 +173,7 @@ async def test_background_task_error_handling():
         background_tasks.add_task(success_task)
         return {"status": "ok"}
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as client:
+    async with create_client(app) as client:
         response = await client.get("/with-error")
         # Response should still be 200
         assert response.status_code == 200

@@ -1,13 +1,11 @@
-from httpx import AsyncClient, ASGITransport
 from typing import Optional, List
 import pytest
-
 from tachyon_api import Tachyon, Query, Path
+from tests.helpers import create_client
 
 
 async def _get_openapi(app: Tachyon):
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+    async with create_client(app) as client:
         resp = await client.get("/openapi.json")
         assert resp.status_code == 200
         return resp.json()
