@@ -37,13 +37,6 @@ class Query:
     """
 
     def __init__(self, default: Any = ..., description: Optional[str] = None):
-        """
-        Initialize a Query parameter marker.
-
-        Args:
-            default: Default value for the parameter. Use ... (Ellipsis) for required parameters.
-            description: Optional description for API documentation.
-        """
         self.default = default
         self.description = description
 
@@ -60,12 +53,6 @@ class Path:
     """
 
     def __init__(self, description: Optional[str] = None):
-        """
-        Initialize a Path parameter marker.
-
-        Args:
-            description: Optional description for API documentation.
-        """
         self.description = description
 
 
@@ -81,12 +68,6 @@ class Body:
     """
 
     def __init__(self, description: Optional[str] = None):
-        """
-        Initialize a Body parameter marker.
-
-        Args:
-            description: Optional description for API documentation.
-        """
         self.description = description
 
 
@@ -125,14 +106,6 @@ class Header:
         alias: Optional[str] = None,
         description: Optional[str] = None,
     ):
-        """
-        Initialize a Header parameter marker.
-
-        Args:
-            default: Default value for the header. Use ... (Ellipsis) for required.
-            alias: Optional custom header name to use instead of parameter name.
-            description: Optional description for API documentation.
-        """
         self.default = default
         self.alias = alias
         self.description = description
@@ -164,14 +137,6 @@ class Cookie:
         alias: Optional[str] = None,
         description: Optional[str] = None,
     ):
-        """
-        Initialize a Cookie parameter marker.
-
-        Args:
-            default: Default value for the cookie. Use ... (Ellipsis) for required.
-            alias: Optional custom cookie name to use instead of parameter name.
-            description: Optional description for API documentation.
-        """
         self.default = default
         self.alias = alias
         self.description = description
@@ -208,14 +173,6 @@ class Form:
         alias: Optional[str] = None,
         description: Optional[str] = None,
     ):
-        """
-        Initialize a Form parameter marker.
-
-        Args:
-            default: Default value for the field. Use ... (Ellipsis) for required.
-            alias: Optional custom field name to use instead of parameter name.
-            description: Optional description for API documentation.
-        """
         self.default = default
         self.alias = alias
         self.description = description
@@ -257,12 +214,5 @@ class File:
         default: Any = ...,
         description: Optional[str] = None,
     ):
-        """
-        Initialize a File parameter marker.
-
-        Args:
-            default: Default value. Use ... for required, None for optional.
-            description: Optional description for API documentation.
-        """
         self.default = default
         self.description = description

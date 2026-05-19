@@ -153,97 +153,42 @@ class HTTPBasic:
             return None
 
 
-class APIKeyHeader:
-    """
-    API Key authentication via HTTP header.
-
-    Args:
-        name: The header name to look for (e.g., "X-API-Key")
-        auto_error: If True (default), raises HTTPException on missing key.
-
-    Example:
-        api_key = APIKeyHeader(name="X-API-Key")
-
-        @app.get("/api")
-        def api_endpoint(key: str = Depends(api_key)):
-            return {"api_key": key}
-    """
-
+class _APIKeyBase:
     def __init__(self, name: str, auto_error: bool = True):
         self.name = name
         self.auto_error = auto_error
 
-    async def __call__(self, request: Request) -> Optional[str]:
-        api_key = request.headers.get(self.name)
+    def _get_raw(self, request: Request) -> Optional[str]:
+        raise NotImplementedError
 
+    async def __call__(self, request: Request) -> Optional[str]:
+        api_key = self._get_raw(request)
         if not api_key:
             if self.auto_error:
                 raise HTTPException(status_code=403, detail="Not authenticated")
             return None
-
         return api_key
 
 
-class APIKeyQuery:
-    """
-    API Key authentication via query parameter.
+class APIKeyHeader(_APIKeyBase):
+    """API Key authentication via HTTP header (e.g., 'X-API-Key')."""
 
-    Args:
-        name: The query parameter name to look for (e.g., "api_key")
-        auto_error: If True (default), raises HTTPException on missing key.
-
-    Example:
-        api_key = APIKeyQuery(name="api_key")
-
-        @app.get("/api")
-        def api_endpoint(key: str = Depends(api_key)):
-            return {"api_key": key}
-    """
-
-    def __init__(self, name: str, auto_error: bool = True):
-        self.name = name
-        self.auto_error = auto_error
-
-    async def __call__(self, request: Request) -> Optional[str]:
-        api_key = request.query_params.get(self.name)
-
-        if not api_key:
-            if self.auto_error:
-                raise HTTPException(status_code=403, detail="Not authenticated")
-            return None
-
-        return api_key
+    def _get_raw(self, request: Request) -> Optional[str]:
+        return request.headers.get(self.name)
 
 
-class APIKeyCookie:
-    """
-    API Key authentication via cookie.
+class APIKeyQuery(_APIKeyBase):
+    """API Key authentication via query parameter (e.g., '?api_key=...')."""
 
-    Args:
-        name: The cookie name to look for (e.g., "session_token")
-        auto_error: If True (default), raises HTTPException on missing key.
+    def _get_raw(self, request: Request) -> Optional[str]:
+        return request.query_params.get(self.name)
 
-    Example:
-        api_key = APIKeyCookie(name="session_token")
 
-        @app.get("/api")
-        def api_endpoint(key: str = Depends(api_key)):
-            return {"api_key": key}
-    """
+class APIKeyCookie(_APIKeyBase):
+    """API Key authentication via cookie."""
 
-    def __init__(self, name: str, auto_error: bool = True):
-        self.name = name
-        self.auto_error = auto_error
-
-    async def __call__(self, request: Request) -> Optional[str]:
-        api_key = request.cookies.get(self.name)
-
-        if not api_key:
-            if self.auto_error:
-                raise HTTPException(status_code=403, detail="Not authenticated")
-            return None
-
-        return api_key
+    def _get_raw(self, request: Request) -> Optional[str]:
+        return request.cookies.get(self.name)
 
 
 class OAuth2PasswordBearer:
