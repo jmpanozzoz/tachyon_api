@@ -44,9 +44,6 @@ def get_settings():
 
 @pytest.mark.asyncio
 async def test_depends_with_sync_function():
-    """
-    Test that Depends() works with a regular sync function.
-    """
     app = Tachyon()
 
     @app.get("/db")
@@ -64,9 +61,6 @@ async def test_depends_with_sync_function():
 
 @pytest.mark.asyncio
 async def test_depends_with_async_function():
-    """
-    Test that Depends() works with an async function.
-    """
     app = Tachyon()
 
     @app.get("/service")
@@ -84,9 +78,6 @@ async def test_depends_with_async_function():
 
 @pytest.mark.asyncio
 async def test_depends_with_lambda():
-    """
-    Test that Depends() works with a lambda function.
-    """
     app = Tachyon()
 
     @app.get("/config")
@@ -104,9 +95,6 @@ async def test_depends_with_lambda():
 
 @pytest.mark.asyncio
 async def test_depends_multiple_callables():
-    """
-    Test that multiple Depends(callable) work together.
-    """
     app = Tachyon()
 
     @app.get("/status")
@@ -133,9 +121,6 @@ async def test_depends_multiple_callables():
 
 @pytest.mark.asyncio
 async def test_depends_callable_with_other_params():
-    """
-    Test that Depends(callable) works alongside Query, Header, etc.
-    """
     app = Tachyon()
 
     from tachyon_api.params import Query
@@ -166,9 +151,6 @@ async def test_depends_callable_with_other_params():
 
 @pytest.mark.asyncio
 async def test_depends_nested_callables():
-    """
-    Test that dependencies can depend on other dependencies (nested).
-    """
     app = Tachyon()
 
     def get_db():

@@ -33,13 +33,6 @@ class Item(Struct):
 
 @pytest.fixture
 def app():
-    """
-    Create a test Tachyon application with sample routes for testing.
-
-    This fixture provides a basic app with routes that exercise different
-    parameter types (path params, body params) to test OpenAPI generation.
-    """
-
     tachyon_app = Tachyon()
 
     @tachyon_app.get("/")

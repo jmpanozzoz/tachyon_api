@@ -22,9 +22,6 @@ from tachyon_api import Tachyon
 
 
 def test_lifespan_startup_and_shutdown():
-    """
-    Test that lifespan context manager runs startup and shutdown code.
-    """
     events = []
 
     @asynccontextmanager
@@ -54,10 +51,6 @@ def test_lifespan_startup_and_shutdown():
 
 
 def test_lifespan_with_app_state():
-    """
-    Test that lifespan can set up app state that endpoints can access.
-    """
-
     @asynccontextmanager
     async def lifespan(app):
         # Simulate database connection on startup
@@ -82,9 +75,6 @@ def test_lifespan_with_app_state():
 
 
 def test_on_event_startup():
-    """
-    Test that @app.on_event('startup') decorator registers startup handlers.
-    """
     events = []
     app = Tachyon()
 
@@ -104,9 +94,6 @@ def test_on_event_startup():
 
 
 def test_on_event_shutdown():
-    """
-    Test that @app.on_event('shutdown') decorator registers shutdown handlers.
-    """
     events = []
     app = Tachyon()
 
@@ -127,9 +114,6 @@ def test_on_event_shutdown():
 
 
 def test_multiple_startup_handlers():
-    """
-    Test that multiple startup handlers can be registered.
-    """
     events = []
     app = Tachyon()
 
@@ -159,9 +143,6 @@ def test_multiple_startup_handlers():
 
 
 def test_multiple_shutdown_handlers():
-    """
-    Test that multiple shutdown handlers can be registered and run in reverse order.
-    """
     events = []
     app = Tachyon()
 
@@ -186,9 +167,6 @@ def test_multiple_shutdown_handlers():
 
 
 def test_on_event_with_sync_handler():
-    """
-    Test that sync handlers work with on_event.
-    """
     events = []
     app = Tachyon()
 

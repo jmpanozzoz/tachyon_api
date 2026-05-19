@@ -12,9 +12,6 @@ from tachyon_api.params import Header
 
 @pytest.mark.asyncio
 async def test_header_required_parameter():
-    """
-    Test that a required Header parameter is extracted correctly.
-    """
     app = Tachyon()
 
     @app.get("/protected")
@@ -32,9 +29,6 @@ async def test_header_required_parameter():
 
 @pytest.mark.asyncio
 async def test_header_missing_required_returns_422():
-    """
-    Test that missing required header returns 422.
-    """
     app = Tachyon()
 
     @app.get("/protected")
@@ -50,9 +44,6 @@ async def test_header_missing_required_returns_422():
 
 @pytest.mark.asyncio
 async def test_header_optional_with_default():
-    """
-    Test that optional header uses default value when not provided.
-    """
     app = Tachyon()
 
     @app.get("/info")
@@ -73,9 +64,6 @@ async def test_header_optional_with_default():
 
 @pytest.mark.asyncio
 async def test_header_case_insensitive():
-    """
-    Test that header names are case-insensitive (HTTP standard).
-    """
     app = Tachyon()
 
     @app.get("/check")
@@ -115,9 +103,6 @@ async def test_header_with_underscore_converts_to_hyphen():
 
 @pytest.mark.asyncio
 async def test_header_with_alias():
-    """
-    Test that Header can use an alias for custom header name.
-    """
     app = Tachyon()
 
     @app.get("/custom")
@@ -133,9 +118,6 @@ async def test_header_with_alias():
 
 @pytest.mark.asyncio
 async def test_multiple_headers():
-    """
-    Test that multiple headers can be extracted in a single endpoint.
-    """
     app = Tachyon()
 
     @app.get("/multi")
@@ -169,9 +151,6 @@ async def test_multiple_headers():
 
 @pytest.mark.asyncio
 async def test_header_openapi_schema():
-    """
-    Test that Header parameters appear in OpenAPI schema.
-    """
     app = Tachyon()
 
     @app.get("/secure")

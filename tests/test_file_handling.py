@@ -22,9 +22,6 @@ from tachyon_api.files import UploadFile
 
 @pytest.mark.asyncio
 async def test_form_required_parameter():
-    """
-    Test that a required Form parameter is extracted correctly.
-    """
     app = Tachyon()
 
     @app.post("/login")
@@ -44,9 +41,6 @@ async def test_form_required_parameter():
 
 @pytest.mark.asyncio
 async def test_form_missing_required_returns_422():
-    """
-    Test that missing required form field returns 422.
-    """
     app = Tachyon()
 
     @app.post("/login")
@@ -61,9 +55,6 @@ async def test_form_missing_required_returns_422():
 
 @pytest.mark.asyncio
 async def test_form_optional_with_default():
-    """
-    Test that optional form field uses default value when not provided.
-    """
     app = Tachyon()
 
     @app.post("/settings")
@@ -88,9 +79,6 @@ async def test_form_optional_with_default():
 
 @pytest.mark.asyncio
 async def test_file_upload_basic():
-    """
-    Test basic file upload with UploadFile.
-    """
     app = Tachyon()
 
     @app.post("/upload")
@@ -115,9 +103,6 @@ async def test_file_upload_basic():
 
 @pytest.mark.asyncio
 async def test_file_upload_read_content():
-    """
-    Test reading file content from UploadFile.
-    """
     app = Tachyon()
 
     @app.post("/read-file")
@@ -135,9 +120,6 @@ async def test_file_upload_read_content():
 
 @pytest.mark.asyncio
 async def test_multiple_file_uploads():
-    """
-    Test uploading multiple files.
-    """
     app = Tachyon()
 
     @app.post("/multi-upload")
@@ -165,9 +147,6 @@ async def test_multiple_file_uploads():
 
 @pytest.mark.asyncio
 async def test_file_with_form_data():
-    """
-    Test combining file upload with form data.
-    """
     app = Tachyon()
 
     @app.post("/profile")
@@ -200,9 +179,6 @@ async def test_file_with_form_data():
 
 @pytest.mark.asyncio
 async def test_optional_file_upload():
-    """
-    Test optional file upload (not required).
-    """
     app = Tachyon()
 
     @app.post("/optional-upload")
@@ -232,9 +208,6 @@ async def test_optional_file_upload():
 
 @pytest.mark.asyncio
 async def test_upload_file_seek_and_read():
-    """
-    Test UploadFile seek() and multiple read() operations.
-    """
     app = Tachyon()
 
     @app.post("/seek-test")
