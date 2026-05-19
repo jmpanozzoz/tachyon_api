@@ -29,6 +29,16 @@ class HTTPBasicCredentials:
         self.password = password
 
 
+def _extract_bearer(authorization: Optional[str]) -> Optional[tuple]:
+    """Parse 'Bearer <token>' header. Returns (scheme, token) or None if invalid."""
+    if not authorization:
+        return None
+    parts = authorization.split()
+    if len(parts) != 2 or parts[0].lower() != "bearer":
+        return None
+    return parts[0], parts[1]
+
+
 class HTTPBearer:
     """Extracts Bearer token from Authorization header. Returns HTTPAuthorizationCredentials."""
 
@@ -38,30 +48,12 @@ class HTTPBearer:
     async def __call__(
         self, request: Request
     ) -> Optional[HTTPAuthorizationCredentials]:
-        authorization = request.headers.get("Authorization")
-
-        if not authorization:
+        parsed = _extract_bearer(request.headers.get("Authorization"))
+        if parsed is None:
             if self.auto_error:
                 raise HTTPException(status_code=403, detail="Not authenticated")
             return None
-
-        parts = authorization.split()
-        if len(parts) != 2:
-            if self.auto_error:
-                raise HTTPException(
-                    status_code=403, detail="Invalid authorization header"
-                )
-            return None
-
-        scheme, credentials = parts
-
-        if scheme.lower() != "bearer":
-            if self.auto_error:
-                raise HTTPException(
-                    status_code=403, detail="Invalid authentication scheme"
-                )
-            return None
-
+        scheme, credentials = parsed
         return HTTPAuthorizationCredentials(scheme=scheme, credentials=credentials)
 
 
@@ -154,9 +146,8 @@ class OAuth2PasswordBearer:
         self.auto_error = auto_error
 
     async def __call__(self, request: Request) -> Optional[str]:
-        authorization = request.headers.get("Authorization")
-
-        if not authorization:
+        parsed = _extract_bearer(request.headers.get("Authorization"))
+        if parsed is None:
             if self.auto_error:
                 raise HTTPException(
                     status_code=401,
@@ -164,15 +155,5 @@ class OAuth2PasswordBearer:
                     headers={"WWW-Authenticate": "Bearer"},
                 )
             return None
-
-        parts = authorization.split()
-        if len(parts) != 2 or parts[0].lower() != "bearer":
-            if self.auto_error:
-                raise HTTPException(
-                    status_code=401,
-                    detail="Invalid authentication credentials",
-                    headers={"WWW-Authenticate": "Bearer"},
-                )
-            return None
-
-        return parts[1]
+        _, token = parsed
+        return token
