@@ -42,22 +42,7 @@ class HTTPBasicCredentials:
 
 
 class HTTPBearer:
-    """
-    HTTP Bearer token authentication scheme.
-
-    Extracts Bearer token from the Authorization header.
-
-    Args:
-        auto_error: If True (default), raises HTTPException on missing/invalid token.
-                   If False, returns None instead.
-
-    Example:
-        security = HTTPBearer()
-
-        @app.get("/protected")
-        def protected(credentials: HTTPAuthorizationCredentials = Depends(security)):
-            return {"token": credentials.credentials}
-    """
+    """Extracts Bearer token from Authorization header. Returns HTTPAuthorizationCredentials."""
 
     def __init__(self, auto_error: bool = True):
         self.auto_error = auto_error
@@ -93,25 +78,7 @@ class HTTPBearer:
 
 
 class HTTPBasic:
-    """
-    HTTP Basic authentication scheme.
-
-    Extracts and decodes username/password from the Authorization header.
-
-    Args:
-        auto_error: If True (default), raises HTTPException on missing/invalid credentials.
-                   If False, returns None instead.
-        realm: The realm name to include in WWW-Authenticate header.
-
-    Example:
-        security = HTTPBasic()
-
-        @app.get("/admin")
-        def admin(credentials: HTTPBasicCredentials = Depends(security)):
-            if credentials.username == "admin" and credentials.password == "secret":
-                return {"message": "Welcome, admin!"}
-            raise HTTPException(status_code=401, detail="Invalid credentials")
-    """
+    """Decodes Basic auth credentials from Authorization header. Returns HTTPBasicCredentials."""
 
     def __init__(self, auto_error: bool = True, realm: Optional[str] = None):
         self.auto_error = auto_error
@@ -192,24 +159,7 @@ class APIKeyCookie(_APIKeyBase):
 
 
 class OAuth2PasswordBearer:
-    """
-    OAuth2 Password Bearer token scheme.
-
-    Extracts the token from Authorization header (Bearer scheme).
-    Similar to HTTPBearer but returns just the token string and uses 401 status.
-
-    Args:
-        tokenUrl: The URL to obtain the token (for OpenAPI documentation).
-        auto_error: If True (default), raises HTTPException on missing token.
-
-    Example:
-        oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/token")
-
-        @app.get("/users/me")
-        def get_current_user(token: str = Depends(oauth2_scheme)):
-            # Decode and validate token here
-            return {"token": token}
-    """
+    """Like HTTPBearer but returns raw token string and uses 401 (tokenUrl for OpenAPI docs)."""
 
     def __init__(self, tokenUrl: str, auto_error: bool = True):
         self.tokenUrl = tokenUrl

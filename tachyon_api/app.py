@@ -1,10 +1,4 @@
-"""
-Tachyon Web Framework - Main Application Module
-
-This module contains the core Tachyon class that provides a lightweight,
-FastAPI-inspired web framework with built-in dependency injection,
-parameter validation, and automatic type conversion.
-"""
+"""Core Tachyon application class."""
 
 import asyncio
 import inspect
@@ -47,41 +41,13 @@ except ImportError:
 
 
 class Tachyon:
-    """
-    Main Tachyon application class.
-
-    Provides a web framework with automatic parameter validation, dependency injection,
-    and type conversion. Built on top of Starlette for ASGI compatibility.
-
-    Attributes:
-        _router: Internal Starlette application instance
-        routes: List of registered routes for introspection
-        _instances_cache: Cache for dependency injection singleton instances
-        openapi_config: Configuration for OpenAPI documentation
-        openapi_generator: Generator for OpenAPI schema and documentation
-    """
-
     def __init__(
         self,
         openapi_config: OpenAPIConfig = None,
         cache_config=None,
         lifespan: Optional[Callable] = None,
     ):
-        """
-        Initialize a new Tachyon application instance.
-
-        Args:
-            openapi_config: Optional OpenAPI configuration. If not provided,
-                          uses default configuration similar to FastAPI.
-            cache_config: Optional cache configuration (tachyon_api.cache.CacheConfig).
-                          If provided, it will be set as the active cache configuration.
-            lifespan: Optional async context manager for startup/shutdown events.
-                     Similar to FastAPI's lifespan parameter.
-        """
-        # Lifecycle manager for startup/shutdown events
         self._lifecycle_manager = LifecycleManager(lifespan)
-
-        # Exception handlers registry (exception_type -> handler_function)
         self._exception_handlers: Dict[Type[Exception], Callable] = {}
 
         # Create combined lifespan that handles both custom lifespan and on_event handlers
