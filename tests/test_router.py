@@ -15,37 +15,28 @@ from tachyon_api.di import injectable, Depends
 
 
 class TestBasicRouter:
-    """Test basic router functionality"""
-
     def test_router_creation(self):
-        """Test that Router can be created with default settings"""
         router = Router()
         assert router is not None
         assert router.prefix == ""
         assert router.tags == []
 
     def test_router_creation_with_prefix(self):
-        """Test Router creation with prefix"""
         router = Router(prefix="/api/v1")
         assert router.prefix == "/api/v1"
 
     def test_router_creation_with_tags(self):
-        """Test Router creation with tags"""
         router = Router(tags=["users", "admin"])
         assert router.tags == ["users", "admin"]
 
     def test_router_creation_with_prefix_and_tags(self):
-        """Test Router creation with both prefix and tags"""
         router = Router(prefix="/api/v1", tags=["users"])
         assert router.prefix == "/api/v1"
         assert router.tags == ["users"]
 
 
 class TestRouterDecorators:
-    """Test router HTTP method decorators"""
-
     def test_router_has_http_method_decorators(self):
-        """Test that router has all HTTP method decorators"""
         router = Router()
 
         # Check that all HTTP method decorators exist
@@ -58,7 +49,6 @@ class TestRouterDecorators:
         assert hasattr(router, "head")
 
     def test_router_decorators_are_callable(self):
-        """Test that router decorators are callable"""
         router = Router()
 
         # Test that decorators can be called
@@ -69,7 +59,6 @@ class TestRouterDecorators:
         assert test_endpoint is not None
 
     def test_router_stores_routes(self):
-        """Test that router stores registered routes"""
         router = Router()
 
         @router.get("/users")
@@ -93,10 +82,7 @@ class TestRouterDecorators:
 
 
 class TestRouterIncludeInApp:
-    """Test including routers in main application"""
-
     def test_include_router_basic(self):
-        """Test basic router inclusion"""
         app = Tachyon()
         router = Router()
 
@@ -113,7 +99,6 @@ class TestRouterIncludeInApp:
         assert response.json() == {"status": "ok"}
 
     def test_include_router_with_prefix(self):
-        """Test router inclusion with prefix"""
         app = Tachyon()
         router = Router(prefix="/api/v1")
 
@@ -134,7 +119,6 @@ class TestRouterIncludeInApp:
         assert response.status_code == 404
 
     def test_include_multiple_routers(self):
-        """Test including multiple routers"""
         app = Tachyon()
 
         users_router = Router(prefix="/users")
@@ -163,10 +147,7 @@ class TestRouterIncludeInApp:
 
 
 class TestRouterWithParameters:
-    """Test router with various parameter types"""
-
     def test_router_with_path_parameters(self):
-        """Test router routes with path parameters"""
         app = Tachyon()
         router = Router(prefix="/users")
 
@@ -182,7 +163,6 @@ class TestRouterWithParameters:
         assert response.json() == {"user_id": 123}
 
     def test_router_with_query_parameters(self):
-        """Test router routes with query parameters"""
         app = Tachyon()
         router = Router(prefix="/api")
 
@@ -198,7 +178,6 @@ class TestRouterWithParameters:
         assert response.json() == {"query": "test", "limit": 5}
 
     def test_router_with_body_parameters(self):
-        """Test router routes with request body"""
         app = Tachyon()
         router = Router(prefix="/api")
 
@@ -221,11 +200,7 @@ class TestRouterWithParameters:
 
 
 class TestRouterWithDependencies:
-    """Test router with dependency injection"""
-
     def test_router_with_dependencies(self):
-        """Test router routes with dependencies"""
-
         @injectable
         class UserService:
             def get_current_user(self):
@@ -246,8 +221,6 @@ class TestRouterWithDependencies:
         assert response.json() == {"id": 1, "name": "Test User"}
 
     def test_router_with_common_dependencies(self):
-        """Test router with common dependencies applied to all routes"""
-
         @injectable
         class AuthService:
             def authenticate(self):
@@ -260,10 +233,7 @@ class TestRouterWithDependencies:
 
 
 class TestRouterTags:
-    """Test router tags functionality"""
-
     def test_router_tags_applied_to_routes(self):
-        """Test that router tags are applied to all routes"""
         app = Tachyon()
         router = Router(prefix="/users", tags=["users", "management"])
 
@@ -289,10 +259,7 @@ class TestRouterTags:
 
 
 class TestRouterOpenAPIIntegration:
-    """Test router integration with OpenAPI documentation"""
-
     def test_router_routes_in_openapi_schema(self):
-        """Test that router routes appear in OpenAPI schema"""
         app = Tachyon()
         router = Router(prefix="/api/v1")
 
@@ -310,7 +277,6 @@ class TestRouterOpenAPIIntegration:
         assert "get" in openapi_schema["paths"]["/api/v1/status"]
 
     def test_router_with_custom_route_metadata(self):
-        """Test router routes with custom OpenAPI metadata"""
         app = Tachyon()
         router = Router(prefix="/api")
 
@@ -332,10 +298,7 @@ class TestRouterOpenAPIIntegration:
 
 
 class TestRouterErrorHandling:
-    """Test router error handling"""
-
     def test_invalid_prefix_handling(self):
-        """Test handling of invalid prefixes"""
         # Should handle prefixes without leading slash
         router = Router(prefix="api/v1")
         # Should normalize to /api/v1
@@ -350,7 +313,6 @@ class TestRouterErrorHandling:
         assert router.prefix == ""
 
     def test_duplicate_route_handling(self):
-        """Test handling of duplicate routes in router"""
         router = Router()
 
         @router.get("/test")

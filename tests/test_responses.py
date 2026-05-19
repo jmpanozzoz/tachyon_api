@@ -190,11 +190,8 @@ class TestSimpleResponseHelpers:
 
 @pytest.mark.asyncio
 class TestResponsesInEndpoints:
-    """Test response helpers working in actual endpoints"""
-
     @pytest.fixture
     def app(self):
-        """Create test app with response endpoints"""
         from tachyon_api import Tachyon
         from tachyon_api.responses import (
             success_response,
@@ -229,7 +226,6 @@ class TestResponsesInEndpoints:
         return app
 
     async def test_success_response_in_endpoint(self, app):
-        """Test success response helper in actual endpoint"""
         async with create_client(app) as client:
             response = await client.get("/success")
 
@@ -240,7 +236,6 @@ class TestResponsesInEndpoints:
         assert data["data"]["message"] == "All good"
 
     async def test_error_response_in_endpoint(self, app):
-        """Test error response helper in actual endpoint"""
         async with create_client(app) as client:
             response = await client.get("/error")
 
@@ -250,7 +245,6 @@ class TestResponsesInEndpoints:
         assert data["error"] == "Something failed"
 
     async def test_not_found_response_in_endpoint(self, app):
-        """Test not found response helper in actual endpoint"""
         async with create_client(app) as client:
             response = await client.get("/not-found")
 
@@ -261,7 +255,6 @@ class TestResponsesInEndpoints:
         assert data["code"] == "NOT_FOUND"
 
     async def test_conflict_response_in_endpoint(self, app):
-        """Test conflict response helper in actual endpoint"""
         async with create_client(app) as client:
             response = await client.get("/conflict")
 
@@ -272,7 +265,6 @@ class TestResponsesInEndpoints:
         assert data["code"] == "CONFLICT"
 
     async def test_regular_json_still_works(self, app):
-        """Test that regular JSON responses still work alongside helpers"""
         async with create_client(app) as client:
             response = await client.get("/regular-json")
 
@@ -282,10 +274,7 @@ class TestResponsesInEndpoints:
 
 
 class TestStarletteCompatibility:
-    """Test compatibility with Starlette responses"""
-
     def test_starlette_imports_available(self):
-        """Test that Starlette response imports work"""
         from tachyon_api.responses import JSONResponse, HTMLResponse
 
         # Test that we can create responses
@@ -297,7 +286,6 @@ class TestStarletteCompatibility:
         assert html_resp.media_type == "text/html"
 
     def test_response_helpers_return_starlette_responses(self):
-        """Test that our helpers return actual Starlette JSONResponse objects"""
         from starlette.responses import JSONResponse
 
         response = success_response({"test": "data"})
@@ -311,10 +299,7 @@ class TestStarletteCompatibility:
 
 
 class TestResponseConsistency:
-    """Test response structure consistency"""
-
     def test_success_responses_have_consistent_structure(self):
-        """Test that all success responses have the same structure"""
         response = success_response({"data": "test"})
 
         content = response.body.decode()
@@ -330,7 +315,6 @@ class TestResponseConsistency:
         assert data["success"] is True
 
     def test_error_responses_have_consistent_structure(self):
-        """Test that all error responses have the same base structure"""
         responses = [
             error_response("test error"),
             not_found_response("not found"),
