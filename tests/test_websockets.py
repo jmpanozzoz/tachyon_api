@@ -12,10 +12,7 @@ from starlette.testclient import TestClient
 
 
 class TestWebSocketDecorator:
-    """Tests for @app.websocket decorator."""
-
     def test_websocket_basic_echo(self):
-        """Should handle basic WebSocket echo."""
         from tachyon_api import Tachyon
 
         app = Tachyon()
@@ -34,7 +31,6 @@ class TestWebSocketDecorator:
             assert response == "Echo: Hello"
 
     def test_websocket_json_messages(self):
-        """Should handle JSON messages."""
         from tachyon_api import Tachyon
 
         app = Tachyon()
@@ -53,7 +49,6 @@ class TestWebSocketDecorator:
             assert response == {"received": "Hello JSON"}
 
     def test_websocket_binary_data(self):
-        """Should handle binary data."""
         from tachyon_api import Tachyon
 
         app = Tachyon()
@@ -72,7 +67,6 @@ class TestWebSocketDecorator:
             assert response == b"olleH"
 
     def test_websocket_multiple_messages(self):
-        """Should handle multiple messages in a session."""
         from tachyon_api import Tachyon
 
         app = Tachyon()
@@ -93,7 +87,6 @@ class TestWebSocketDecorator:
                 assert response == f"Got: Message {i}"
 
     def test_websocket_with_path_params(self):
-        """Should support path parameters."""
         from tachyon_api import Tachyon
 
         app = Tachyon()
@@ -110,7 +103,6 @@ class TestWebSocketDecorator:
             assert response == "Welcome to room: lobby"
 
     def test_websocket_with_query_params(self):
-        """Should support query parameters."""
         from tachyon_api import Tachyon
 
         app = Tachyon()
@@ -135,10 +127,7 @@ class TestWebSocketDecorator:
 
 
 class TestWebSocketRouter:
-    """Tests for WebSocket routes in Router."""
-
     def test_websocket_in_router(self):
-        """Should support WebSocket in Router."""
         from tachyon_api import Tachyon, Router
 
         router = Router(prefix="/api")
@@ -158,7 +147,6 @@ class TestWebSocketRouter:
             assert response == "From router!"
 
     def test_multiple_websocket_routes(self):
-        """Should handle multiple WebSocket routes."""
         from tachyon_api import Tachyon
 
         app = Tachyon()
@@ -190,10 +178,7 @@ class TestWebSocketRouter:
 
 
 class TestWebSocketErrors:
-    """Tests for WebSocket error scenarios."""
-
     def test_websocket_disconnect_handling(self):
-        """Should handle client disconnection."""
         from tachyon_api import Tachyon
         from starlette.websockets import WebSocketDisconnect
 
