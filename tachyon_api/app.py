@@ -16,6 +16,7 @@ from .openapi import (
     OpenAPIGenerator,
     OpenAPIConfig,
     create_openapi_config,
+    build_components_for_struct,
 )
 from .params import Body, Query, Path, Header, Cookie
 from .exceptions import HTTPException
@@ -49,51 +50,60 @@ class Tachyon:
     ):
         self._lifecycle_manager = LifecycleManager(lifespan)
         self._exception_handlers: Dict[Type[Exception], Callable] = {}
-
-        # Create combined lifespan that handles both custom lifespan and on_event handlers
         self._router = Starlette(lifespan=self._lifecycle_manager.create_combined_lifespan())
-        
-        # WebSocket manager
         self._websocket_manager = WebSocketManager(self._router)
-        
-        # Parameter processor
         self._parameter_processor = ParameterProcessor(self)
-        
-        # Dependency resolver
         self._dependency_resolver = DependencyResolver(self)
         self.routes = []
         self.middleware_stack = []
         self._instances_cache: Dict[Type, Any] = {}
-
-        # Expose state object for storing app-wide state (like FastAPI)
         self.state = self._router.state
-
-        # Dependency overrides for testing (like FastAPI)
         self.dependency_overrides: Dict[Any, Any] = {}
-
-        # Initialize OpenAPI configuration and generator
         self.openapi_config = openapi_config or create_openapi_config()
         self.openapi_generator = OpenAPIGenerator(self.openapi_config)
         self._docs_setup = False
+        self._register_common_openapi_schemas()
 
-        # Apply cache configuration if provided
         self.cache_config = cache_config
         if cache_config is not None and set_cache_config is not None:
             try:
                 set_cache_config(cache_config)
             except Exception:
-                # Do not break app initialization if cache setup fails
                 pass
 
-        # Dynamically create HTTP method decorators (get, post, put, delete, etc.)
-        http_methods = ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"]
+        for method in ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"]:
+            setattr(self, method.lower(), partial(self._create_decorator, http_method=method))
 
-        for method in http_methods:
-            setattr(
-                self,
-                method.lower(),
-                partial(self._create_decorator, http_method=method),
-            )
+    def _register_common_openapi_schemas(self):
+        self.openapi_generator.add_schema(
+            "ValidationErrorResponse",
+            {
+                "type": "object",
+                "properties": {
+                    "success": {"type": "boolean"},
+                    "error": {"type": "string"},
+                    "code": {"type": "string"},
+                    "errors": {
+                        "type": "object",
+                        "additionalProperties": {"type": "array", "items": {"type": "string"}},
+                    },
+                },
+                "required": ["success", "error", "code"],
+            },
+        )
+        self.openapi_generator.add_schema(
+            "ResponseValidationError",
+            {
+                "type": "object",
+                "properties": {
+                    "success": {"type": "boolean"},
+                    "error": {"type": "string"},
+                    "detail": {"type": "string"},
+                    "code": {"type": "string"},
+                },
+                "required": ["success", "error", "code"],
+            },
+        )
 
     def on_event(self, event_type: str):
         """Decorator to register 'startup' or 'shutdown' handlers."""
@@ -141,12 +151,12 @@ class Tachyon:
                 )
 
             except HTTPException as exc:
-                handler = self._exception_handlers.get(HTTPException)
-                if handler is not None:
-                    if asyncio.iscoroutinefunction(handler):
-                        return await handler(request, exc)
+                exc_handler = self._exception_handlers.get(HTTPException)
+                if exc_handler is not None:
+                    if asyncio.iscoroutinefunction(exc_handler):
+                        return await exc_handler(request, exc)
                     else:
-                        return handler(request, exc)
+                        return exc_handler(request, exc)
                 response = JSONResponse(
                     {"detail": exc.detail}, status_code=exc.status_code
                 )
@@ -174,50 +184,14 @@ class Tachyon:
         if include_in_schema:
             self._generate_openapi_for_route(path, method, endpoint_func, **kwargs)
 
+    _PARAM_IN = {Query: "query", Header: "header", Cookie: "cookie"}
+
     def _generate_openapi_for_route(
         self, path: str, method: str, endpoint_func: Callable, **kwargs
     ):
         sig = inspect.signature(endpoint_func)
-
-        # Ensure common error schemas exist in components
-        self.openapi_generator.add_schema(
-            "ValidationErrorResponse",
-            {
-                "type": "object",
-                "properties": {
-                    "success": {"type": "boolean"},
-                    "error": {"type": "string"},
-                    "code": {"type": "string"},
-                    "errors": {
-                        "type": "object",
-                        "additionalProperties": {
-                            "type": "array",
-                            "items": {"type": "string"},
-                        },
-                    },
-                },
-                "required": ["success", "error", "code"],
-            },
-        )
-        self.openapi_generator.add_schema(
-            "ResponseValidationError",
-            {
-                "type": "object",
-                "properties": {
-                    "success": {"type": "boolean"},
-                    "error": {"type": "string"},
-                    "detail": {"type": "string"},
-                    "code": {"type": "string"},
-                },
-                "required": ["success", "error", "code"],
-            },
-        )
-
-        # Build the OpenAPI operation object
         operation = {
-            "summary": kwargs.get(
-                "summary", self._generate_summary_from_function(endpoint_func)
-            ),
+            "summary": kwargs.get("summary", self._generate_summary_from_function(endpoint_func)),
             "description": kwargs.get("description", endpoint_func.__doc__ or ""),
             "responses": {
                 "200": {
@@ -226,33 +200,18 @@ class Tachyon:
                 },
                 "422": {
                     "description": "Validation Error",
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "$ref": "#/components/schemas/ValidationErrorResponse"
-                            }
-                        }
-                    },
+                    "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ValidationErrorResponse"}}},
                 },
                 "500": {
                     "description": "Response Validation Error",
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "$ref": "#/components/schemas/ResponseValidationError"
-                            }
-                        }
-                    },
+                    "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ResponseValidationError"}}},
                 },
             },
         }
 
         response_model = kwargs.get("response_model")
         if response_model is not None and issubclass(response_model, Struct):
-            from .openapi import build_components_for_struct
-
-            comps = build_components_for_struct(response_model)
-            for name, schema in comps.items():
+            for name, schema in build_components_for_struct(response_model).items():
                 self.openapi_generator.add_schema(name, schema)
             operation["responses"]["200"]["content"]["application/json"]["schema"] = {
                 "$ref": f"#/components/schemas/{response_model.__name__}"
@@ -266,82 +225,39 @@ class Tachyon:
 
         for param in sig.parameters.values():
             if isinstance(param.default, Depends) or (
-                param.default is inspect.Parameter.empty
-                and param.annotation in _registry
+                param.default is inspect.Parameter.empty and param.annotation in _registry
             ):
                 continue
 
-            elif isinstance(param.default, Query):
-                parameters.append(
-                    {
+            for param_cls, location in self._PARAM_IN.items():
+                if isinstance(param.default, param_cls):
+                    parameters.append({
                         "name": param.name,
-                        "in": "query",
+                        "in": location,
                         "required": param.default.default is ...,
                         "schema": self._build_param_openapi_schema(param.annotation),
                         "description": getattr(param.default, "description", ""),
-                    }
-                )
-
-            elif isinstance(param.default, Header):
-                parameters.append(
-                    {
-                        "name": param.name,
-                        "in": "header",
-                        "required": param.default.default is ...,
-                        "schema": self._build_param_openapi_schema(param.annotation),
-                        "description": getattr(param.default, "description", ""),
-                    }
-                )
-
-            elif isinstance(param.default, Cookie):
-                parameters.append(
-                    {
-                        "name": param.name,
-                        "in": "cookie",
-                        "required": param.default.default is ...,
-                        "schema": self._build_param_openapi_schema(param.annotation),
-                        "description": getattr(param.default, "description", ""),
-                    }
-                )
-
-            elif isinstance(param.default, Path) or self._is_path_parameter(
-                param.name, path
-            ):
-                parameters.append(
-                    {
+                    })
+                    break
+            else:
+                if isinstance(param.default, Path) or self._is_path_parameter(param.name, path):
+                    parameters.append({
                         "name": param.name,
                         "in": "path",
                         "required": True,
                         "schema": self._build_param_openapi_schema(param.annotation),
-                        "description": getattr(param.default, "description", "")
-                        if isinstance(param.default, Path)
-                        else "",
-                    }
-                )
-
-            elif isinstance(param.default, Body):
-                model_class = param.annotation
-                if issubclass(model_class, Struct):
-                    from .openapi import build_components_for_struct
-
-                    comps = build_components_for_struct(model_class)
-                    for name, schema in comps.items():
+                        "description": getattr(param.default, "description", "") if isinstance(param.default, Path) else "",
+                    })
+                elif isinstance(param.default, Body) and issubclass(param.annotation, Struct):
+                    for name, schema in build_components_for_struct(param.annotation).items():
                         self.openapi_generator.add_schema(name, schema)
-
                     request_body_schema = {
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": f"#/components/schemas/{model_class.__name__}"
-                                }
-                            }
-                        },
+                        "content": {"application/json": {"schema": {"$ref": f"#/components/schemas/{param.annotation.__name__}"}}},
                         "required": True,
                     }
 
         if parameters:
             operation["parameters"] = parameters
-
         if request_body_schema:
             operation["requestBody"] = request_body_schema
 
@@ -438,9 +354,6 @@ class Tachyon:
     def add_middleware(self, middleware_class, **options):
         """Add a middleware to the application stack."""
         apply_middleware_to_router(self._router, middleware_class, **options)
-
-        if not hasattr(self, "middleware_stack"):
-            self.middleware_stack = []
         self.middleware_stack.append({"func": middleware_class, "options": options})
 
     def middleware(self, middleware_type="http"):
