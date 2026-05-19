@@ -14,13 +14,7 @@ from .exceptions import HTTPException
 
 
 class HTTPAuthorizationCredentials:
-    """
-    Credentials extracted from HTTP Authorization header.
-
-    Attributes:
-        scheme: The authentication scheme (e.g., "Bearer", "Basic")
-        credentials: The credentials value (e.g., the token or encoded credentials)
-    """
+    """Holds scheme + credentials from the Authorization header."""
 
     def __init__(self, scheme: str, credentials: str):
         self.scheme = scheme
@@ -28,13 +22,7 @@ class HTTPAuthorizationCredentials:
 
 
 class HTTPBasicCredentials:
-    """
-    Credentials extracted from HTTP Basic authentication.
-
-    Attributes:
-        username: The decoded username
-        password: The decoded password
-    """
+    """Holds decoded username + password from Basic auth."""
 
     def __init__(self, username: str, password: str):
         self.username = username
