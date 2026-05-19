@@ -98,33 +98,20 @@ def build_components_for_struct(
 
 @dataclass
 class Contact:
-    """Contact information for the API"""
-
     name: Optional[str] = None
     url: Optional[str] = None
     email: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
-        """Convert to OpenAPI contact object"""
-        result = {}
-        if self.name:
-            result["name"] = self.name
-        if self.url:
-            result["url"] = self.url
-        if self.email:
-            result["email"] = self.email
-        return result
+        return {k: v for k, v in {"name": self.name, "url": self.url, "email": self.email}.items() if v}
 
 
 @dataclass
 class License:
-    """License information for the API"""
-
     name: str
     url: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
-        """Convert to OpenAPI license object"""
         result = {"name": self.name}
         if self.url:
             result["url"] = self.url
@@ -133,8 +120,6 @@ class License:
 
 @dataclass
 class Info:
-    """General information about the API"""
-
     title: str = "Tachyon API"
     description: Optional[str] = "A fast API built with Tachyon"
     version: str = "0.1.0"
@@ -143,7 +128,6 @@ class Info:
     license: Optional[License] = None
 
     def to_dict(self) -> Dict[str, Any]:
-        """Convert to OpenAPI info object"""
         result: Dict[str, Any] = {"title": self.title, "version": self.version}
         if self.description:
             result["description"] = self.description
@@ -158,13 +142,10 @@ class Info:
 
 @dataclass
 class Server:
-    """Server information"""
-
     url: str
     description: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
-        """Convert to OpenAPI server object"""
         result = {"url": self.url}
         if self.description:
             result["description"] = self.description
@@ -173,18 +154,14 @@ class Server:
 
 @dataclass
 class OpenAPIConfig:
-    """Configuration for OpenAPI/Swagger documentation"""
-
     info: Info = field(default_factory=Info)
     servers: List[Server] = field(default_factory=list)
     openapi_version: str = "3.0.0"
     docs_url: str = "/docs"
     redoc_url: str = "/redoc"
     openapi_url: str = "/openapi.json"
-    # Scalar configuration
     scalar_js_url: str = "https://cdn.jsdelivr.net/npm/@scalar/api-reference"
     scalar_favicon_url: str = "https://fastapi.tiangolo.com/img/favicon.png"
-    # Swagger UI configuration (legacy support)
     swagger_ui_parameters: Optional[Dict[str, Any]] = None
     swagger_favicon_url: str = "https://fastapi.tiangolo.com/img/favicon.png"
     swagger_js_url: str = (
@@ -198,35 +175,23 @@ class OpenAPIConfig:
     )
 
     def to_openapi_dict(self) -> Dict[str, Any]:
-        """Generate the complete OpenAPI dictionary"""
         openapi_dict = {
             "openapi": self.openapi_version,
             "info": self.info.to_dict(),
             "paths": {},
             "components": {"schemas": {}},
         }
-
         if self.servers:
             openapi_dict["servers"] = [server.to_dict() for server in self.servers]
-
         return openapi_dict
 
 
 class OpenAPIGenerator:
-    """Generator for OpenAPI documentation"""
-
     def __init__(self, config: Optional[OpenAPIConfig] = None):
-        """
-        Initialize the OpenAPI generator.
-
-        Args:
-            config: Optional OpenAPI configuration. Uses defaults if not provided.
-        """
         self.config = config or OpenAPIConfig()
         self._openapi_schema: Optional[Dict[str, Any]] = None
 
     def get_openapi_schema(self) -> Dict[str, Any]:
-        """Get the complete OpenAPI schema"""
         if self._openapi_schema is None:
             self._openapi_schema = self.config.to_openapi_dict()
         return self._openapi_schema
@@ -313,32 +278,15 @@ class OpenAPIGenerator:
         return html
 
     def add_path(self, path: str, method: str, operation_data: Dict[str, Any]) -> None:
-        """
-        Add a path operation to the OpenAPI schema.
-
-        Args:
-            path: The URL path (e.g., "/items/{item_id}")
-            method: HTTP method (e.g., "get", "post")
-            operation_data: OpenAPI operation object
-        """
         if self._openapi_schema is None:
             self._openapi_schema = self.config.to_openapi_dict()
         if path not in self._openapi_schema["paths"]:
             self._openapi_schema["paths"][path] = {}
-
         self._openapi_schema["paths"][path][method.lower()] = operation_data
 
     def add_schema(self, name: str, schema_data: Dict[str, Any]) -> None:
-        """
-        Add a component schema to the OpenAPI specification.
-
-        Args:
-            name: Schema name (e.g., "Item", "User")
-            schema_data: OpenAPI schema object
-        """
         if self._openapi_schema is None:
             self._openapi_schema = self.config.to_openapi_dict()
-
         self._openapi_schema["components"]["schemas"][name] = schema_data
 
 
@@ -354,42 +302,14 @@ def create_openapi_config(
     license: Optional[License] = None,
     servers: Optional[List[Server]] = None,
     terms_of_service: Optional[str] = None,
-    # Scalar configuration
     scalar_js_url: str = "https://cdn.jsdelivr.net/npm/@scalar/api-reference",
     scalar_favicon_url: str = "https://fastapi.tiangolo.com/img/favicon.png",
-    # Swagger UI configuration (legacy support)
     swagger_ui_parameters: Optional[Dict[str, Any]] = None,
     swagger_favicon_url: str = "https://fastapi.tiangolo.com/img/favicon.png",
     swagger_js_url: str = "https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui-bundle.js",
     swagger_css_url: str = "https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui.css",
     redoc_js_url: str = "https://cdn.jsdelivr.net/npm/redoc@next/bundles/redoc.standalone.js",
 ) -> OpenAPIConfig:
-    """
-    Create a customizable OpenAPI configuration similar to FastAPI.
-
-    Args:
-        title: API title
-        description: API description
-        version: API version
-        openapi_version: OpenAPI specification version
-        docs_url: URL for Scalar API Reference documentation (default)
-        redoc_url: URL for ReDoc documentation
-        openapi_url: URL for OpenAPI JSON schema
-        contact: Contact information
-        license: License information
-        servers: List of servers
-        terms_of_service: Terms of service URL
-        scalar_js_url: Scalar API Reference JavaScript URL
-        scalar_favicon_url: Favicon URL for Scalar
-        swagger_ui_parameters: Additional Swagger UI parameters
-        swagger_favicon_url: Favicon URL for Swagger UI
-        swagger_js_url: Swagger UI JavaScript URL
-        swagger_css_url: Swagger UI CSS URL
-        redoc_js_url: ReDoc JavaScript URL
-
-    Returns:
-        Configured OpenAPIConfig instance
-    """
     info = Info(
         title=title,
         description=description,

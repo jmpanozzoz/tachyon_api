@@ -1,9 +1,4 @@
-"""
-Simple response helpers for Tachyon API
-
-Provides convenient response helpers while keeping full compatibility
-with Starlette responses.
-"""
+"""Response helpers and a high-performance JSON response class."""
 
 from starlette.responses import JSONResponse, HTMLResponse  # noqa
 from .models import encode_json
@@ -15,11 +10,9 @@ class TachyonJSONResponse(JSONResponse):
     media_type = "application/json"
 
     def render(self, content) -> bytes:  # type: ignore[override]
-        # Use centralized encoder to support Struct, UUID, date, datetime, etc.
         return encode_json(content)
 
 
-# Simple helper functions for common response patterns
 def success_response(data=None, message="Success", status_code=200):
     """Create a success response with consistent structure"""
     return TachyonJSONResponse(
@@ -56,8 +49,7 @@ def validation_error_response(error="Validation failed", errors=None):
 
 
 def response_validation_error_response(error="Response validation error"):
-    """Create a 500 response validation error response"""
-    # Normalize message with prefix and include 'detail' for backward compatibility
+    """Create a 500 response validation error response."""
     msg = str(error)
     if not msg.lower().startswith("response validation error"):
         msg = f"Response validation error: {msg}"
@@ -85,8 +77,3 @@ def internal_server_error_response():
         },
         status_code=500,
     )
-
-
-# Re-export Starlette responses for convenience
-# JSONResponse is already imported above
-# HTMLResponse is now also imported
