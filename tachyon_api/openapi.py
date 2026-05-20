@@ -1,6 +1,7 @@
 from typing import Dict, Any, Optional, List, Type
 from dataclasses import dataclass, field
 import datetime
+import html
 import uuid
 import json
 
@@ -199,23 +200,23 @@ class OpenAPIGenerator:
     def get_swagger_ui_html(self, openapi_url: str, title: str) -> str:
         """Generate HTML for Swagger UI"""
         swagger_ui_parameters = self.config.swagger_ui_parameters or {}
+        params_json = json.dumps(swagger_ui_parameters, ensure_ascii=True)
+        safe_url = json.dumps(openapi_url, ensure_ascii=True)
+        safe_title = html.escape(title)
 
-        # Serialize parameters to JSON safely
-        params_json = json.dumps(swagger_ui_parameters)
-
-        html = f"""<!DOCTYPE html>
+        return f"""<!DOCTYPE html>
 <html>
 <head>
     <link type="text/css" rel="stylesheet" href="{self.config.swagger_css_url}">
     <link rel="shortcut icon" href="{self.config.swagger_favicon_url}">
-    <title>{title}</title>
+    <title>{safe_title}</title>
 </head>
 <body>
     <div id="swagger-ui"></div>
     <script src="{self.config.swagger_js_url}"></script>
     <script>
     const ui = SwaggerUIBundle({{
-        url: '{openapi_url}',
+        url: {safe_url},
         dom_id: '#swagger-ui',
         presets: [
             SwaggerUIBundle.presets.apis,
@@ -227,14 +228,16 @@ class OpenAPIGenerator:
     </script>
 </body>
 </html>"""
-        return html
 
     def get_redoc_html(self, openapi_url: str, title: str) -> str:
         """Generate HTML for ReDoc"""
-        html = f"""<!DOCTYPE html>
+        safe_url = html.escape(openapi_url, quote=True)
+        safe_title = html.escape(title)
+
+        return f"""<!DOCTYPE html>
 <html>
 <head>
-    <title>{title}</title>
+    <title>{safe_title}</title>
     <meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link href="https://fonts.googleapis.com/css?family=Montserrat:300,400,700|Roboto:300,400,700" rel="stylesheet">
@@ -246,18 +249,20 @@ class OpenAPIGenerator:
     </style>
 </head>
 <body>
-    <redoc spec-url='{openapi_url}'></redoc>
+    <redoc spec-url='{safe_url}'></redoc>
     <script src="{self.config.redoc_js_url}"></script>
 </body>
 </html>"""
-        return html
 
     def get_scalar_html(self, openapi_url: str, title: str) -> str:
         """Generate HTML for Scalar API Reference"""
-        html = f"""<!DOCTYPE html>
+        safe_url = html.escape(openapi_url, quote=True)
+        safe_title = html.escape(title)
+
+        return f"""<!DOCTYPE html>
 <html>
 <head>
-    <title>{title}</title>
+    <title>{safe_title}</title>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="shortcut icon" href="{self.config.scalar_favicon_url}">
@@ -271,11 +276,10 @@ class OpenAPIGenerator:
 <body>
     <script
         id="api-reference"
-        data-url="{openapi_url}"
+        data-url="{safe_url}"
         src="{self.config.scalar_js_url}"></script>
 </body>
 </html>"""
-        return html
 
     def add_path(self, path: str, method: str, operation_data: Dict[str, Any]) -> None:
         if self._openapi_schema is None:

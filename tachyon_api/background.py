@@ -26,4 +26,4 @@ class BackgroundTasks:
         return len(self._tasks)
 
     def __bool__(self) -> bool:
-        return True
+        return bool(self._tasks)

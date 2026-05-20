@@ -2,8 +2,11 @@
 
 import asyncio
 import inspect
+import logging
 from functools import partial
 from typing import Any, Dict, Type, Callable, Optional
+
+logger = logging.getLogger(__name__)
 
 from starlette.applications import Starlette
 from starlette.requests import Request
@@ -68,8 +71,8 @@ class Tachyon:
         if cache_config is not None and set_cache_config is not None:
             try:
                 set_cache_config(cache_config)
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.warning("Failed to apply cache config: %s", exc)
 
         for method in ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"]:
             setattr(self, method.lower(), partial(self._create_decorator, http_method=method))
@@ -210,7 +213,11 @@ class Tachyon:
         }
 
         response_model = kwargs.get("response_model")
-        if response_model is not None and issubclass(response_model, Struct):
+        try:
+            is_struct_model = response_model is not None and isinstance(response_model, type) and issubclass(response_model, Struct)
+        except TypeError:
+            is_struct_model = False
+        if is_struct_model:
             for name, schema in build_components_for_struct(response_model).items():
                 self.openapi_generator.add_schema(name, schema)
             operation["responses"]["200"]["content"]["application/json"]["schema"] = {
@@ -248,7 +255,7 @@ class Tachyon:
                         "schema": self._build_param_openapi_schema(param.annotation),
                         "description": getattr(param.default, "description", "") if isinstance(param.default, Path) else "",
                     })
-                elif isinstance(param.default, Body) and issubclass(param.annotation, Struct):
+                elif isinstance(param.default, Body) and isinstance(param.annotation, type) and issubclass(param.annotation, Struct):
                     for name, schema in build_components_for_struct(param.annotation).items():
                         self.openapi_generator.add_schema(name, schema)
                     request_body_schema = {

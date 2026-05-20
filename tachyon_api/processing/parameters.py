@@ -30,7 +30,6 @@ class ParameterProcessor:
         sig = inspect.signature(endpoint_func)
         query_params = request.query_params
         path_params = request.path_params
-        _raw_body = None
         _form_data = None
         _background_tasks = None
 
@@ -69,8 +68,6 @@ class ParameterProcessor:
                 )
                 if result is not None:
                     return kwargs_to_inject, result, _background_tasks
-                if _raw_body is None:
-                    _raw_body = True
 
             elif isinstance(param.default, Query):
                 error_response = self._process_query_param(
@@ -181,19 +178,18 @@ class ParameterProcessor:
         
         if origin in (list, typing.List):
             item_type = args[0] if args else str
-            values = []
+            raw_values: list[str] = []
             if hasattr(query_params, "getlist"):
-                values = query_params.getlist(param_name)
-            if not values and param_name in query_params:
-                raw = query_params[param_name]
-                values = raw.split(",") if "," in raw else [raw]
-            flat_values = []
-            for v in values:
+                raw_values = query_params.getlist(param_name)
+            if not raw_values and param_name in query_params:
+                raw_values = [query_params[param_name]]
+            # Flatten any comma-separated values within individual entries
+            values: list[str] = []
+            for v in raw_values:
                 if isinstance(v, str) and "," in v:
-                    flat_values.extend(v.split(","))
+                    values.extend(v.split(","))
                 else:
-                    flat_values.append(v)
-            values = flat_values
+                    values.append(v)
             if not values:
                 if query_info.default is not ...:
                     kwargs_to_inject[param_name] = query_info.default
@@ -201,18 +197,11 @@ class ParameterProcessor:
                 return validation_error_response(
                     f"Missing required query parameter: {param_name}"
                 )
-            base_item_type, item_is_opt = TypeUtils.unwrap_optional(item_type)
-            converted_list = []
-            for v in values:
-                if item_is_opt and (v == "" or v.lower() == "null"):
-                    converted_list.append(None)
-                    continue
-                converted_value = TypeConverter.convert_value(
-                    v, base_item_type, param_name, is_path_param=False
-                )
-                if isinstance(converted_value, JSONResponse):
-                    return converted_value
-                converted_list.append(converted_value)
+            converted_list = TypeConverter.convert_list_values(
+                values, item_type, param_name, is_path_param=False
+            )
+            if isinstance(converted_list, JSONResponse):
+                return converted_list
             kwargs_to_inject[param_name] = converted_list
             return None
 
@@ -340,18 +329,11 @@ class ParameterProcessor:
         if origin in (list, typing.List):
             item_type = args[0] if args else str
             parts = value_str.split(",") if value_str else []
-            base_item_type, item_is_opt = TypeUtils.unwrap_optional(item_type)
-            converted_list = []
-            for v in parts:
-                if item_is_opt and (v == "" or v.lower() == "null"):
-                    converted_list.append(None)
-                    continue
-                converted_value = TypeConverter.convert_value(
-                    v, base_item_type, param_name, is_path_param=True
-                )
-                if isinstance(converted_value, JSONResponse):
-                    return converted_value
-                converted_list.append(converted_value)
+            converted_list = TypeConverter.convert_list_values(
+                parts, item_type, param_name, is_path_param=True
+            )
+            if isinstance(converted_list, JSONResponse):
+                return converted_list
             kwargs_to_inject[param_name] = converted_list
         else:
             converted_value = TypeConverter.convert_value(
