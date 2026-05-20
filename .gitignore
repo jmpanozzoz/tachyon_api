@@ -211,9 +211,11 @@ __marimo__/
 
 # Project-specific
 ROADMAP.md
+HOTFIXES.md
 
-# Cython build artifacts (compiled .so/.pyd are platform-specific, not committed)
+# Cython build artifacts (generated files — not committed)
 *.so
 *.pyd
 tachyon_api/processing/*.c
+tachyon_api/routing/*.c
 build/
