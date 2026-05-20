@@ -1,19 +1,11 @@
 """
-🏦 KYC Demo API - Know Your Customer Verification System
+KYC Demo API — demonstrates all Tachyon features.
 
-This example demonstrates all Tachyon features:
-- Clean Architecture (Controllers, Services, Repositories)
-- Dependency Injection (@injectable, Depends)
-- Authentication (JWT Bearer, API Keys)
-- File Uploads (Document verification)
-- Background Tasks (Async verification processing)
-- WebSockets (Real-time status updates)
-- Caching (Verification results)
-- Exception Handling (Custom exceptions)
-- Lifecycle Events (Startup/Shutdown)
-- Testing Utilities (Mocks, Overrides)
+Architecture: Controllers → Services → Repositories
+Features: DI, JWT auth, file uploads, background tasks, WebSockets, caching.
 
-Run with: uvicorn example.app:app --reload
+Run: uvicorn example.app:app --reload --loop uvloop
+     pip install tachyon-api[fast]  # for Cython-compiled hot path
 """
 
 from contextlib import asynccontextmanager
@@ -34,14 +26,7 @@ from .modules.documents import router as documents_router
 
 @asynccontextmanager
 async def lifespan(app):
-    """
-    Application lifespan - startup and shutdown events.
-    
-    In production, you would:
-    - Connect to databases
-    - Initialize external service clients
-    - Load ML models for document verification
-    """
+    """Startup: connect DB, init clients, load models. Shutdown: cleanup."""
     print("🚀 KYC API Starting...")
     print(f"   Environment: {settings.environment}")
     print(f"   Debug: {settings.debug}")
@@ -95,23 +80,16 @@ app.include_router(documents_router)
 # Health check
 @app.get("/", tags=["Health"])
 def health_check():
-    """
-    Health check endpoint.
-    
-    Returns the API status and version.
-    """
     return {
         "status": "healthy",
         "service": "KYC Demo API",
-        "version": "1.0.0",
+        "version": "1.1.0",
+        "framework": "tachyon-api",
     }
 
 
 @app.get("/health", tags=["Health"])
 def detailed_health():
-    """
-    Detailed health check with component status.
-    """
     return {
         "status": "healthy",
         "components": {
@@ -127,12 +105,7 @@ def detailed_health():
 # WebSocket for real-time notifications
 @app.websocket("/ws/notifications/{customer_id}")
 async def websocket_notifications(websocket, customer_id: str):
-    """
-    WebSocket endpoint for real-time KYC status updates.
-    
-    Clients connect here to receive instant notifications
-    when their verification status changes.
-    """
+    """Real-time KYC status updates via WebSocket."""
     await ws_manager.connect(websocket, customer_id)
     
     try:

@@ -69,8 +69,11 @@ example/
 # Install dependencies
 pip install -r requirements.txt
 
-# Run the server
-uvicorn example.app:app --reload
+# Optional: install Cython extensions for extra speed
+pip install tachyon-api[fast]
+
+# Run the server (from project root)
+uvicorn example.app:app --reload --loop uvloop
 
 # Open docs
 open http://localhost:8000/docs
@@ -158,9 +161,10 @@ Environment variables:
 
 ## 📝 Notes
 
-- All data is stored in-memory (mock databases)
-- Verification processing is simulated with random delays
+- All data is stored in-memory (mock databases) — replace with real DB for production
+- Verification processing is simulated with random delays (~1–3s)
 - 90% of verification checks pass (for demo purposes)
+- Add `--loop uvloop --http httptools` to the uvicorn command for production performance
 
 ## 🔗 Related Documentation
 
