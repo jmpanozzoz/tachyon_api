@@ -64,7 +64,7 @@ class DependencyResolver:
         return instance
 
     async def resolve_callable_dependency(
-        self, dependency: Callable, cache: Dict, request: Request
+        self, dependency: Callable, cache: "Dict | None", request: Request
     ) -> Any:
         if dependency in self.app.dependency_overrides:
             override = self.app.dependency_overrides[dependency]
@@ -75,7 +75,10 @@ class DependencyResolver:
                 return result
             return override
 
-        if dependency in cache:
+        # cache is None when the endpoint has no callable deps (fast-path in handler closure).
+        # This branch is only reached when a dependency_override exists, which creates a
+        # callable dep at override time — in that case callers ensure cache is not None.
+        if cache is not None and dependency in cache:
             return cache[dependency]
 
         sig = inspect.signature(dependency)
@@ -97,6 +100,7 @@ class DependencyResolver:
         if asyncio.iscoroutine(result):
             result = await result
 
-        cache[dependency] = result
+        if cache is not None:
+            cache[dependency] = result
         return result
 

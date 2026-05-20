@@ -11,29 +11,39 @@ _CT_NAME = b"content-type"
 _CL_NAME = b"content-length"
 
 
+# Pre-interned strings for ASGI protocol dict keys
+_ASGI_START = "http.response.start"
+_ASGI_BODY  = "http.response.body"
+
+
 class TachyonJSONResponse(JSONResponse):
     """High-performance JSON response.
 
-    Inherits from JSONResponse for isinstance compatibility but bypasses
-    its __init__ (which costs ~0.96µs building MutableHeaders) in favour of
-    direct raw_headers construction (~0.27µs).
+    Bypasses Response.__init__ (0.96µs) with direct raw_headers construction (0.27µs).
+    Pre-builds both ASGI send dicts in __init__ to avoid inline dict creation in __call__.
+    Overrides __call__ to skip the websocket-prefix check and background-task branch.
     """
 
     media_type = "application/json"
 
     def __init__(self, content, status_code: int = 200):
         body = encode_json(content)
-        # Bypass Response.__init__ — set only the attrs used by Response.__call__
+        headers = [(_CL_NAME, str(len(body)).encode()), (_CT_NAME, _CT_JSON)]
+        # Set attrs expected by Response.__call__ (kept for third-party middleware compat)
         self.body = body
         self.status_code = status_code
         self.background = None
-        self.raw_headers = [
-            (_CL_NAME, str(len(body)).encode()),
-            (_CT_NAME, _CT_JSON),
-        ]
+        self.raw_headers = headers
+        # Pre-built ASGI dicts — avoid inline dict creation in __call__ hot path
+        self._send_start = {"type": _ASGI_START, "status": status_code, "headers": headers}
+        self._send_body  = {"type": _ASGI_BODY,  "body": body}
 
     def render(self, content) -> bytes:
         return encode_json(content)
+
+    async def __call__(self, scope, receive, send) -> None:
+        await send(self._send_start)
+        await send(self._send_body)
 
 
 class TachyonBytesResponse(JSONResponse):
@@ -42,13 +52,17 @@ class TachyonBytesResponse(JSONResponse):
     media_type = "application/json"
 
     def __init__(self, body: bytes, status_code: int = 200):
+        headers = [(_CL_NAME, str(len(body)).encode()), (_CT_NAME, _CT_JSON)]
         self.body = body
         self.status_code = status_code
         self.background = None
-        self.raw_headers = [
-            (_CL_NAME, str(len(body)).encode()),
-            (_CT_NAME, _CT_JSON),
-        ]
+        self.raw_headers = headers
+        self._send_start = {"type": _ASGI_START, "status": status_code, "headers": headers}
+        self._send_body  = {"type": _ASGI_BODY,  "body": body}
+
+    async def __call__(self, scope, receive, send) -> None:
+        await send(self._send_start)
+        await send(self._send_body)
 
 
 def success_response(data=None, message="Success", status_code=200):
@@ -100,12 +114,18 @@ _INTERNAL_ERROR_HEADERS = [
 
 
 class _InternalErrorResponse(JSONResponse):
-    """Singleton pre-rendered 500 response."""
+    """Singleton pre-rendered 500 response — body, headers, and ASGI dicts built once."""
     def __init__(self):
         self.body = _INTERNAL_ERROR_BODY
         self.status_code = 500
         self.background = None
         self.raw_headers = _INTERNAL_ERROR_HEADERS
+        self._send_start = {"type": _ASGI_START, "status": 500, "headers": _INTERNAL_ERROR_HEADERS}
+        self._send_body  = {"type": _ASGI_BODY,  "body": _INTERNAL_ERROR_BODY}
+
+    async def __call__(self, scope, receive, send) -> None:
+        await send(self._send_start)
+        await send(self._send_body)
 
 
 _INTERNAL_ERROR_SINGLETON = _InternalErrorResponse()
