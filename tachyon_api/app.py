@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 from starlette.applications import Starlette
 from starlette.requests import Request
-from starlette.responses import JSONResponse, Response  # Response for 404/405 trie replies
+from starlette.responses import JSONResponse, Response
 
 from .openapi import (
     OpenAPIGenerator,
@@ -37,6 +37,17 @@ try:
     from .cache import set_cache_config
 except ImportError:
     set_cache_config = None  # type: ignore
+
+
+# ── Pre-built 404 / 405 ASGI messages — one less object per error response ──────
+_404_BODY     = b"Not Found"
+_404_HEADERS  = [(b"content-length", b"9"), (b"content-type", b"text/plain; charset=utf-8")]
+_404_START    = {"type": "http.response.start", "status": 404, "headers": _404_HEADERS}
+_404_BODY_MSG = {"type": "http.response.body",  "body": _404_BODY}
+
+_405_BODY     = b"Method Not Allowed"
+_405_PLAIN_CT = b"text/plain; charset=utf-8"
+_CL_405       = str(len(_405_BODY)).encode()
 
 
 class _ASGIHandler:
@@ -175,22 +186,25 @@ class Tachyon:
 
     async def _trie_dispatch(self, scope, receive, send) -> None:
         """Core HTTP dispatch via radix trie — O(k) lookup."""
-        status, handler, path_params, allowed = self._trie.match(
+        status, handler, path_params, allow_header = self._trie.match(
             scope["path"], scope["method"]
         )
 
         if status == _NOT_FOUND:
-            resp = Response("Not Found", status_code=404)
-            await resp(scope, receive, send)
+            # Use pre-built ASGI dicts — no Response object allocation
+            await send(_404_START)
+            await send(_404_BODY_MSG)
             return
 
         if status == _METHOD_NOT_ALLOWED:
-            resp = Response(
-                "Method Not Allowed",
-                status_code=405,
-                headers={"Allow": ", ".join(sorted(allowed))},
-            )
-            await resp(scope, receive, send)
+            # allow_header is a pre-sorted string stored in the trie node at registration
+            headers_405 = [
+                (b"content-length", _CL_405),
+                (b"content-type", _405_PLAIN_CT),
+                (b"allow", allow_header.encode()),
+            ]
+            await send({"type": "http.response.start", "status": 405, "headers": headers_405})
+            await send({"type": "http.response.body",  "body": _405_BODY})
             return
 
         # _FOUND — two code paths based on handler type

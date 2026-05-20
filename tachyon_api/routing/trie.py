@@ -16,11 +16,14 @@ _NOT_FOUND          = 0
 _METHOD_NOT_ALLOWED = 1
 _FOUND              = 2
 
+# Singleton returned for routes with no path parameters — one less dict allocation per request
+_EMPTY_PARAMS: Dict[str, str] = {}
+
 
 class _Node:
     """One node in the radix trie — represents one path segment."""
 
-    __slots__ = ("static", "param_child", "param_name", "handlers", "allowed")
+    __slots__ = ("static", "param_child", "param_name", "handlers", "allowed", "allow_header")
 
     def __init__(self) -> None:
         self.static: Dict[str, _Node] = {}       # segment text → child
@@ -28,6 +31,7 @@ class _Node:
         self.param_name: Optional[str] = None     # name extracted from {name}
         self.handlers: Dict[str, Callable] = {}   # METHOD → async handler
         self.allowed: Set[str] = set()            # all registered methods (for 405)
+        self.allow_header: str = ""               # pre-sorted Allow header value, e.g. "GET, POST"
 
 
 class RadixTrie:
@@ -68,6 +72,8 @@ class RadixTrie:
         m = method.upper()
         node.handlers[m] = handler
         node.allowed.add(m)
+        # Keep Allow header pre-sorted — avoids sorted() on every 405 response
+        node.allow_header = ", ".join(sorted(node.allowed))
 
     # ── Matching ─────────────────────────────────────────────────────────────
 
@@ -97,12 +103,14 @@ class RadixTrie:
 
         handler = node.handlers.get(method.upper())
         if handler is not None:
-            return _FOUND, handler, path_params, None
+            # Use singleton for routes with no path params — one less dict allocation
+            return _FOUND, handler, path_params if path_params else _EMPTY_PARAMS, None
 
         if node.allowed:
-            return _METHOD_NOT_ALLOWED, None, path_params, node.allowed
+            # Return pre-sorted allow_header instead of the set — no sorting at request time
+            return _METHOD_NOT_ALLOWED, None, path_params, node.allow_header
 
-        return _NOT_FOUND, None, {}, None
+        return _NOT_FOUND, None, _EMPTY_PARAMS, None
 
 
 def _segments(path: str):
