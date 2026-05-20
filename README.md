@@ -49,39 +49,40 @@ Benchmarked against **FastAPI 0.136.1 (Pydantic v2)** · 1 worker · 100 concurr
 
 | Scenario | FastAPI | Tachyon | Speedup |
 |---|---:|---:|---:|
-| Hello World | 10,283 req/s | **43,784 req/s** | **4.30x** |
-| Path + query params | 7,133 req/s | **33,610 req/s** | **4.71x** |
-| Body validation (Struct) | 8,336 req/s | **34,979 req/s** | **4.20x** |
-| Nested body (complex Struct) | 8,006 req/s | **34,258 req/s** | **4.28x** |
-| Response model serialization | 6,673 req/s | **39,882 req/s** | **5.98x** |
-| Header param + auth | 8,662 req/s | **38,533 req/s** | **4.45x** |
-| Dependency injection | 6,225 req/s | **36,597 req/s** | **5.88x** |
-| Multiple query params | 6,242 req/s | **30,416 req/s** | **4.87x** |
-| **Total throughput** | **61,560 req/s** | **292,059 req/s** | **4.74x** |
+| Hello World | 10,159 req/s | **52,321 req/s** | **5.15x** |
+| Path + query params | 6,930 req/s | **37,384 req/s** | **5.39x** |
+| Body validation (Struct) | 8,189 req/s | **36,593 req/s** | **4.47x** |
+| Nested body (complex Struct) | 7,888 req/s | **38,522 req/s** | **4.88x** |
+| Response model serialization | 6,370 req/s | **44,557 req/s** | **6.99x** |
+| Header param + auth | 7,894 req/s | **45,727 req/s** | **5.79x** |
+| Dependency injection | 6,284 req/s | **46,592 req/s** | **7.41x** |
+| Multiple query params | 6,161 req/s | **33,930 req/s** | **5.51x** |
+| **Total throughput** | **59,875 req/s** | **335,626 req/s** | **5.61x** |
 
-**Latency:** ~2.5ms (Tachyon) vs ~14ms (FastAPI) on average.
+**Latency:** ~2.1ms (Tachyon) vs ~14ms (FastAPI) on average.
 
 > Benchmark code in [`benchmark/`](./benchmark/). Run with `bash benchmark/run_benchmark.sh`.
 
 ### Optional: Cython compilation
 
-Install with Cython extensions for an additional ~11% speedup on the request hot path:
+Install with Cython extensions for additional speedup on the request hot path:
 
 ```bash
 pip install tachyon-api[fast]          # production
 python setup.py build_ext --inplace    # development
 ```
 
-Falls back to pure Python automatically when `.so` is not available.
+Falls back to pure Python automatically when `.so` is not available. Numbers above reflect the compiled version.
 
 ### Why is Tachyon faster?
 
-- **Radix trie routing** — O(k) path matching (k = path segments) vs Starlette's O(N×regex) scan
+- **Radix trie routing** — O(k) path matching vs Starlette's O(N×regex) scan; trie compiled to C
+- **Middleware bypass** — HTTP requests skip Starlette's `ServerErrorMiddleware` and `ExceptionMiddleware` entirely; exceptions handled directly in each closure
 - **Endpoint pre-compilation** — `inspect.signature()`, `isinstance` chains, type resolution, and `msgspec.Decoder` creation run once at startup, not per request
+- **No-Request fast path** — endpoints with no parameters skip `Request()` creation and call the ASGI handler directly
 - **msgspec** — validation and deserialization in C, 5–10x faster than Pydantic
 - **Direct serialization** — `Struct` responses use `msgspec.json.encode()` directly (no Python intermediate step)
-- **Pre-built ASGI dicts** — response send payloads constructed once at `__init__`, not recreated per request
-- **Optional Cython extensions** — hot path compiled to C, removing Python frame overhead from parameter processing
+- **Pre-built ASGI dicts** — response send payloads constructed once in `__init__`, not recreated per request
 - **No middleware bloat** — Tachyon mounts only what you register; FastAPI adds ~15 middlewares by default
 
 ---
