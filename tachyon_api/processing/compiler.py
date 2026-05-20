@@ -15,21 +15,22 @@ from ..di import Depends, _registry
 from ..utils import TypeUtils
 
 
-# Parameter kinds — string constants avoid repeated isinstance at request time
-KIND_REQUEST          = "request"
-KIND_BG               = "background_tasks"
-KIND_BODY             = "body"
-KIND_QUERY            = "query"
-KIND_HEADER           = "header"
-KIND_COOKIE           = "cookie"
-KIND_FORM             = "form"
-KIND_FILE             = "file"
-KIND_PATH             = "path"
-KIND_PATH_IMPLICIT    = "path_implicit"
-KIND_DEP_CALLABLE     = "dep_callable"
-KIND_DEP_CLASS        = "dep_class"
+# Parameter kinds — integer constants for O(1) C-level comparison in Cython.
+# (int compare is a single machine instruction vs string hash+compare)
+KIND_REQUEST       = 0
+KIND_BG            = 1
+KIND_BODY          = 2
+KIND_QUERY         = 3
+KIND_HEADER        = 4
+KIND_COOKIE        = 5
+KIND_FORM          = 6
+KIND_FILE          = 7
+KIND_PATH          = 8
+KIND_PATH_IMPLICIT = 9
+KIND_DEP_CALLABLE  = 10
+KIND_DEP_CLASS     = 11
 
-# Param marker classes → kind string (O(1) lookup replaces isinstance chain)
+# Param marker classes → kind int (O(1) lookup replaces isinstance chain)
 _MARKER_TO_KIND = {
     Body:   KIND_BODY,
     Query:  KIND_QUERY,
