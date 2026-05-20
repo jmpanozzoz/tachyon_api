@@ -4,7 +4,7 @@ import asyncio
 import inspect
 import logging
 from functools import partial
-from typing import Any, Dict, Type, Callable, Optional
+from typing import Any, Dict, List, Type, Callable, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -47,8 +47,8 @@ except ImportError:
 class Tachyon:
     def __init__(
         self,
-        openapi_config: OpenAPIConfig = None,
-        cache_config=None,
+        openapi_config: Optional[OpenAPIConfig] = None,
+        cache_config: Optional[Any] = None,
         lifespan: Optional[Callable] = None,
     ):
         self._lifecycle_manager = LifecycleManager(lifespan)
@@ -57,8 +57,8 @@ class Tachyon:
         self._websocket_manager = WebSocketManager(self._router)
         self._parameter_processor = ParameterProcessor(self)
         self._dependency_resolver = DependencyResolver(self)
-        self.routes = []
-        self.middleware_stack = []
+        self.routes: List[Dict[str, Any]] = []
+        self.middleware_stack: List[Dict[str, Any]] = []
         self._instances_cache: Dict[Type, Any] = {}
         self.state = self._router.state
         self.dependency_overrides: Dict[Any, Any] = {}

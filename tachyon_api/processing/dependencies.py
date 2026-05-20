@@ -10,7 +10,7 @@ from ..di import Depends, _registry
 
 
 class DependencyResolver:
-    def __init__(self, app_instance):
+    def __init__(self, app_instance: Any):
         self.app = app_instance
         self._resolving: set = set()
 

@@ -83,7 +83,6 @@ class ParameterProcessor:
                 if error_response:
                     return kwargs_to_inject, error_response, _background_tasks
             
-            # Process Cookie parameters
             elif isinstance(param.default, Cookie):
                 error_response = self._process_cookie_param(
                     param, request, kwargs_to_inject
@@ -93,7 +92,10 @@ class ParameterProcessor:
 
             elif isinstance(param.default, Form):
                 if _form_data is None:
-                    _form_data = await request.form()
+                    try:
+                        _form_data = await request.form()
+                    except Exception:
+                        return kwargs_to_inject, validation_error_response("Failed to parse form data"), _background_tasks
                 error_response = self._process_form_param(
                     param, _form_data, kwargs_to_inject
                 )
@@ -102,7 +104,10 @@ class ParameterProcessor:
 
             elif isinstance(param.default, File):
                 if _form_data is None:
-                    _form_data = await request.form()
+                    try:
+                        _form_data = await request.form()
+                    except Exception:
+                        return kwargs_to_inject, validation_error_response("Failed to parse form data"), _background_tasks
                 error_response = self._process_file_param(
                     param, _form_data, kwargs_to_inject
                 )
@@ -145,9 +150,14 @@ class ParameterProcessor:
         decoder = msgspec.json.Decoder(model_class)
         try:
             raw_body = await request.body()
+        except Exception:
+            return validation_error_response("Failed to read request body")
+        try:
             validated_data = decoder.decode(raw_body)
             kwargs_to_inject[param.name] = validated_data
             return None
+        except msgspec.DecodeError as e:
+            return validation_error_response(f"Invalid JSON body: {e}")
         except msgspec.ValidationError as e:
             field_errors = None
             try:
@@ -289,7 +299,7 @@ class ParameterProcessor:
         kwargs_to_inject: Dict,
     ) -> Optional[JSONResponse]:
         file_info = param.default
-        field_name = param.name
+        field_name = file_info.alias or param.name
 
         if field_name in form_data:
             uploaded_file = form_data[field_name]

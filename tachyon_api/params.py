@@ -73,7 +73,9 @@ class File:
     def __init__(
         self,
         default: Any = ...,
+        alias: Optional[str] = None,
         description: Optional[str] = None,
     ):
         self.default = default
+        self.alias = alias
         self.description = description
