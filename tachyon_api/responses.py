@@ -48,7 +48,7 @@ class TachyonJSONResponse(JSONResponse):
         self._send_start = {"type": _ASGI_START, "status": status_code, "headers": headers}
         self._send_body  = {"type": _ASGI_BODY,  "body": body}
 
-    def render(self, content) -> bytes:
+    def render(self, content) -> bytes:  # pragma: no cover — bypassed by our __init__
         return encode_json(content)
 
     async def __call__(self, scope, receive, send) -> None:
