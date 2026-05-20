@@ -141,7 +141,7 @@ async def test_background_task_with_other_params():
         user: str = Query("anonymous"),
         background_tasks: BackgroundTasks = None,
     ):
-        if background_tasks:
+        if background_tasks is not None:
             background_tasks.add_task(log_action, action, user)
         return {"action": action, "user": user}
 

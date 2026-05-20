@@ -6,6 +6,7 @@ compatible with FastAPI's security utilities.
 """
 
 import base64
+import binascii
 from typing import Optional
 
 from starlette.requests import Request
@@ -88,9 +89,12 @@ class HTTPBasic:
 
         try:
             decoded = base64.b64decode(parts[1]).decode("utf-8")
-            username, password = decoded.split(":", 1)
+            split = decoded.split(":", 1)
+            if len(split) != 2:
+                raise ValueError("Missing colon separator in Basic credentials")
+            username, password = split
             return HTTPBasicCredentials(username=username, password=password)
-        except Exception:
+        except (binascii.Error, UnicodeDecodeError, ValueError):
             if self.auto_error:
                 raise HTTPException(
                     status_code=401,

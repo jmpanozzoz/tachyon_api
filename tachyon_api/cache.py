@@ -14,12 +14,15 @@ Design notes:
 
 from __future__ import annotations
 
+import logging
 import time
 import asyncio
 import hashlib
 from dataclasses import dataclass
 from functools import wraps
 from typing import Any, Callable, Optional, Tuple
+
+logger = logging.getLogger(__name__)
 
 
 class BaseCacheBackend:
@@ -150,11 +153,7 @@ def cache(
         cfg = get_cache_config()
         be = backend or cfg.backend
         ttl_value = cfg.default_ttl if TTL is None else TTL
-        kb = (
-            key_builder
-            or cfg.key_builder
-            or (lambda f, a, kw: _default_key_builder(f, a, kw))
-        )
+        kb = key_builder or cfg.key_builder or _default_key_builder
 
         if asyncio.iscoroutinefunction(func):
 
@@ -169,9 +168,8 @@ def cache(
                 result = await func(*args, **kwargs)
                 try:
                     be.set(key, result, ttl_value)
-                except Exception:
-                    # Backend errors should not break the app
-                    pass
+                except Exception as exc:
+                    logger.warning("Cache set failed for key %r: %s", key, exc)
                 return result
 
             return async_wrapper
@@ -188,8 +186,8 @@ def cache(
                 result = func(*args, **kwargs)
                 try:
                     be.set(key, result, ttl_value)
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.warning("Cache set failed for key %r: %s", key, exc)
                 return result
 
             return wrapper

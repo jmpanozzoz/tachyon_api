@@ -12,6 +12,7 @@ from ..di import Depends, _registry
 class DependencyResolver:
     def __init__(self, app_instance):
         self.app = app_instance
+        self._resolving: set = set()
 
     def resolve_dependency(self, cls: Type) -> Any:
         if cls in self.app.dependency_overrides:
@@ -34,11 +35,25 @@ class DependencyResolver:
                     f"Did you forget to mark it with @injectable?"
                 )
 
+        if cls in self._resolving:
+            raise TypeError(
+                f"Circular dependency detected while resolving '{cls.__name__}'"
+            )
+
         sig = inspect.signature(cls)
         dependencies = {}
-        for param in sig.parameters.values():
-            if param.name != "self":
-                dependencies[param.name] = self.resolve_dependency(param.annotation)
+        self._resolving.add(cls)
+        try:
+            for param in sig.parameters.values():
+                if param.name != "self":
+                    if param.annotation is inspect.Parameter.empty:
+                        raise TypeError(
+                            f"Parameter '{param.name}' in '{cls.__name__}' has no type annotation; "
+                            f"cannot resolve dependency."
+                        )
+                    dependencies[param.name] = self.resolve_dependency(param.annotation)
+        finally:
+            self._resolving.discard(cls)
 
         instance = cls(**dependencies)
         self.app._instances_cache[cls] = instance
