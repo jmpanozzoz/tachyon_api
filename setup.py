@@ -23,6 +23,11 @@ try:
 
     extensions = [
         Extension(
+            "tachyon_api.routing.trie",
+            sources=["tachyon_api/routing/trie.pyx"],
+            extra_compile_args=extra_compile_args,
+        ),
+        Extension(
             "tachyon_api.processing.compiler",
             sources=["tachyon_api/processing/compiler.pyx"],
             extra_compile_args=extra_compile_args,
