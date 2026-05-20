@@ -46,7 +46,7 @@ Las tres preguntas ante cualquier cambio:
 
 El objetivo es que el costo de Tachyon en producción sea indistinguible del costo de uvicorn solo. Todo lo que hacemos está orientado a reducir la distancia entre "servidor ASGI puro" y "framework completo".
 
-Estado actual: **4.25x más rápido que FastAPI**. Roadmap: **10x**.
+Estado actual: **5.61x más rápido que FastAPI**. Roadmap: **10x**.
 
 ---
 
@@ -72,9 +72,15 @@ tachyon_api/
 │   └── websocket.py          # WebSocketManager
 ├── processing/
 │   ├── compiler.py           # compile_endpoint() — pre-compila endpoints en startup
+│   ├── compiler.pyx          # Cython version (optional, auto-preferred if compiled)
 │   ├── parameters.py         # ParameterProcessor — extrae params del request
+│   ├── parameters.pyx        # Cython version
 │   ├── dependencies.py       # DependencyResolver — resuelve @injectable y Depends()
-│   └── response_processor.py # ResponseProcessor — serializa y valida respuestas
+│   ├── response_processor.py # ResponseProcessor — serializa y valida respuestas
+│   └── response_processor.pyx # Cython version
+├── routing/
+│   ├── trie.py               # RadixTrie — pure Python (always present, fallback)
+│   └── trie.pyx              # Cython version (O(k) in C when compiled)
 ├── middlewares/
 │   ├── core.py
 │   ├── cors.py
@@ -85,17 +91,33 @@ tachyon_api/
 └── cli/
 ```
 
+### Patrón `.py` / `.pyx` (Cython opcional)
+
+Cada módulo del hot path tiene una versión pure Python (`.py`) y una versión Cython (`.pyx`):
+- `.py` — siempre presente, es el fallback automático
+- `.pyx` — compilado a `.so` con `python setup.py build_ext --inplace`
+- Python prefiere `.so` sobre `.py` automáticamente al importar
+- Sin cambios de código necesarios — el framework funciona igual en ambos casos
+
+Esto aplica a: `routing/trie`, `processing/compiler`, `processing/parameters`, `processing/response_processor`.
+
 ### Flujo de un request (hot path)
 
 ```
 Tachyon.__call__
-  → Starlette routing (F1: reemplazar con radix trie)
-  → handler closure (captura CompiledEndpoint en startup)
+  → (user middlewares, if any)
+  → _trie_dispatch: RadixTrie.match() — O(k) lookup
+  → _ASGIHandler (no params) OR handler closure (with params)
     → ParameterProcessor.process_parameters(compiled, request)  [~0.3µs no-param]
     → ResponseProcessor.call_endpoint(compiled, kwargs)          [~0.15µs]
     → ResponseProcessor.process_response(payload, model, bg)     [~0.8µs]
       → TachyonBytesResponse (Struct) o TachyonJSONResponse (dict)
 ```
+
+**Notas de compatibilidad:**
+- `scope["app"] = self` — `self` es `Tachyon`, no `Starlette`. Middleware de terceros que hace `isinstance(scope["app"], Starlette)` retornará False.
+- Starlette's `ServerErrorMiddleware` y `ExceptionMiddleware` se bypasean para HTTP. Excepciones manejadas por try/except en cada handler closure.
+- `routing/trie.py` trata trailing slashes como equivalentes: `/users` y `/users/` matchean el mismo handler.
 
 **Principio clave:** todo lo que puede hacerse en `_add_route()` (startup) no se hace en el request. `processing/compiler.py` es donde se pre-compila la lógica de cada endpoint.
 
