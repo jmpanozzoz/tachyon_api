@@ -44,7 +44,7 @@ _MARKER_TO_KIND = {
 class ParamDescriptor:
     __slots__ = (
         "name", "kind", "annotation", "marker", "effective_name", "default",
-        "is_list", "item_type", "base_type", "is_optional",
+        "is_list", "item_type", "item_is_optional", "base_type", "is_optional",
         "decoder", "dependency", "dep_is_async",
     )
 
@@ -57,7 +57,8 @@ class ParamDescriptor:
         effective_name: str = "",
         default: Any = inspect.Parameter.empty,
         is_list: bool = False,
-        item_type: Any = str,
+        item_type: Any = str,        # unwrapped item base type (Optional already stripped)
+        item_is_optional: bool = False,
         base_type: Any = str,
         is_optional: bool = False,
         decoder: Any = None,
@@ -72,6 +73,7 @@ class ParamDescriptor:
         self.default = default
         self.is_list = is_list
         self.item_type = item_type
+        self.item_is_optional = item_is_optional
         self.base_type = base_type
         self.is_optional = is_optional
         self.decoder = decoder
@@ -148,7 +150,8 @@ def compile_endpoint(func: Callable, path: str) -> CompiledEndpoint:
         # 6. Implicit path param (no default, name in path template)
         if default is inspect.Parameter.empty and f"{{{param.name}}}" in path:
             base_type, is_opt = TypeUtils.unwrap_optional(ann)
-            is_list, item_type = TypeUtils.is_list_type(base_type)
+            is_list, raw_item = TypeUtils.is_list_type(base_type)
+            item_base, item_is_opt = TypeUtils.unwrap_optional(raw_item) if is_list else (raw_item, False)
             params.append(ParamDescriptor(
                 name=param.name,
                 kind=KIND_PATH_IMPLICIT,
@@ -156,7 +159,8 @@ def compile_endpoint(func: Callable, path: str) -> CompiledEndpoint:
                 base_type=base_type,
                 is_optional=is_opt,
                 is_list=is_list,
-                item_type=item_type,
+                item_type=item_base,
+                item_is_optional=item_is_opt,
             ))
             continue
 
@@ -167,7 +171,9 @@ def compile_endpoint(func: Callable, path: str) -> CompiledEndpoint:
 
 def _build_typed_descriptor(name: str, kind: str, ann: Any, marker: Any) -> ParamDescriptor:
     base_type, is_opt = TypeUtils.unwrap_optional(ann)
-    is_list, item_type = TypeUtils.is_list_type(base_type)
+    is_list, raw_item_type = TypeUtils.is_list_type(base_type)
+    # Unwrap Optional from item type too (e.g. List[Optional[int]] → item=int, item_is_opt=True)
+    item_type, item_is_opt = TypeUtils.unwrap_optional(raw_item_type) if is_list else (raw_item_type, False)
 
     effective_name = name
     if kind == KIND_HEADER:
@@ -190,7 +196,8 @@ def _build_typed_descriptor(name: str, kind: str, ann: Any, marker: Any) -> Para
         effective_name=effective_name,
         default=marker.default if hasattr(marker, "default") else inspect.Parameter.empty,
         is_list=is_list,
-        item_type=item_type,
+        item_type=item_type,       # already unwrapped from Optional
+        item_is_optional=item_is_opt,
         base_type=base_type,
         is_optional=is_opt,
         decoder=decoder,

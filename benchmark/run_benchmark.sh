@@ -24,10 +24,10 @@ cleanup() { kill "$FA_PID" "$TA_PID" 2>/dev/null || true; }
 trap cleanup EXIT
 
 uvicorn benchmark.app_fastapi:app --port $PORT_FA --workers 1 \
-    --log-level error --no-access-log &
+    --loop uvloop --http httptools --log-level error --no-access-log &
 FA_PID=$!
 uvicorn benchmark.app_tachyon:app --port $PORT_TA --workers 1 \
-    --log-level error --no-access-log &
+    --loop uvloop --http httptools --log-level error --no-access-log &
 TA_PID=$!
 sleep 2
 

@@ -5,11 +5,11 @@ from __future__ import annotations
 import msgspec
 from typing import Any, Optional, Type
 
-from starlette.responses import Response
+from starlette.responses import Response  # kept for isinstance check on user-returned responses
 
 from ..background import BackgroundTasks
-from ..models import Struct, encode_json
-from ..responses import TachyonJSONResponse, response_validation_error_response
+from ..models import Struct
+from ..responses import TachyonJSONResponse, TachyonBytesResponse, response_validation_error_response
 from .compiler import CompiledEndpoint
 
 
@@ -32,12 +32,9 @@ class ResponseProcessor:
             except Exception as e:
                 return response_validation_error_response(str(e))
 
-        # Fast path: Struct → msgspec.json.encode (pure C, no Python intermediate)
+        # Fast path: Struct → msgspec.json.encode (pure C) + minimal response wrapper
         if isinstance(payload, Struct):
-            return Response(
-                content=msgspec.json.encode(payload),
-                media_type="application/json",
-            )
+            return TachyonBytesResponse(msgspec.json.encode(payload))
 
         if isinstance(payload, dict):
             for key, value in payload.items():
