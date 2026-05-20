@@ -116,6 +116,13 @@ class Tachyon:
         """Decorator to register a custom exception handler for exc_class."""
 
         def decorator(func: Callable):
+            if not asyncio.iscoroutinefunction(func):
+                logger.warning(
+                    "Exception handler %r for %s is synchronous and will block the event loop. "
+                    "Consider making it async.",
+                    func.__name__,
+                    exc_class.__name__,
+                )
             self._exception_handlers[exc_class] = func
             return func
 
