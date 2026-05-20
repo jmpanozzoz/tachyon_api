@@ -9,8 +9,7 @@ logger = logging.getLogger(__name__)
 
 from starlette.applications import Starlette
 from starlette.requests import Request
-from starlette.responses import JSONResponse
-from starlette.routing import Route
+from starlette.responses import JSONResponse, Response  # Response for 404/405 trie replies
 
 from .openapi import (
     OpenAPIGenerator,
@@ -32,6 +31,7 @@ from .processing.compiler import compile_endpoint
 from .processing.parameters import ParameterProcessor
 from .processing.dependencies import DependencyResolver
 from .processing.response_processor import ResponseProcessor
+from .routing.trie import RadixTrie, _NOT_FOUND, _METHOD_NOT_ALLOWED
 
 try:
     from .cache import set_cache_config
@@ -51,6 +51,15 @@ class Tachyon:
         self._lifecycle_manager = LifecycleManager(lifespan)
         self._exception_handlers: Dict[Type[Exception], Callable] = {}
         self._router = Starlette(lifespan=self._lifecycle_manager.create_combined_lifespan())
+
+        # ── Radix trie replaces Starlette's O(N) regex route scan ──
+        # Starlette's Router.middleware_stack starts as Router.app (the scan loop).
+        # We replace it with our dispatch *before* the first request so that
+        # Starlette.build_middleware_stack() (lazy) wraps our dispatcher instead.
+        self._trie = RadixTrie()
+        _original_router_app = self._router.router.app  # kept for WS + lifespan
+        self._router.router.middleware_stack = self._make_http_dispatch(_original_router_app)
+
         self._websocket_manager = WebSocketManager(self._router)
         self._parameter_processor = ParameterProcessor(self)
         self._dependency_resolver = DependencyResolver(self)
@@ -137,6 +146,50 @@ class Tachyon:
         """Decorator to register a WebSocket endpoint."""
         return self._websocket_manager.websocket_decorator(path)
 
+    # ── Trie dispatch ────────────────────────────────────────────────────────
+
+    def _make_http_dispatch(self, original_router_app: Callable) -> Callable:
+        """Return an ASGI callable: HTTP → trie, everything else → Starlette."""
+        trie = self._trie
+        _dispatch = self._trie_dispatch
+
+        async def dispatch(scope, receive, send):
+            if scope["type"] == "http":
+                await _dispatch(scope, receive, send)
+            else:
+                # WebSocket routing and lifespan stay in Starlette's Router
+                await original_router_app(scope, receive, send)
+
+        return dispatch
+
+    async def _trie_dispatch(self, scope, receive, send) -> None:
+        """Core HTTP dispatch via radix trie — O(k) lookup."""
+        status, handler, path_params, allowed = self._trie.match(
+            scope["path"], scope["method"]
+        )
+
+        if status == _NOT_FOUND:
+            resp = Response("Not Found", status_code=404)
+            await resp(scope, receive, send)
+            return
+
+        if status == _METHOD_NOT_ALLOWED:
+            resp = Response(
+                "Method Not Allowed",
+                status_code=405,
+                headers={"Allow": ", ".join(sorted(allowed))},
+            )
+            await resp(scope, receive, send)
+            return
+
+        # _FOUND — call the pre-compiled handler closure
+        scope["path_params"] = path_params
+        request = Request(scope, receive, send)
+        response = await handler(request)
+        await response(scope, receive, send)
+
+    # ── Route registration ───────────────────────────────────────────────────
+
     def _create_decorator(self, path: str, *, http_method: str, **kwargs):
         def decorator(endpoint_func: Callable):
             self._add_route(path, endpoint_func, http_method, **kwargs)
@@ -146,8 +199,6 @@ class Tachyon:
 
     def _add_route(self, path: str, endpoint_func: Callable, method: str, **kwargs):
         response_model = kwargs.get("response_model")
-        # Pre-compile endpoint once at registration — avoids inspect.signature,
-        # asyncio.iscoroutinefunction, isinstance chains, and decoder creation per request.
         compiled = compile_endpoint(endpoint_func, path)
 
         async def handler(request):
@@ -182,16 +233,16 @@ class Tachyon:
                 return response
 
             except Exception as exc:
-                for exc_class, handler in self._exception_handlers.items():
+                for exc_class, exc_handler in self._exception_handlers.items():
                     if isinstance(exc, exc_class):
-                        if asyncio.iscoroutinefunction(handler):
-                            return await handler(request, exc)
+                        if asyncio.iscoroutinefunction(exc_handler):
+                            return await exc_handler(request, exc)
                         else:
-                            return handler(request, exc)
+                            return exc_handler(request, exc)
                 return internal_server_error_response()
 
-        route = Route(path, endpoint=handler, methods=[method])
-        self._router.routes.append(route)
+        # Register in O(k) radix trie — no longer in Starlette's O(N) route list
+        self._trie.add(path, method, handler)
         self.routes.append(
             {"path": path, "method": method, "func": endpoint_func, **kwargs}
         )
