@@ -164,7 +164,6 @@ class ParameterProcessor:
         name = p.name
 
         if p.is_list:
-            # getlist is always available on Starlette QueryParams
             raw_values = query_params.getlist(name)
             if not raw_values and name in query_params:
                 raw_values = [query_params[name]]
@@ -180,14 +179,18 @@ class ParameterProcessor:
                     kwargs[name] = p.default
                     return None
                 return validation_error_response(f"Missing required query parameter: {name}")
-            converted = TypeConverter.convert_list_values(values, p.item_type, name, is_path_param=False)
+            # Use bare variant — p.item_type is already unwrapped, p.item_is_optional tracks Optional[T]
+            converted = TypeConverter.convert_list_values_bare(
+                values, p.item_type, p.item_is_optional, name, is_path_param=False
+            )
             if isinstance(converted, JSONResponse):
                 return converted
             kwargs[name] = converted
             return None
 
         if name in query_params:
-            converted = TypeConverter.convert_value(
+            # Use bare variant — p.base_type already unwrapped by compiler
+            converted = TypeConverter.convert_value_bare(
                 query_params[name], p.base_type, name, is_path_param=False
             )
             if isinstance(converted, JSONResponse):
@@ -266,15 +269,16 @@ class ParameterProcessor:
 
         if p.is_list:
             parts = value_str.split(",") if value_str else []
-            converted = TypeConverter.convert_list_values(
-                parts, p.item_type, name, is_path_param=True
+            converted = TypeConverter.convert_list_values_bare(
+                parts, p.item_type, p.item_is_optional, name, is_path_param=True
             )
             if isinstance(converted, JSONResponse):
                 return converted
             kwargs[name] = converted
         else:
-            converted = TypeConverter.convert_value(
-                value_str, p.annotation, name, is_path_param=True
+            # Use bare variant — p.base_type already unwrapped by compiler
+            converted = TypeConverter.convert_value_bare(
+                value_str, p.base_type, name, is_path_param=True
             )
             if isinstance(converted, JSONResponse):
                 return converted
