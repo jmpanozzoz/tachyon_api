@@ -68,11 +68,14 @@ Benchmarked against **FastAPI 0.136.1 (Pydantic v2)** · 1 worker · 100 concurr
 Install with Cython extensions for additional speedup on the request hot path:
 
 ```bash
-pip install tachyon-api[fast]          # production
-python setup.py build_ext --inplace    # development
+pip install tachyon-api[fast]          # installs cython dependency
+python setup.py build_ext --inplace    # compile extensions (required step)
 ```
 
-Falls back to pure Python automatically when `.so` is not available. Numbers above reflect the compiled version.
+> **Note:** `pip install tachyon-api[fast]` installs the `cython` package but does **not**
+> auto-compile the extensions. Run `python setup.py build_ext --inplace` manually after install.
+> Falls back to pure Python automatically when `.so` is not present — no code changes needed.
+> Numbers above reflect the compiled version (~11% faster Python hot path).
 
 ### Why is Tachyon faster?
 
