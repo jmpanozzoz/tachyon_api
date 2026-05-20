@@ -9,6 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.1.0] - 2026-05-20
 
+### ⚠️ Breaking Changes (internal APIs only)
+
+- **`KIND_*` constants**: Changed from `str` to `int` in `processing/compiler.py`.
+  Public API unaffected. If you imported these constants directly and compared them
+  as strings (`kind == "query"`), update to integer comparison (`kind == KIND_QUERY`).
+- **`RadixTrie.match()` return type**: The 4th return value for `_METHOD_NOT_ALLOWED`
+  changed from `Set[str]` to `str` (pre-sorted Allow header value like `"GET, POST"`).
+  Internal API — no user-facing impact.
+- **`scope["app"]`**: Now set to `Tachyon` instance (not `Starlette`). Third-party
+  middleware doing `isinstance(scope["app"], Starlette)` will return False.
+- **HTTP routing**: `_add_route` no longer appends Starlette `Route` objects to
+  `self._router.routes`. Code accessing `app._router.routes` directly will see an
+  empty list. Use `app.routes` (public API) instead.
+- **Trailing slashes**: The radix trie ignores trailing slashes — `/users` and `/users/`
+  resolve to the same handler. Previously Starlette would 307 redirect; now both match.
+
 ### Performance
 
 **Phase 1 — Radix trie router** (`feature/radix-router`)

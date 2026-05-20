@@ -1,35 +1,39 @@
 # 14. Migration from FastAPI
 
-> Guía para migrar de FastAPI a Tachyon
+> Guide for migrating from FastAPI to Tachyon
 
-## 🎯 Resumen de Cambios
+## 🎯 Summary of Changes
 
-| Concepto | FastAPI | Tachyon |
+| Concept | FastAPI | Tachyon |
 |----------|---------|---------|
 | App | `FastAPI()` | `Tachyon()` |
 | Models | `BaseModel` (pydantic) | `Struct` (msgspec) |
 | Router | `APIRouter` | `Router` |
 | DI Class | N/A | `@injectable` |
 | Response | `JSONResponse` | `TachyonJSONResponse` |
-| Files | `UploadFile` | `UploadFile` (mismo) |
+| Files | `UploadFile` | `UploadFile` (same) |
 
 ---
 
-## 📦 Instalación
+## 📦 Installation
 
 ```bash
-# Remover FastAPI
+# Remove FastAPI
 pip uninstall fastapi pydantic
 
-# Instalar Tachyon
+# Install Tachyon
 pip install tachyon-api
+
+# Optional: Cython extensions for ~11% extra speed
+# pip install tachyon-api[fast]
+# python setup.py build_ext --inplace
 ```
 
 ---
 
-## 🔄 Cambios de Import
+## 🔄 Import Changes
 
-### Antes (FastAPI):
+### Before (FastAPI):
 ```python
 from fastapi import FastAPI, APIRouter, Depends, Query, Path, Body, Header, Cookie
 from fastapi import HTTPException, Request, Response
@@ -37,22 +41,22 @@ from fastapi.security import OAuth2PasswordBearer, HTTPBearer
 from pydantic import BaseModel
 ```
 
-### Después (Tachyon):
+### After (Tachyon):
 ```python
 from tachyon_api import Tachyon, Router, Depends, Query, Path, Body, Header, Cookie
 from tachyon_api import HTTPException
 from tachyon_api.security import OAuth2PasswordBearer, HTTPBearer
 from tachyon_api import Struct
 
-# Request si lo necesitas
+# Request if needed
 from starlette.requests import Request
 ```
 
 ---
 
-## 📝 Modelos: Pydantic → Struct
+## 📝 Models: Pydantic → Struct
 
-### Antes (Pydantic):
+### Before (Pydantic):
 ```python
 from pydantic import BaseModel, Field
 from typing import Optional, List
@@ -68,7 +72,7 @@ class User(BaseModel):
         extra = "forbid"
 ```
 
-### Después (Struct):
+### After (Struct):
 ```python
 from tachyon_api import Struct
 from typing import Optional, List
@@ -81,16 +85,16 @@ class User(Struct):
     bio: Optional[str] = None
 ```
 
-### Notas:
-- No hay `Config` class
-- No hay `Field()` - usa el tipo directamente
-- Validators custom van en el Service, no en el modelo
+### Notes:
+- No `Config` class
+- No `Field()` — use type annotations directly
+- Custom validators belong in the Service layer, not in the model
 
 ---
 
 ## 🔌 Dependency Injection
 
-### Antes (FastAPI):
+### Before (FastAPI):
 ```python
 class Database:
     def __init__(self):
@@ -104,7 +108,7 @@ def get_data(db: Database = Depends(get_db)):
     return {"status": db.connection}
 ```
 
-### Después (Tachyon):
+### After (Tachyon) — implicit singleton:
 ```python
 from tachyon_api import injectable, Depends
 
@@ -114,25 +118,54 @@ class Database:
         self.connection = "connected"
 
 @app.get("/data")
-def get_data(db: Database = Depends()):  # Sin función factory
+def get_data(db: Database = Depends()):  # No factory function needed
     return {"status": db.connection}
 ```
 
-### O con callable (similar a FastAPI):
+### Or with callable (FastAPI-compatible):
 ```python
 def get_db():
     return Database()
 
 @app.get("/data")
-def get_data(db: Database = Depends(get_db)):  # También funciona
+def get_data(db: Database = Depends(get_db)):  # Also works
     return {"status": db.connection}
 ```
+
+### Key difference
+`@injectable` creates an app-scoped singleton (created once, reused across all requests).
+FastAPI's `Depends(get_db)` creates a new instance per request unless you add `@lru_cache`.
+Tachyon's approach is more efficient for stateless services.
+
+---
+
+## ⚠️ Behavioral Differences vs FastAPI
+
+### Routing
+Tachyon uses a radix trie (O(k)) instead of FastAPI's regex-based O(N) routing.
+- Trailing slashes are treated as equivalent: `/users` and `/users/` both match the same route.
+- No automatic redirect for trailing slash mismatches.
+
+### Middleware stack
+Tachyon skips FastAPI/Starlette's automatic `ServerErrorMiddleware` and `ExceptionMiddleware`
+for HTTP requests. Exception handling is done per-handler (more efficient). Your custom
+middlewares still run. This is transparent unless you relied on Starlette's internal
+exception middleware to catch errors from your own middleware.
+
+### `scope["app"]`
+Tachyon sets `scope["app"] = self` where `self` is a `Tachyon` instance, not a `Starlette`
+instance. Third-party middleware doing `isinstance(scope["app"], Starlette)` will return False.
+Most middleware only uses `scope["app"]` for URL generation and is unaffected.
+
+### Response types
+`TachyonJSONResponse` is a `JSONResponse` subclass but bypasses Starlette's `Response.__init__`
+for performance. It is still compatible with all middleware that checks `isinstance(r, JSONResponse)`.
 
 ---
 
 ## 🛡️ Security
 
-### Antes (FastAPI):
+### Before (FastAPI):
 ```python
 from fastapi.security import OAuth2PasswordBearer
 
@@ -143,7 +176,7 @@ async def get_me(token: str = Depends(oauth2_scheme)):
     return {"token": token}
 ```
 
-### Después (Tachyon):
+### After (Tachyon):
 ```python
 from tachyon_api.security import OAuth2PasswordBearer
 from tachyon_api import Depends
@@ -155,14 +188,16 @@ async def get_me(token: str = Depends(oauth2_scheme)):
     return {"token": token}
 ```
 
-**¡Mismo código!** Solo cambia el import.
+**Only the import changes.**
 
 ---
 
 ## 🔄 Lifecycle Events
 
-### Antes (FastAPI):
+Identical API:
+
 ```python
+# Both decorators and lifespan context managers work
 @app.on_event("startup")
 async def startup():
     print("Starting...")
@@ -172,18 +207,6 @@ async def shutdown():
     print("Stopping...")
 ```
 
-### Después (Tachyon) - Igual:
-```python
-@app.on_event("startup")
-async def startup():
-    print("Starting...")
-
-@app.on_event("shutdown")
-async def shutdown():
-    print("Stopping...")
-```
-
-### O con lifespan (también igual):
 ```python
 from contextlib import asynccontextmanager
 
@@ -200,18 +223,11 @@ app = Tachyon(lifespan=lifespan)
 
 ## ⚡ Background Tasks
 
-### Antes (FastAPI):
 ```python
+# Before
 from fastapi import BackgroundTasks
 
-@app.post("/send")
-def send(background_tasks: BackgroundTasks):
-    background_tasks.add_task(send_email)
-    return {"status": "queued"}
-```
-
-### Después (Tachyon):
-```python
+# After — only the import changes
 from tachyon_api.background import BackgroundTasks
 
 @app.post("/send")
@@ -220,48 +236,35 @@ def send(background_tasks: BackgroundTasks):
     return {"status": "queued"}
 ```
 
-**¡Solo cambia el import!**
-
 ---
 
 ## 🌐 WebSockets
 
-### Antes (FastAPI):
 ```python
+# Before (FastAPI)
 from fastapi import WebSocket
 
 @app.websocket("/ws")
 async def websocket(websocket: WebSocket):
     await websocket.accept()
-    data = await websocket.receive_text()
-    await websocket.send_text(f"Echo: {data}")
-```
+    ...
 
-### Después (Tachyon):
-```python
+# After (Tachyon) — no type hint needed
 @app.websocket("/ws")
-async def websocket(websocket):  # No necesita type hint
+async def websocket(websocket):
     await websocket.accept()
-    data = await websocket.receive_text()
-    await websocket.send_text(f"Echo: {data}")
+    ...
 ```
 
 ---
 
 ## 📁 File Uploads
 
-### Antes (FastAPI):
 ```python
+# Before
 from fastapi import UploadFile, File
 
-@app.post("/upload")
-async def upload(file: UploadFile = File(...)):
-    contents = await file.read()
-    return {"filename": file.filename}
-```
-
-### Después (Tachyon):
-```python
+# After — minor import change
 from tachyon_api import File
 from tachyon_api.files import UploadFile
 
@@ -275,18 +278,16 @@ async def upload(file: UploadFile = File(...)):
 
 ## 🧪 Testing
 
-### Antes (FastAPI):
 ```python
+# Before
 from fastapi.testclient import TestClient
 
 def test_api():
     client = TestClient(app)
     response = client.get("/")
     assert response.status_code == 200
-```
 
-### Después (Tachyon):
-```python
+# After
 from tachyon_api.testing import TachyonTestClient
 
 def test_api():
@@ -295,33 +296,56 @@ def test_api():
     assert response.status_code == 200
 ```
 
----
+For async tests, use `httpx.AsyncClient` with `ASGITransport`:
+```python
+import pytest
+import httpx
 
-## 📋 Checklist de Migración
-
-- [ ] Cambiar imports de `fastapi` a `tachyon_api`
-- [ ] Cambiar `BaseModel` a `Struct`
-- [ ] Remover `Field()` y `Config` de modelos
-- [ ] Agregar `@injectable` a clases de DI
-- [ ] Cambiar `FastAPI()` a `Tachyon()`
-- [ ] Cambiar `APIRouter` a `Router`
-- [ ] Actualizar imports de security
-- [ ] Cambiar TestClient
-- [ ] Mover validaciones custom a Services
-- [ ] Ejecutar tests
-
----
-
-## ⚡ Performance Gains
-
-Después de migrar, espera:
-- **2-5x** mejor serialización JSON
-- **30-50%** menos memoria en modelos
-- **Startup más rápido** (menos dependencias)
+@pytest.mark.asyncio
+async def test_async():
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app),
+        base_url="http://test"
+    ) as client:
+        r = await client.get("/")
+    assert r.status_code == 200
+```
 
 ---
 
-## 🔗 Próximos Pasos
+## 📋 Migration Checklist
+
+- [ ] Change imports from `fastapi` to `tachyon_api`
+- [ ] Change `BaseModel` to `Struct`
+- [ ] Remove `Field()` and `Config` from models
+- [ ] Add `@injectable` to DI classes
+- [ ] Change `FastAPI()` to `Tachyon()`
+- [ ] Change `APIRouter` to `Router`
+- [ ] Update security imports
+- [ ] Change TestClient to TachyonTestClient
+- [ ] Move custom validators to Services
+- [ ] Run tests
+
+---
+
+## ⚡ Performance After Migration
+
+Typical results after migrating from FastAPI:
+- **5.61x** higher throughput (benchmarked with 100 concurrent connections)
+- **~2ms** average latency vs ~14ms in FastAPI
+- Serialization via msgspec (C extension) vs Pydantic v2
+
+For maximum performance in production:
+```bash
+pip install tachyon-api[fast]                          # Cython extensions
+python setup.py build_ext --inplace                    # compile
+uvicorn app:app --loop uvloop --http httptools          # fast server config
+```
+
+---
+
+## 🔗 Next Steps
 
 - [Best Practices](./15-best-practices.md)
 - [Architecture](./02-architecture.md)
+- [Request Lifecycle](./13-request-lifecycle.md)
