@@ -16,9 +16,6 @@ _NOT_FOUND          = 0
 _METHOD_NOT_ALLOWED = 1
 _FOUND              = 2
 
-# Singleton returned for routes with no path parameters — one less dict allocation per request
-_EMPTY_PARAMS: Dict[str, str] = {}
-
 
 class _Node:
     """One node in the radix trie — represents one path segment."""
@@ -103,14 +100,12 @@ class RadixTrie:
 
         handler = node.handlers.get(method.upper())
         if handler is not None:
-            # Use singleton for routes with no path params — one less dict allocation
-            return _FOUND, handler, path_params if path_params else _EMPTY_PARAMS, None
+            return _FOUND, handler, path_params, None
 
         if node.allowed:
-            # Return pre-sorted allow_header instead of the set — no sorting at request time
             return _METHOD_NOT_ALLOWED, None, path_params, node.allow_header
 
-        return _NOT_FOUND, None, _EMPTY_PARAMS, None
+        return _NOT_FOUND, None, {}, None
 
 
 def _segments(path: str):
