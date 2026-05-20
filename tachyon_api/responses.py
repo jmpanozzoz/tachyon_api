@@ -15,8 +15,9 @@ _ASGI_START = "http.response.start"
 _ASGI_BODY  = "http.response.body"
 
 # Content-length bytes cache — avoids str(n).encode() on every response.
-# Covers 0–8191 bytes which includes almost all JSON API responses.
-_CL_CACHE: dict = {i: str(i).encode() for i in range(8192)}
+# Covers 0–65535 bytes (~64KB), catching JSON arrays and larger payloads.
+# ~512KB startup cost for the dict; negligible vs request-time savings.
+_CL_CACHE: dict = {i: str(i).encode() for i in range(65536)}
 
 
 def _cl_bytes(n: int) -> bytes:
