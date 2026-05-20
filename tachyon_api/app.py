@@ -201,15 +201,28 @@ class Tachyon:
         response_model = kwargs.get("response_model")
         compiled = compile_endpoint(endpoint_func, path)
 
+        # Capture flags once — avoids attribute lookup per request
+        _has_params        = compiled.has_params
+        _has_callable_deps = compiled.has_callable_deps
+
         async def handler(request):
             try:
-                dependency_cache = {}
-                kwargs_to_inject, error_response, _background_tasks = await self._parameter_processor.process_parameters(
-                    compiled, request, dependency_cache
-                )
+                # 2a: skip dict allocation when no callable deps exist
+                dependency_cache = {} if _has_callable_deps else None
 
-                if error_response is not None:
-                    return error_response
+                if _has_params:
+                    # Normal path — extract and validate all parameters
+                    kwargs_to_inject, error_response, _background_tasks = (
+                        await self._parameter_processor.process_parameters(
+                            compiled, request, dependency_cache
+                        )
+                    )
+                    if error_response is not None:
+                        return error_response
+                else:
+                    # 2c: fast-path — no params means no extraction needed
+                    kwargs_to_inject = {}
+                    _background_tasks = None
 
                 payload = await ResponseProcessor.call_endpoint(compiled, kwargs_to_inject)
 
