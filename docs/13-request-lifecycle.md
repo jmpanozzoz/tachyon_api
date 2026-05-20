@@ -195,18 +195,21 @@ Las tareas se ejecutan en orden.
 
 ## 8️⃣ Response Serialization
 
-Tachyon serializa el resultado:
+Tachyon serializa el resultado por el camino más eficiente según el tipo:
 
 ```python
-# Struct → dict → JSON
+# Struct → msgspec.json.encode() directo (C puro, sin paso intermedio)
 if isinstance(result, Struct):
-    result = msgspec.to_builtins(result)
+    return TachyonBytesResponse(msgspec.json.encode(result))
 
-# Dict → JSON con orjson
+# Dict → orjson.dumps() (serialización C)
 return TachyonJSONResponse(result)
 ```
 
-Si hay `response_model`, valida antes de enviar.
+`TachyonJSONResponse` bypasea el `__init__` estándar de Starlette para evitar la
+construcción de `MutableHeaders` (~0.96µs ahorrados por response).
+
+Si hay `response_model`, valida con `msgspec.convert()` antes de serializar.
 
 ---
 
@@ -246,13 +249,30 @@ Los middlewares procesan la response en orden inverso:
 
 ---
 
+## ⚡ Endpoint Pre-Compilation
+
+A partir de v1.0.0, Tachyon compila cada endpoint **una sola vez al registrarlo**
+en `_add_route()`. Esto mueve fuera del hot path:
+
+- `inspect.signature()` — introsección de firma
+- `isinstance` chains — detección del tipo de parámetro
+- `typing.get_origin/args` — análisis de genéricos (`List[T]`, `Optional[T]`)
+- `msgspec.json.Decoder(model)` — creación del decoder de body
+- `asyncio.iscoroutinefunction()` — si el endpoint es async
+- Resolución de alias para headers/cookies/form/files
+
+En cada request el handler solo recorre un `List[ParamDescriptor]` precompilado.
+
+---
+
 ## ⚡ Performance Tips
 
-1. **Dependencies**: Usa `@injectable` (singleton) para clases pesadas
-2. **Body parsing**: Solo parsea si necesitas el body
-3. **Background tasks**: Mueve trabajo pesado a background
-4. **Response model**: Evita si no necesitas validar response
-5. **Middlewares**: Menos es mejor
+1. **Dependencies**: Usa `@injectable` (singleton) para clases pesadas — se crean una vez y se reutilizan
+2. **Body parsing**: Tachyon respeta el límite `max_body_size` (default 10MB); ajústalo con `Tachyon(max_body_size=...)`
+3. **Background tasks**: Mueve trabajo pesado a background para no bloquear la response
+4. **Response model**: Evítalo si no necesitas validar el output — la serialización directa es más rápida
+5. **Middlewares**: Menos es mejor; cada middleware agrega overhead a todos los requests
+6. **Structs sobre dicts**: Retornar un `Struct` usa `msgspec.json.encode()` directo (más rápido que un dict)
 
 ---
 
