@@ -1,20 +1,26 @@
-"""Parameter extraction and validation from HTTP requests."""
+"""Parameter extraction and validation — uses pre-compiled endpoint descriptors."""
 
-import inspect
-import msgspec
+from __future__ import annotations
+
 import typing
 from typing import Dict, Any, Optional
+
+import msgspec
 
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
-from ..params import Body, Query, Path, Header, Cookie, Form, File
 from ..models import Struct
 from ..responses import validation_error_response
 from ..utils import TypeConverter, TypeUtils
 from ..background import BackgroundTasks
-from ..di import Depends, _registry
-
+from .compiler import (
+    CompiledEndpoint,
+    ParamDescriptor,
+    KIND_REQUEST, KIND_BG, KIND_BODY, KIND_QUERY,
+    KIND_HEADER, KIND_COOKIE, KIND_FORM, KIND_FILE,
+    KIND_PATH, KIND_PATH_IMPLICIT, KIND_DEP_CALLABLE, KIND_DEP_CLASS,
+)
 
 _DEFAULT_MAX_BODY_SIZE = 10 * 1024 * 1024  # 10 MB
 
@@ -22,157 +28,120 @@ _DEFAULT_MAX_BODY_SIZE = 10 * 1024 * 1024  # 10 MB
 class ParameterProcessor:
     def __init__(self, app_instance):
         self.app = app_instance
-    
+
     async def process_parameters(
         self,
-        endpoint_func,
+        compiled: CompiledEndpoint,
         request: Request,
         dependency_cache: Dict,
-    ) -> tuple[Dict[str, Any], Optional[JSONResponse], Optional[Any]]:
-        kwargs_to_inject = {}
-        sig = inspect.signature(endpoint_func)
-        query_params = request.query_params
-        path_params = request.path_params
+    ) -> tuple[Dict[str, Any], Optional[JSONResponse], Optional[BackgroundTasks]]:
+        kwargs: Dict[str, Any] = {}
+        _bg: Optional[BackgroundTasks] = None
         _form_data = None
-        _background_tasks = None
 
-        for param in sig.parameters.values():
-            if param.annotation is Request:
-                kwargs_to_inject[param.name] = request
-                continue
+        for p in compiled.params:
+            kind = p.kind
 
-            if param.annotation is BackgroundTasks:
-                if _background_tasks is None:
-                    _background_tasks = BackgroundTasks()
-                kwargs_to_inject[param.name] = _background_tasks
-                continue
+            if kind == KIND_REQUEST:
+                kwargs[p.name] = request
 
-            is_explicit_dependency = isinstance(param.default, Depends)
-            is_implicit_dependency = (
-                param.default is inspect.Parameter.empty
-                and param.annotation in _registry
-            )
+            elif kind == KIND_BG:
+                if _bg is None:
+                    _bg = BackgroundTasks()
+                kwargs[p.name] = _bg
 
-            if is_explicit_dependency or is_implicit_dependency:
-                if is_explicit_dependency and param.default.dependency is not None:
-                    resolved = await self.app._dependency_resolver.resolve_callable_dependency(
-                        param.default.dependency, dependency_cache, request
-                    )
-                    kwargs_to_inject[param.name] = resolved
-                else:
-                    target_class = param.annotation
-                    kwargs_to_inject[param.name] = self.app._dependency_resolver.resolve_dependency(
-                        target_class
-                    )
-
-            elif isinstance(param.default, Body):
-                result = await self._process_body_param(
-                    param, request, kwargs_to_inject
+            elif kind == KIND_DEP_CALLABLE:
+                resolved = await self.app._dependency_resolver.resolve_callable_dependency(
+                    p.dependency, dependency_cache, request
                 )
-                if result is not None:
-                    return kwargs_to_inject, result, _background_tasks
+                kwargs[p.name] = resolved
 
-            elif isinstance(param.default, Query):
-                error_response = self._process_query_param(
-                    param, query_params, kwargs_to_inject
-                )
-                if error_response:
-                    return kwargs_to_inject, error_response, _background_tasks
+            elif kind == KIND_DEP_CLASS:
+                kwargs[p.name] = self.app._dependency_resolver.resolve_dependency(p.annotation)
 
-            elif isinstance(param.default, Header):
-                error_response = self._process_header_param(
-                    param, request, kwargs_to_inject
-                )
-                if error_response:
-                    return kwargs_to_inject, error_response, _background_tasks
-            
-            elif isinstance(param.default, Cookie):
-                error_response = self._process_cookie_param(
-                    param, request, kwargs_to_inject
-                )
-                if error_response:
-                    return kwargs_to_inject, error_response, _background_tasks
+            elif kind == KIND_BODY:
+                err = await self._process_body(p, request, kwargs)
+                if err is not None:
+                    return kwargs, err, _bg
 
-            elif isinstance(param.default, Form):
+            elif kind == KIND_QUERY:
+                err = self._process_query(p, request.query_params, kwargs)
+                if err is not None:
+                    return kwargs, err, _bg
+
+            elif kind == KIND_HEADER:
+                err = self._process_header(p, request, kwargs)
+                if err is not None:
+                    return kwargs, err, _bg
+
+            elif kind == KIND_COOKIE:
+                err = self._process_cookie(p, request, kwargs)
+                if err is not None:
+                    return kwargs, err, _bg
+
+            elif kind == KIND_FORM:
                 if _form_data is None:
                     try:
                         _form_data = await request.form()
                     except Exception:
-                        return kwargs_to_inject, validation_error_response("Failed to parse form data"), _background_tasks
-                error_response = self._process_form_param(
-                    param, _form_data, kwargs_to_inject
-                )
-                if error_response:
-                    return kwargs_to_inject, error_response, _background_tasks
+                        return kwargs, validation_error_response("Failed to parse form data"), _bg
+                err = self._process_form(p, _form_data, kwargs)
+                if err is not None:
+                    return kwargs, err, _bg
 
-            elif isinstance(param.default, File):
+            elif kind == KIND_FILE:
                 if _form_data is None:
                     try:
                         _form_data = await request.form()
                     except Exception:
-                        return kwargs_to_inject, validation_error_response("Failed to parse form data"), _background_tasks
-                error_response = self._process_file_param(
-                    param, _form_data, kwargs_to_inject
-                )
-                if error_response:
-                    return kwargs_to_inject, error_response, _background_tasks
+                        return kwargs, validation_error_response("Failed to parse form data"), _bg
+                err = self._process_file(p, _form_data, kwargs)
+                if err is not None:
+                    return kwargs, err, _bg
 
-            elif isinstance(param.default, Path):
-                error_response = self._process_path_param(
-                    param, path_params, kwargs_to_inject
-                )
-                if error_response:
-                    return kwargs_to_inject, error_response, _background_tasks
+            elif kind == KIND_PATH:
+                err = self._process_path(p, request.path_params, kwargs)
+                if err is not None:
+                    return kwargs, err, _bg
 
-            elif (
-                param.default is inspect.Parameter.empty
-                and param.name in path_params
-                and not is_explicit_dependency
-                and not is_implicit_dependency
-            ):
-                error_response = self._process_path_param(
-                    param, path_params, kwargs_to_inject, explicit=False
-                )
-                if error_response:
-                    return kwargs_to_inject, error_response, _background_tasks
+            elif kind == KIND_PATH_IMPLICIT:
+                err = self._process_path(p, request.path_params, kwargs)
+                if err is not None:
+                    return kwargs, err, _bg
 
-        return kwargs_to_inject, None, _background_tasks
-    
-    async def _process_body_param(
-        self,
-        param,
-        request: Request,
-        kwargs_to_inject: Dict,
+        return kwargs, None, _bg
+
+    async def _process_body(
+        self, p: ParamDescriptor, request: Request, kwargs: Dict
     ) -> Optional[JSONResponse]:
-        model_class = param.annotation
-        if not issubclass(model_class, Struct):
-            raise TypeError(
-                "Body type must be an instance of Tachyon_api.models.Struct"
-            )
-
         max_body_size = getattr(self.app, "max_body_size", _DEFAULT_MAX_BODY_SIZE)
-        content_length = request.headers.get("content-length")
-        if content_length is not None:
+        cl = request.headers.get("content-length")
+        if cl is not None:
             try:
-                if int(content_length) > max_body_size:
+                if int(cl) > max_body_size:
                     return validation_error_response(
                         f"Request body too large (max {max_body_size} bytes)"
                     )
             except ValueError:
                 pass
 
-        decoder = msgspec.json.Decoder(model_class)
         try:
             raw_body = await request.body()
         except Exception:
             return validation_error_response("Failed to read request body")
+
         if len(raw_body) > max_body_size:
             return validation_error_response(
                 f"Request body too large (max {max_body_size} bytes)"
             )
+
+        # Use pre-compiled decoder (cached at registration time)
+        decoder = p.decoder
+        if decoder is None:
+            return validation_error_response("Body type must be a Struct subclass")
+
         try:
-            validated_data = decoder.decode(raw_body)
-            kwargs_to_inject[param.name] = validated_data
+            kwargs[p.name] = decoder.decode(raw_body)
             return None
         except msgspec.DecodeError as e:
             return validation_error_response(f"Invalid JSON body: {e}")
@@ -181,195 +150,134 @@ class ParameterProcessor:
             try:
                 path = getattr(e, "path", None)
                 if path:
-                    field_name = None
-                    for p in reversed(path):
-                        if isinstance(p, str):
-                            field_name = p
+                    for seg in reversed(path):
+                        if isinstance(seg, str):
+                            field_errors = {seg: [str(e)]}
                             break
-                    if field_name:
-                        field_errors = {field_name: [str(e)]}
             except Exception:
-                field_errors = None
+                pass
             return validation_error_response(str(e), errors=field_errors)
 
-    def _process_query_param(
-        self,
-        param,
-        query_params,
-        kwargs_to_inject: Dict,
+    def _process_query(
+        self, p: ParamDescriptor, query_params, kwargs: Dict
     ) -> Optional[JSONResponse]:
-        query_info = param.default
-        param_name = param.name
-        ann = param.annotation
-        origin = typing.get_origin(ann)
-        args = typing.get_args(ann)
-        
-        if origin in (list, typing.List):
-            item_type = args[0] if args else str
-            raw_values: list[str] = []
-            if hasattr(query_params, "getlist"):
-                raw_values = query_params.getlist(param_name)
-            if not raw_values and param_name in query_params:
-                raw_values = [query_params[param_name]]
-            # Flatten any comma-separated values within individual entries
-            values: list[str] = []
+        name = p.name
+
+        if p.is_list:
+            # getlist is always available on Starlette QueryParams
+            raw_values = query_params.getlist(name)
+            if not raw_values and name in query_params:
+                raw_values = [query_params[name]]
+            # Flatten comma-separated values
+            values: list = []
             for v in raw_values:
                 if isinstance(v, str) and "," in v:
                     values.extend(v.split(","))
                 else:
                     values.append(v)
             if not values:
-                if query_info.default is not ...:
-                    kwargs_to_inject[param_name] = query_info.default
+                if p.default is not ...:
+                    kwargs[name] = p.default
                     return None
-                return validation_error_response(
-                    f"Missing required query parameter: {param_name}"
-                )
-            converted_list = TypeConverter.convert_list_values(
-                values, item_type, param_name, is_path_param=False
-            )
-            if isinstance(converted_list, JSONResponse):
-                return converted_list
-            kwargs_to_inject[param_name] = converted_list
+                return validation_error_response(f"Missing required query parameter: {name}")
+            converted = TypeConverter.convert_list_values(values, p.item_type, name, is_path_param=False)
+            if isinstance(converted, JSONResponse):
+                return converted
+            kwargs[name] = converted
             return None
 
-        base_type, _is_opt = TypeUtils.unwrap_optional(ann)
-
-        if param_name in query_params:
-            value_str = query_params[param_name]
-            converted_value = TypeConverter.convert_value(
-                value_str, base_type, param_name, is_path_param=False
+        if name in query_params:
+            converted = TypeConverter.convert_value(
+                query_params[name], p.base_type, name, is_path_param=False
             )
-            if isinstance(converted_value, JSONResponse):
-                return converted_value
-            kwargs_to_inject[param_name] = converted_value
-        elif query_info.default is not ...:
-            kwargs_to_inject[param.name] = query_info.default
+            if isinstance(converted, JSONResponse):
+                return converted
+            kwargs[name] = converted
+        elif p.default is not ...:
+            kwargs[name] = p.default
         else:
-            return validation_error_response(
-                f"Missing required query parameter: {param_name}"
-            )
+            return validation_error_response(f"Missing required query parameter: {name}")
         return None
-    
-    def _process_header_param(
-        self,
-        param,
-        request: Request,
-        kwargs_to_inject: Dict,
-    ) -> Optional[JSONResponse]:
-        header_info = param.default
-        header_name = header_info.alias.lower() if header_info.alias else TypeUtils.normalize_header_name(param.name)
-        header_value = request.headers.get(header_name)
 
-        if header_value is not None:
-            kwargs_to_inject[param.name] = header_value
-        elif header_info.default is not ...:
-            kwargs_to_inject[param.name] = header_info.default
+    def _process_header(
+        self, p: ParamDescriptor, request: Request, kwargs: Dict
+    ) -> Optional[JSONResponse]:
+        value = request.headers.get(p.effective_name)
+        if value is not None:
+            kwargs[p.name] = value
+        elif p.default is not ...:
+            kwargs[p.name] = p.default
         else:
-            return validation_error_response(
-                f"Missing required header: {header_name}"
-            )
+            return validation_error_response(f"Missing required header: {p.effective_name}")
         return None
-    
-    def _process_cookie_param(
-        self,
-        param,
-        request: Request,
-        kwargs_to_inject: Dict,
-    ) -> Optional[JSONResponse]:
-        cookie_info = param.default
-        cookie_name = cookie_info.alias or param.name
-        cookie_value = request.cookies.get(cookie_name)
 
-        if cookie_value is not None:
-            kwargs_to_inject[param.name] = cookie_value
-        elif cookie_info.default is not ...:
-            kwargs_to_inject[param.name] = cookie_info.default
+    def _process_cookie(
+        self, p: ParamDescriptor, request: Request, kwargs: Dict
+    ) -> Optional[JSONResponse]:
+        value = request.cookies.get(p.effective_name)
+        if value is not None:
+            kwargs[p.name] = value
+        elif p.default is not ...:
+            kwargs[p.name] = p.default
         else:
-            return validation_error_response(
-                f"Missing required cookie: {cookie_name}"
-            )
+            return validation_error_response(f"Missing required cookie: {p.effective_name}")
         return None
-    
-    def _process_form_param(
-        self,
-        param,
-        form_data,
-        kwargs_to_inject: Dict,
-    ) -> Optional[JSONResponse]:
-        form_info = param.default
-        field_name = form_info.alias or param.name
 
-        if field_name in form_data:
-            kwargs_to_inject[param.name] = form_data[field_name]
-        elif form_info.default is not ...:
-            kwargs_to_inject[param.name] = form_info.default
+    def _process_form(
+        self, p: ParamDescriptor, form_data, kwargs: Dict
+    ) -> Optional[JSONResponse]:
+        name = p.effective_name
+        if name in form_data:
+            kwargs[p.name] = form_data[name]
+        elif p.default is not ...:
+            kwargs[p.name] = p.default
         else:
-            return validation_error_response(
-                f"Missing required form field: {field_name}"
-            )
+            return validation_error_response(f"Missing required form field: {name}")
         return None
-    
-    def _process_file_param(
-        self,
-        param,
-        form_data,
-        kwargs_to_inject: Dict,
-    ) -> Optional[JSONResponse]:
-        file_info = param.default
-        field_name = file_info.alias or param.name
 
-        if field_name in form_data:
-            uploaded_file = form_data[field_name]
-            if hasattr(uploaded_file, "filename"):
-                kwargs_to_inject[param.name] = uploaded_file
-            elif file_info.default is not ...:
-                kwargs_to_inject[param.name] = file_info.default
+    def _process_file(
+        self, p: ParamDescriptor, form_data, kwargs: Dict
+    ) -> Optional[JSONResponse]:
+        name = p.effective_name
+        if name in form_data:
+            uploaded = form_data[name]
+            if hasattr(uploaded, "filename"):
+                kwargs[p.name] = uploaded
+            elif p.default is not ...:
+                kwargs[p.name] = p.default
             else:
-                return validation_error_response(
-                    f"Invalid file upload for: {field_name}"
-                )
-        elif file_info.default is not ...:
-            kwargs_to_inject[param.name] = file_info.default
+                return validation_error_response(f"Invalid file upload for: {name}")
+        elif p.default is not ...:
+            kwargs[p.name] = p.default
         else:
-            return validation_error_response(
-                f"Missing required file: {field_name}"
-            )
+            return validation_error_response(f"Missing required file: {name}")
         return None
-    
-    def _process_path_param(
-        self,
-        param,
-        path_params,
-        kwargs_to_inject: Dict,
-        explicit: bool = True,
+
+    def _process_path(
+        self, p: ParamDescriptor, path_params: Dict, kwargs: Dict
     ) -> Optional[JSONResponse]:
-        """Process a path parameter (explicit Path() or implicit from URL)."""
-        param_name = param.name
-        if explicit and param_name not in path_params:
-            return JSONResponse({"detail": "Not Found"}, status_code=404)
+        name = p.name
+        if name not in path_params:
+            if p.kind == KIND_PATH:
+                return JSONResponse({"detail": "Not Found"}, status_code=404)
+            return None
 
-        value_str = path_params[param_name]
-        ann = param.annotation
-        origin = typing.get_origin(ann)
-        args = typing.get_args(ann)
+        value_str = path_params[name]
 
-        if origin in (list, typing.List):
-            item_type = args[0] if args else str
+        if p.is_list:
             parts = value_str.split(",") if value_str else []
-            converted_list = TypeConverter.convert_list_values(
-                parts, item_type, param_name, is_path_param=True
+            converted = TypeConverter.convert_list_values(
+                parts, p.item_type, name, is_path_param=True
             )
-            if isinstance(converted_list, JSONResponse):
-                return converted_list
-            kwargs_to_inject[param_name] = converted_list
+            if isinstance(converted, JSONResponse):
+                return converted
+            kwargs[name] = converted
         else:
-            converted_value = TypeConverter.convert_value(
-                value_str, ann, param_name, is_path_param=True
+            converted = TypeConverter.convert_value(
+                value_str, p.annotation, name, is_path_param=True
             )
-            if isinstance(converted_value, JSONResponse):
-                return converted_value
-            kwargs_to_inject[param_name] = converted_value
+            if isinstance(converted, JSONResponse):
+                return converted
+            kwargs[name] = converted
 
         return None
-

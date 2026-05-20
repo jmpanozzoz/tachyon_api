@@ -7,18 +7,22 @@ from typing import Any, Callable, List, Tuple
 class BackgroundTasks:
     """Collects sync/async tasks to execute after the response is sent."""
 
+    __slots__ = ("_tasks",)
+
     def __init__(self):
-        self._tasks: List[Tuple[Callable, tuple, dict]] = []
+        self._tasks: List[Tuple[Callable, bool, tuple, dict]] = []
 
     def add_task(self, func: Callable[..., Any], *args: Any, **kwargs: Any) -> None:
-        self._tasks.append((func, args, kwargs))
+        # Cache async flag at add_task time to avoid checking the result after calling
+        self._tasks.append((func, asyncio.iscoroutinefunction(func), args, kwargs))
 
     async def run_tasks(self) -> None:
-        for func, args, kwargs in self._tasks:
+        for func, is_async, args, kwargs in self._tasks:
             try:
-                result = func(*args, **kwargs)
-                if asyncio.iscoroutine(result):
-                    await result
+                if is_async:
+                    await func(*args, **kwargs)
+                else:
+                    func(*args, **kwargs)
             except Exception:
                 pass
 

@@ -1,14 +1,16 @@
 """Endpoint response processing: validation, serialization, background tasks."""
 
-import asyncio
+from __future__ import annotations
+
 import msgspec
 from typing import Any, Optional, Type
 
 from starlette.responses import Response
 
 from ..background import BackgroundTasks
-from ..models import Struct
+from ..models import Struct, encode_json
 from ..responses import TachyonJSONResponse, response_validation_error_response
+from .compiler import CompiledEndpoint
 
 
 class ResponseProcessor:
@@ -30,9 +32,14 @@ class ResponseProcessor:
             except Exception as e:
                 return response_validation_error_response(str(e))
 
+        # Fast path: Struct → msgspec.json.encode (pure C, no Python intermediate)
         if isinstance(payload, Struct):
-            payload = msgspec.to_builtins(payload)
-        elif isinstance(payload, dict):
+            return Response(
+                content=msgspec.json.encode(payload),
+                media_type="application/json",
+            )
+
+        if isinstance(payload, dict):
             for key, value in payload.items():
                 if isinstance(value, Struct):
                     payload[key] = msgspec.to_builtins(value)
@@ -40,9 +47,8 @@ class ResponseProcessor:
         return TachyonJSONResponse(payload)
 
     @staticmethod
-    async def call_endpoint(endpoint_func, kwargs_to_inject: dict) -> Any:
-        if asyncio.iscoroutinefunction(endpoint_func):
-            return await endpoint_func(**kwargs_to_inject)
-        else:
-            return endpoint_func(**kwargs_to_inject)
-
+    async def call_endpoint(compiled: CompiledEndpoint, kwargs: dict) -> Any:
+        """Invoke endpoint using pre-computed is_async flag — no runtime check."""
+        if compiled.is_async:
+            return await compiled.func(**kwargs)
+        return compiled.func(**kwargs)

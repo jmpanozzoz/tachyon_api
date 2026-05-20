@@ -28,6 +28,7 @@ from .responses import (
 )
 from .core.lifecycle import LifecycleManager
 from .core.websocket import WebSocketManager
+from .processing.compiler import compile_endpoint
 from .processing.parameters import ParameterProcessor
 from .processing.dependencies import DependencyResolver
 from .processing.response_processor import ResponseProcessor
@@ -145,20 +146,21 @@ class Tachyon:
 
     def _add_route(self, path: str, endpoint_func: Callable, method: str, **kwargs):
         response_model = kwargs.get("response_model")
+        # Pre-compile endpoint once at registration — avoids inspect.signature,
+        # asyncio.iscoroutinefunction, isinstance chains, and decoder creation per request.
+        compiled = compile_endpoint(endpoint_func, path)
 
         async def handler(request):
             try:
                 dependency_cache = {}
                 kwargs_to_inject, error_response, _background_tasks = await self._parameter_processor.process_parameters(
-                    endpoint_func, request, dependency_cache
+                    compiled, request, dependency_cache
                 )
 
                 if error_response is not None:
                     return error_response
 
-                payload = await ResponseProcessor.call_endpoint(
-                    endpoint_func, kwargs_to_inject
-                )
+                payload = await ResponseProcessor.call_endpoint(compiled, kwargs_to_inject)
 
                 return await ResponseProcessor.process_response(
                     payload, response_model, _background_tasks
