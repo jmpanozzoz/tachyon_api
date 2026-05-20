@@ -119,3 +119,23 @@ async def test_request_injection_in_post_with_body():
     assert data["item_name"] == "Test Item"
     assert data["method"] == "POST"
     assert "application/json" in data["content_type"]
+
+
+@pytest.mark.asyncio
+async def test_request_injected_even_with_none_default():
+    """Request is always injected by the framework regardless of default value."""
+    app = Tachyon()
+
+    injected = {}
+
+    @app.get("/probe")
+    def probe(request: Request = None):
+        injected["value"] = request
+        return {"is_request": isinstance(request, Request)}
+
+    async with create_client(app) as client:
+        response = await client.get("/probe")
+
+    assert response.status_code == 200
+    assert response.json()["is_request"] is True
+    assert injected["value"] is not None

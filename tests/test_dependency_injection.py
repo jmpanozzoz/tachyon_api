@@ -2,25 +2,7 @@ import pytest
 from tachyon_api import Tachyon
 from tests.helpers import create_client
 from tachyon_api.di import injectable, Depends
-
-
-@injectable
-class MockRepository:
-    """Simulates a repository that accesses a database."""
-
-    def find_user(self, user_id: int):
-        return {"id": user_id, "source": "mock_db", "method": "implicit"}
-
-
-@injectable
-class MockUserService:
-    """Simulates a service that depends on the repository."""
-
-    def __init__(self, repo: MockRepository):
-        self.repo = repo
-
-    def get_user_data(self, user_id: int):
-        return self.repo.find_user(user_id)
+from tests.shared import MockRepository, MockUserService
 
 
 @pytest.mark.asyncio

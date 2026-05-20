@@ -1,7 +1,6 @@
 """Core Tachyon application class."""
 
 import asyncio
-import inspect
 import logging
 from functools import partial
 from typing import Any, Dict, List, Type, Callable, Optional
@@ -13,15 +12,11 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.routing import Route
 
-from .di import Depends, _registry
-from .models import Struct
 from .openapi import (
     OpenAPIGenerator,
     OpenAPIConfig,
     create_openapi_config,
-    build_components_for_struct,
 )
-from .params import Body, Query, Path, Header, Cookie
 from .exceptions import HTTPException
 from .middlewares.core import (
     apply_middleware_to_router,
@@ -31,7 +26,6 @@ from .responses import (
     HTMLResponse,
     internal_server_error_response,
 )
-from .utils import TypeUtils
 from .core.lifecycle import LifecycleManager
 from .core.websocket import WebSocketManager
 from .processing.parameters import ParameterProcessor
@@ -50,7 +44,9 @@ class Tachyon:
         openapi_config: Optional[OpenAPIConfig] = None,
         cache_config: Optional[Any] = None,
         lifespan: Optional[Callable] = None,
+        max_body_size: int = 10 * 1024 * 1024,
     ):
+        self.max_body_size = max_body_size
         self._lifecycle_manager = LifecycleManager(lifespan)
         self._exception_handlers: Dict[Type[Exception], Callable] = {}
         self._router = Starlette(lifespan=self._lifecycle_manager.create_combined_lifespan())
@@ -107,6 +103,14 @@ class Tachyon:
                 "required": ["success", "error", "code"],
             },
         )
+
+    def register_instance(self, cls: Type, instance: Any) -> None:
+        """Register a pre-built instance for a class in the DI singleton cache."""
+        self._instances_cache[cls] = instance
+
+    def get_instance(self, cls: Type) -> Optional[Any]:
+        """Retrieve a cached singleton instance, or None if not registered."""
+        return self._instances_cache.get(cls)
 
     def on_event(self, event_type: str):
         """Decorator to register 'startup' or 'shutdown' handlers."""
@@ -192,117 +196,7 @@ class Tachyon:
 
         include_in_schema = kwargs.get("include_in_schema", True)
         if include_in_schema:
-            self._generate_openapi_for_route(path, method, endpoint_func, **kwargs)
-
-    _PARAM_IN = {Query: "query", Header: "header", Cookie: "cookie"}
-
-    def _generate_openapi_for_route(
-        self, path: str, method: str, endpoint_func: Callable, **kwargs
-    ):
-        sig = inspect.signature(endpoint_func)
-        operation = {
-            "summary": kwargs.get("summary", self._generate_summary_from_function(endpoint_func)),
-            "description": kwargs.get("description", endpoint_func.__doc__ or ""),
-            "responses": {
-                "200": {
-                    "description": "Successful Response",
-                    "content": {"application/json": {"schema": {"type": "object"}}},
-                },
-                "422": {
-                    "description": "Validation Error",
-                    "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ValidationErrorResponse"}}},
-                },
-                "500": {
-                    "description": "Response Validation Error",
-                    "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ResponseValidationError"}}},
-                },
-            },
-        }
-
-        response_model = kwargs.get("response_model")
-        try:
-            is_struct_model = response_model is not None and isinstance(response_model, type) and issubclass(response_model, Struct)
-        except TypeError:
-            is_struct_model = False
-        if is_struct_model:
-            for name, schema in build_components_for_struct(response_model).items():
-                self.openapi_generator.add_schema(name, schema)
-            operation["responses"]["200"]["content"]["application/json"]["schema"] = {
-                "$ref": f"#/components/schemas/{response_model.__name__}"
-            }
-
-        if "tags" in kwargs:
-            operation["tags"] = kwargs["tags"]
-
-        parameters = []
-        request_body_schema = None
-
-        for param in sig.parameters.values():
-            if isinstance(param.default, Depends) or (
-                param.default is inspect.Parameter.empty and param.annotation in _registry
-            ):
-                continue
-
-            for param_cls, location in self._PARAM_IN.items():
-                if isinstance(param.default, param_cls):
-                    parameters.append({
-                        "name": param.name,
-                        "in": location,
-                        "required": param.default.default is ...,
-                        "schema": self._build_param_openapi_schema(param.annotation),
-                        "description": getattr(param.default, "description", ""),
-                    })
-                    break
-            else:
-                if isinstance(param.default, Path) or self._is_path_parameter(param.name, path):
-                    parameters.append({
-                        "name": param.name,
-                        "in": "path",
-                        "required": True,
-                        "schema": self._build_param_openapi_schema(param.annotation),
-                        "description": getattr(param.default, "description", "") if isinstance(param.default, Path) else "",
-                    })
-                elif isinstance(param.default, Body) and isinstance(param.annotation, type) and issubclass(param.annotation, Struct):
-                    for name, schema in build_components_for_struct(param.annotation).items():
-                        self.openapi_generator.add_schema(name, schema)
-                    request_body_schema = {
-                        "content": {"application/json": {"schema": {"$ref": f"#/components/schemas/{param.annotation.__name__}"}}},
-                        "required": True,
-                    }
-
-        if parameters:
-            operation["parameters"] = parameters
-        if request_body_schema:
-            operation["requestBody"] = request_body_schema
-
-        self.openapi_generator.add_path(path, method, operation)
-
-    @staticmethod
-    def _generate_summary_from_function(func: Callable) -> str:
-        return func.__name__.replace("_", " ").title()
-
-    @staticmethod
-    def _is_path_parameter(param_name: str, path: str) -> bool:
-        return f"{{{param_name}}}" in path
-
-    @staticmethod
-    def _build_param_openapi_schema(python_type: Type) -> Dict[str, Any]:
-        inner_type, nullable = TypeUtils.unwrap_optional(python_type)
-        is_list, item_type = TypeUtils.is_list_type(inner_type)
-        if is_list:
-            base_item_type, item_nullable = TypeUtils.unwrap_optional(item_type)
-            schema = {
-                "type": "array",
-                "items": {"type": TypeUtils.get_openapi_type(base_item_type)},
-            }
-            if item_nullable:
-                schema["items"]["nullable"] = True
-        else:
-            schema = {"type": TypeUtils.get_openapi_type(inner_type)}
-
-        if nullable:
-            schema["nullable"] = True
-        return schema
+            self.openapi_generator.generate_route(path, method, endpoint_func, **kwargs)
 
     def _setup_docs(self):
         if self._docs_setup:
