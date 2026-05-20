@@ -57,3 +57,31 @@ async def test_invalid_body_returns_422():
     assert response.status_code == 422
     assert "price" in response.text
     assert "str" in response.text
+
+
+@pytest.mark.asyncio
+async def test_empty_body_returns_422():
+    app = Tachyon()
+
+    @app.post("/items")
+    def create_item(item: Item = Body()):
+        return {"name": item.name}
+
+    async with create_client(app) as client:
+        response = await client.post("/items", content=b"", headers={"content-type": "application/json"})
+
+    assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_body_missing_required_field_returns_422():
+    app = Tachyon()
+
+    @app.post("/items")
+    def create_item(item: Item = Body()):
+        return {"name": item.name, "price": item.price}
+
+    async with create_client(app) as client:
+        response = await client.post("/items", json={"name": "only name"})
+
+    assert response.status_code == 422

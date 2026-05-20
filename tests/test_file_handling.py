@@ -207,6 +207,24 @@ async def test_optional_file_upload():
 
 
 @pytest.mark.asyncio
+async def test_file_upload_with_alias():
+    app = Tachyon()
+
+    @app.post("/upload-alias")
+    async def upload_alias(document: UploadFile = File(..., alias="doc")):
+        content = await document.read()
+        return {"filename": document.filename, "size": len(content)}
+
+    async with create_client(app) as client:
+        files = {"doc": ("report.pdf", b"PDF data", "application/pdf")}
+        response = await client.post("/upload-alias", files=files)
+
+    assert response.status_code == 200
+    assert response.json()["filename"] == "report.pdf"
+    assert response.json()["size"] == 8
+
+
+@pytest.mark.asyncio
 async def test_upload_file_seek_and_read():
     app = Tachyon()
 

@@ -63,12 +63,12 @@ def test_lifespan_with_app_state():
 
     @app.get("/db-status")
     def db_status():
-        # Access app state (would need Request injection in real use)
-        return {"db_connected": True}
+        return {"db_connected": app.state.db is not None}
 
     with TestClient(app) as client:
         response = client.get("/db-status")
         assert response.status_code == 200
+        assert response.json()["db_connected"] is True
 
 
 # --- Test with on_event decorators ---

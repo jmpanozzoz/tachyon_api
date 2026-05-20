@@ -2,10 +2,11 @@
 
 import asyncio
 import msgspec
-from typing import Any, Optional
+from typing import Any, Optional, Type
 
 from starlette.responses import Response
 
+from ..background import BackgroundTasks
 from ..models import Struct
 from ..responses import TachyonJSONResponse, response_validation_error_response
 
@@ -14,8 +15,8 @@ class ResponseProcessor:
     @staticmethod
     async def process_response(
         payload: Any,
-        response_model: Optional[type],
-        background_tasks: Optional[Any],
+        response_model: Optional[Type[Struct]],
+        background_tasks: Optional[BackgroundTasks],
     ) -> Response:
         if background_tasks is not None:
             await background_tasks.run_tasks()
