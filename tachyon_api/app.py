@@ -35,8 +35,8 @@ from .routing.trie import RadixTrie, _NOT_FOUND, _METHOD_NOT_ALLOWED, _FOUND
 
 try:
     from .cache import set_cache_config
-except ImportError:
-    set_cache_config = None  # type: ignore
+except ImportError:  # pragma: no cover
+    set_cache_config = None  # type: ignore  # pragma: no cover
 
 
 # ── Pre-built 404 ASGI messages ─────────────────────────────────────────────────
