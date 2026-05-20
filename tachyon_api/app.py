@@ -39,11 +39,16 @@ except ImportError:
     set_cache_config = None  # type: ignore
 
 
-# ── Pre-built 404 / 405 ASGI messages — one less object per error response ──────
+# ── Pre-built 404 ASGI messages ─────────────────────────────────────────────────
+# These are module-level constants. To protect against non-compliant ASGI servers
+# that might mutate the dicts, we wrap them in types.MappingProxyType which raises
+# TypeError on any attempted mutation.
+import types as _types
+
 _404_BODY     = b"Not Found"
 _404_HEADERS  = [(b"content-length", b"9"), (b"content-type", b"text/plain; charset=utf-8")]
-_404_START    = {"type": "http.response.start", "status": 404, "headers": _404_HEADERS}
-_404_BODY_MSG = {"type": "http.response.body",  "body": _404_BODY}
+_404_START    = _types.MappingProxyType({"type": "http.response.start", "status": 404, "headers": _404_HEADERS})
+_404_BODY_MSG = _types.MappingProxyType({"type": "http.response.body",  "body": _404_BODY})
 
 _405_BODY     = b"Method Not Allowed"
 _405_PLAIN_CT = b"text/plain; charset=utf-8"
