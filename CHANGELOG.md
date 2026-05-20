@@ -81,10 +81,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Custom X favicon (purple/pink gradient) served on Swagger UI, ReDoc, and Scalar docs.
 - `ROADMAP.md` (gitignored): internal roadmap document for 10x target.
 
+**Phase 5 remaining micro-improvements** (`feature/phase5-remaining-micro`)
+- `responses.py`: `_CL_CACHE` — pre-computed content-length bytes for sizes 0–8191.
+  Eliminates `str(n).encode()` on every response. `_cl_bytes()` helper used in all
+  response classes.
+- `routing/trie.py` + `trie.pyx`: `_EMPTY_PARAMS` singleton for static routes —
+  no dict allocation per match. `_Node.allow_header` stores the pre-sorted `"GET, POST"`
+  string at registration, eliminating `sorted()` + `join` on every 405 response.
+- `app.py`: pre-built `_404_START`, `_404_BODY_MSG` module-level dicts — 404s send
+  two pre-built ASGI messages directly without creating a `starlette.Response` object
+  (~1µs saved per 404 response). 405 similarly uses `allow_header.encode()` directly.
+- Micro-benchmark delta: `TachyonJSONResponse(dict)` **0.66µs → 0.62µs** (-6%);
+  FULL HANDLER **1.14µs → 1.11µs** (-3%).
+
 ### Changed
 - `app.py`: `Tachyon.__call__` bypasses Starlette middleware for HTTP (Phase 4).
   Adds `_build_http_app()`, `_ASGIHandler`, and fast-path ASGI handler for no-param endpoints.
 - `app.py`: `add_middleware()` invalidates `_http_app` cache for lazy rebuild.
+- `routing/trie.py`: `match()` now returns `allow_header: str` instead of `allowed: Set[str]`
+  for `_METHOD_NOT_ALLOWED` — pre-sorted at registration time, not per-405-request.
 
 ### Changed
 - `app.py`: HTTP routing no longer uses Starlette's Route list. `_add_route` registers
