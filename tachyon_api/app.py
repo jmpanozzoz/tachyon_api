@@ -31,12 +31,20 @@ from .processing.compiler import compile_endpoint
 from .processing.parameters import ParameterProcessor
 from .processing.dependencies import DependencyResolver
 from .processing.response_processor import ResponseProcessor
-from .routing.trie import RadixTrie, _NOT_FOUND, _METHOD_NOT_ALLOWED
+from .routing.trie import RadixTrie, _NOT_FOUND, _METHOD_NOT_ALLOWED, _FOUND
 
 try:
     from .cache import set_cache_config
 except ImportError:
     set_cache_config = None  # type: ignore
+
+
+class _ASGIHandler:
+    """Marks a handler that takes (scope, receive, send) directly — skips Request creation."""
+    __slots__ = ("fn",)
+
+    def __init__(self, fn: Callable) -> None:
+        self.fn = fn
 
 
 class Tachyon:
@@ -79,6 +87,9 @@ class Tachyon:
                 set_cache_config(cache_config)
             except Exception as exc:
                 logger.warning("Failed to apply cache config: %s", exc)
+
+        # Lazily-built HTTP app: user middlewares → trie dispatch (no Starlette overhead)
+        self._http_app: Optional[Callable] = None
 
         for method in ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"]:
             setattr(self, method.lower(), partial(self._create_decorator, http_method=method))
@@ -182,11 +193,16 @@ class Tachyon:
             await resp(scope, receive, send)
             return
 
-        # _FOUND — call the pre-compiled handler closure
+        # _FOUND — two code paths based on handler type
         scope["path_params"] = path_params
-        request = Request(scope, receive, send)
-        response = await handler(request)
-        await response(scope, receive, send)
+
+        if isinstance(handler, _ASGIHandler):
+            # Phase 5b fast-path: no-param endpoints skip Request() creation
+            await handler.fn(scope, receive, send)
+        else:
+            request = Request(scope, receive, send)
+            response = await handler(request)
+            await response(scope, receive, send)
 
     # ── Route registration ───────────────────────────────────────────────────
 
@@ -254,8 +270,49 @@ class Tachyon:
                             return exc_handler(request, exc)
                 return internal_server_error_response()
 
-        # Register in O(k) radix trie — no longer in Starlette's O(N) route list
-        self._trie.add(path, method, handler)
+        # Phase 5b: wrap no-param, no-dep endpoints as ASGI handlers (skip Request creation)
+        if not _has_params and not _has_callable_deps:
+            _response_model_local = response_model
+            _compiled_local = compiled
+
+            async def _fast_asgi(scope, receive, send):
+                try:
+                    payload = await ResponseProcessor.call_endpoint(_compiled_local, {})
+                    resp = await ResponseProcessor.process_response(
+                        payload, _response_model_local, None
+                    )
+                    await resp(scope, receive, send)
+                except HTTPException as exc:
+                    exc_handler = self._exception_handlers.get(HTTPException)
+                    if exc_handler is not None:
+                        request = Request(scope, receive, send)
+                        if asyncio.iscoroutinefunction(exc_handler):
+                            resp = await exc_handler(request, exc)
+                        else:
+                            resp = exc_handler(request, exc)
+                        await resp(scope, receive, send)
+                        return
+                    err_resp = JSONResponse({"detail": exc.detail}, status_code=exc.status_code)
+                    if exc.headers:
+                        for key, value in exc.headers.items():
+                            err_resp.headers[key] = value
+                    await err_resp(scope, receive, send)
+                except Exception as exc:
+                    for exc_cls, exc_handler in self._exception_handlers.items():
+                        if isinstance(exc, exc_cls):
+                            request = Request(scope, receive, send)
+                            if asyncio.iscoroutinefunction(exc_handler):
+                                resp = await exc_handler(request, exc)
+                            else:
+                                resp = exc_handler(request, exc)
+                            await resp(scope, receive, send)
+                            return
+                    await internal_server_error_response()(scope, receive, send)
+
+            self._trie.add(path, method, _ASGIHandler(_fast_asgi))
+        else:
+            self._trie.add(path, method, handler)
+
         self.routes.append(
             {"path": path, "method": method, "func": endpoint_func, **kwargs}
         )
@@ -296,10 +353,25 @@ class Tachyon:
             return HTMLResponse(html)
 
     async def __call__(self, scope, receive, send):
-        """ASGI entry point."""
-        if not self._docs_setup:
-            self._setup_docs()
-        await self._router(scope, receive, send)
+        """ASGI entry point.
+
+        HTTP: skips Starlette's ServerErrorMiddleware + ExceptionMiddleware and
+              goes directly through user middlewares → radix trie (Phase 4).
+        Non-HTTP (WebSocket, lifespan): delegated to Starlette's full stack.
+        """
+        scope["app"] = self  # required by Starlette middleware protocol
+
+        if scope["type"] == "http":
+            if not self._docs_setup:
+                self._setup_docs()
+            if self._http_app is None:
+                self._http_app = self._build_http_app()
+            await self._http_app(scope, receive, send)
+        else:
+            # WebSocket routing and lifespan need Starlette's full stack
+            if not self._docs_setup:
+                self._setup_docs()
+            await self._router(scope, receive, send)
 
     def include_router(self, router, **kwargs):
         """Include a Router's routes into the application."""
@@ -325,10 +397,23 @@ class Tachyon:
                 full_path, route_info["func"], route_info["method"], **route_kwargs
             )
 
+    def _build_http_app(self) -> Callable:
+        """Build HTTP ASGI app: only user middlewares wrap our trie dispatch.
+
+        Starlette's ServerErrorMiddleware and ExceptionMiddleware are skipped for
+        HTTP requests — their job is already done by the try/except in each handler
+        closure. This eliminates ~1.5µs per request from two extra coroutine calls.
+        """
+        app: Callable = self._trie_dispatch  # bound method → ASGI-compatible
+        for mw in reversed(self.middleware_stack):
+            app = mw["func"](app=app, **mw["options"])
+        return app
+
     def add_middleware(self, middleware_class, **options):
         """Add a middleware to the application stack."""
         apply_middleware_to_router(self._router, middleware_class, **options)
         self.middleware_stack.append({"func": middleware_class, "options": options})
+        self._http_app = None  # invalidate: rebuild on next HTTP request
 
     def middleware(self, middleware_type="http"):
         """Decorator to register a function as ASGI middleware."""
