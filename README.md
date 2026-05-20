@@ -1,9 +1,9 @@
 # 🚀 Tachyon API
 
-![Version](https://img.shields.io/badge/version-0.9.0-blue.svg)
+![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.10+-brightgreen.svg)
 ![License](https://img.shields.io/badge/license-GPL--3.0-orange.svg)
-![Tests](https://img.shields.io/badge/tests-235%20passed-brightgreen.svg)
+![Tests](https://img.shields.io/badge/tests-233%20passed-brightgreen.svg)
 ![Status](https://img.shields.io/badge/status-stable-brightgreen.svg)
 
 **A lightweight, high-performance API framework for Python with the elegance of FastAPI and the speed of light.**
@@ -26,7 +26,7 @@ def hello():
     return {"message": "Tachyon is running at lightspeed!"}
 
 @app.post("/users")
-def create_user(user: User = Body(...)):
+def create_user(user: User = Body()):
     return {"created": user.name}
 
 @app.get("/search")
@@ -43,26 +43,54 @@ uvicorn app:app --reload
 
 ---
 
+## ⚡ Performance
+
+Benchmarked against **FastAPI 0.136.1 (Pydantic v2)** · 1 worker · 100 concurrent connections · uvloop + httptools
+
+| Scenario | FastAPI | Tachyon | Speedup |
+|---|---:|---:|---:|
+| Hello World | 10,283 req/s | **40,545 req/s** | **3.94x** |
+| Path + query params | 7,133 req/s | **30,637 req/s** | **4.30x** |
+| Body validation (Struct) | 8,336 req/s | **31,808 req/s** | **3.82x** |
+| Nested body (complex Struct) | 8,006 req/s | **30,807 req/s** | **3.85x** |
+| Response model serialization | 6,673 req/s | **34,991 req/s** | **5.24x** |
+| Header param + auth | 8,662 req/s | **34,126 req/s** | **3.94x** |
+| Dependency injection | 6,225 req/s | **32,941 req/s** | **5.29x** |
+| Multiple query params | 6,242 req/s | **25,915 req/s** | **4.15x** |
+| **Total throughput** | **61,560 req/s** | **261,770 req/s** | **4.25x** |
+
+**Latency:** ~3ms (Tachyon) vs ~14ms (FastAPI) on average.
+
+> Benchmark code in [`benchmark/`](./benchmark/). Run with `bash benchmark/run_benchmark.sh`.
+
+### Why is Tachyon faster?
+
+- **Endpoint pre-compilation** — `inspect.signature()`, `isinstance` chains, type resolution, and `msgspec.Decoder` creation run once at startup, not per request
+- **msgspec** — validation and deserialization in C, 5–10x faster than Pydantic
+- **Direct serialization** — `Struct` responses use `msgspec.json.encode()` directly (no Python intermediate step)
+- **Minimal response overhead** — custom response class bypasses Starlette's `MutableHeaders` construction
+- **No middleware bloat** — Tachyon mounts only what you register; FastAPI adds ~15 middlewares by default
+
+---
+
 ## ✨ Features
 
 | Category | Features |
 |----------|----------|
 | **Core** | Decorators API, Routers, Middlewares, ASGI compatible |
-| **Parameters** | Path, Query, Body, Header, Cookie, Form, File |
-| **Validation** | msgspec Struct (ultra-fast), automatic 422 errors |
-| **DI** | `@injectable` (implicit), `Depends()` (explicit) |
+| **Parameters** | Path, Query, Body, Header, Cookie, Form, File (all with `alias=`) |
+| **Validation** | msgspec Struct (ultra-fast), automatic 422 errors, body size limit |
+| **DI** | `@injectable` (implicit), `Depends()` (explicit), circular dep detection |
 | **Security** | HTTPBearer, HTTPBasic, OAuth2, API Keys |
 | **Async** | Background Tasks, WebSockets |
-| **Performance** | orjson serialization, @cache decorator |
-| **Docs** | OpenAPI 3.0, Scalar UI, Swagger, ReDoc |
+| **Performance** | orjson serialization, `@cache` decorator, endpoint pre-compilation |
+| **Docs** | OpenAPI 3.0, Scalar UI, Swagger, ReDoc (XSS-safe HTML generation) |
 | **CLI** | Project scaffolding, code generation, linting |
-| **Testing** | TachyonTestClient, dependency_overrides |
+| **Testing** | `TachyonTestClient`, `dependency_overrides` |
 
 ---
 
 ## 📚 Documentation
-
-Complete documentation is available in the [`docs/`](./docs/) folder:
 
 | Guide | Description |
 |-------|-------------|
@@ -223,11 +251,13 @@ pytest tests/ -v
 
 | Feature | Tachyon | FastAPI |
 |---------|---------|---------|
-| **Serialization** | msgspec + orjson | pydantic |
-| **Performance** | ⚡⚡⚡ Ultra-fast | ⚡ Fast |
-| **Bundle Size** | Minimal | Larger |
-| **Learning Curve** | Easy (FastAPI-like) | Easy |
-| **Type Safety** | Full | Full |
+| **Throughput** | ~262k req/s total | ~62k req/s total |
+| **Latency** | ~3ms avg | ~14ms avg |
+| **Serialization** | msgspec + orjson | Pydantic v2 |
+| **Request compilation** | Once at startup | Per request |
+| **Bundle size** | Minimal (4 deps) | Larger (~15 deps) |
+| **Learning curve** | Easy (FastAPI-like) | Easy |
+| **Type safety** | Full (msgspec Struct) | Full (Pydantic) |
 
 ---
 
@@ -238,7 +268,7 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 1. Fork the repository
 2. Create your feature branch (`git checkout -b feature/amazing-feature`)
 3. Run tests (`pytest tests/ -v`)
-4. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Commit your changes
 5. Push to the branch (`git push origin feature/amazing-feature`)
 6. Open a Pull Request
 
@@ -254,11 +284,10 @@ This project is licensed under the GNU General Public License v3.0 - see the [LI
 
 See [CHANGELOG.md](./CHANGELOG.md) for version history.
 
-Upcoming features:
+Upcoming:
 - Response streaming
 - GraphQL support
-- More deployment guides
-- Performance benchmarks
+- Multi-worker benchmarks
 
 ---
 
