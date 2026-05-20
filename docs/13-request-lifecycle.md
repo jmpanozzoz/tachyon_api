@@ -63,18 +63,21 @@
 
 ## 1️⃣ Middlewares (Pre-request)
 
-Los middlewares se ejecutan primero, en orden de registro:
+Los middlewares del usuario se ejecutan primero, en orden de registro:
 
 ```python
-app.add_middleware(CORSMiddleware)  # 1ro
-app.add_middleware(LoggerMiddleware)  # 2do
-app.add_middleware(CustomMiddleware)  # 3ro
+app.add_middleware(CORSMiddleware)   # 1ro
+app.add_middleware(LoggerMiddleware) # 2do
+app.add_middleware(CustomMiddleware) # 3ro
 ```
 
-Cada middleware puede:
-- Modificar la request
-- Rechazar la request (retornar response)
-- Pasar al siguiente middleware
+Cada middleware puede modificar, rechazar o pasar la request al siguiente.
+
+> **Nota de rendimiento (Phase 4):** Tachyon construye su propio HTTP stack con solo
+> los middlewares del usuario, sin las capas automáticas de Starlette
+> (`ServerErrorMiddleware` + `ExceptionMiddleware`). Las excepciones ya se manejan
+> dentro de cada handler closure con `try/except`. Esto ahorra ~1.5–2µs por request.
+> WebSockets y lifespan sí usan el stack completo de Starlette.
 
 ---
 
@@ -269,14 +272,24 @@ Tachyon compila cada endpoint **una sola vez al registrarlo** en `_add_route()`.
 
 En request time, el handler recorre una `List[ParamDescriptor]` precompilada con tipos C-level.
 
-### Cython extensions (v1.1+, opcional)
-Con `pip install tachyon-api[fast]`, los módulos de procesamiento se compilan a C:
+### Middleware bypass (Phase 4)
+Para requests HTTP, Tachyon saltea `ServerErrorMiddleware` y `ExceptionMiddleware` de
+Starlette. Solo aplica los middlewares del usuario. Ahorra ~1.5–2µs por request.
+
+### Cython extensions (optional — `pip install tachyon-api[fast]`)
+Con extensiones compiladas:
 - `ParamDescriptor` y `CompiledEndpoint` → `cdef class` (struct C, acceso a campos directo)
-- `KIND_*` constants → enteros (comparación C de un instrucción)
+- `routing/trie.pyx` → trie en C, match loop sin overhead Python por segmento
+- `KIND_*` constants → enteros (comparación C de una instrucción)
 - Sync helpers → `cdef` functions (sin frame Python por llamada)
 - `process_parameters` path+query: **2.32µs → 0.82µs** (-65%) con Cython
 
-### Pre-built ASGI response dicts
+### No-Request fast path (Phase 5)
+Endpoints sin parámetros ni dependencias callable se registran como `_ASGIHandler`:
+el dispatcher llama `handler(scope, receive, send)` directamente, sin crear el objeto
+`Request(scope, receive, send)`. Una allocación menos por request.
+
+### Pre-built ASGI response dicts (Phase 2)
 `TachyonJSONResponse` y `TachyonBytesResponse` pre-construyen los dicts `http.response.start`
 y `http.response.body` en `__init__`. El `__call__` solo hace 2 `await send(prebuilt_dict)`.
 

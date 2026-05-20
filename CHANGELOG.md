@@ -50,14 +50,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Micro-benchmark delta: `process_parameters` path+query **1.28µs → 0.82µs (-36%)**;
   FULL HANDLER **1.31µs → 1.16µs (-11%)**.
 
+**Phase 4 — Bypass Starlette middleware stack** (`feature/phase4-5-bypass-and-trie-cython`)
+- `Tachyon.__call__` now handles HTTP directly without passing through Starlette's
+  `ServerErrorMiddleware` and `ExceptionMiddleware` (~1.5–2µs saving per HTTP request).
+  Exception handling was already provided by the try/except in each handler closure.
+- `_build_http_app()`: lazily builds an ASGI stack wrapping only user-registered
+  middlewares around `_trie_dispatch`. Rebuilt automatically when `add_middleware()` is called.
+- WebSocket and lifespan still delegated to Starlette's full stack unchanged.
+- `scope["app"]` now set by `Tachyon.__call__` directly (previously done by Starlette).
+
+**Phase 5 — Cython trie + Request-less fast path** (`feature/phase4-5-bypass-and-trie-cython`)
+- `routing/trie.pyx`: radix trie compiled to C. `_Node` as `cdef class` (C struct fields),
+  `RadixTrie` as `cdef class` with a typed `_root`. Segment matching and dict ops use
+  C-level attribute access.
+- `_ASGIHandler` sentinel class: endpoints with `has_params=False` and
+  `has_callable_deps=False` are registered as ASGI handlers that take `(scope, receive, send)`
+  directly — skipping `Request(scope, receive, send)` object creation entirely.
+- `_trie_dispatch` detects `_ASGIHandler` and calls `handler.fn(scope, receive, send)`
+  directly, eliminating one Python object allocation and its GC overhead per request.
+- Combined F4+F5 benchmark delta: **296k → 336k req/s total (+13%)**,
+  DI scenario: **39k → 47k (+20%)**, Hello World: **43k → 52k (+21%)**.
+
 ### Added
-- `tachyon_api/routing/__init__.py`, `tachyon_api/routing/trie.py`: radix trie router.
+- `tachyon_api/routing/__init__.py`, `tachyon_api/routing/trie.py`: pure-Python radix trie router (fallback).
+- `tachyon_api/routing/trie.pyx`: Cython-compiled trie router.
 - `tachyon_api/processing/compiler.pyx`, `parameters.pyx`, `response_processor.pyx`:
-  Cython extensions for the hot path.
-- `setup.py`: build system for Cython extensions.
+  Cython extensions for the processing hot path.
+- `setup.py`: build system for all Cython extensions.
 - `pyproject.toml` extras: `[fast]` installs with Cython compilation; `cython` in dev deps.
 - Custom X favicon (purple/pink gradient) served on Swagger UI, ReDoc, and Scalar docs.
 - `ROADMAP.md` (gitignored): internal roadmap document for 10x target.
+
+### Changed
+- `app.py`: `Tachyon.__call__` bypasses Starlette middleware for HTTP (Phase 4).
+  Adds `_build_http_app()`, `_ASGIHandler`, and fast-path ASGI handler for no-param endpoints.
+- `app.py`: `add_middleware()` invalidates `_http_app` cache for lazy rebuild.
 
 ### Changed
 - `app.py`: HTTP routing no longer uses Starlette's Route list. `_add_route` registers
