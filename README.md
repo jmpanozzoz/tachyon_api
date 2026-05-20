@@ -1,6 +1,6 @@
 # 🚀 Tachyon API
 
-![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)
+![Version](https://img.shields.io/badge/version-1.1.0-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.10+-brightgreen.svg)
 ![License](https://img.shields.io/badge/license-GPL--3.0-orange.svg)
 ![Tests](https://img.shields.io/badge/tests-233%20passed-brightgreen.svg)
@@ -265,10 +265,12 @@ pytest tests/ -v
 
 | Feature | Tachyon | FastAPI |
 |---------|---------|---------|
-| **Throughput** | ~262k req/s total | ~62k req/s total |
-| **Latency** | ~3ms avg | ~14ms avg |
+| **Throughput** | ~336k req/s total | ~60k req/s total |
+| **Latency** | ~2.1ms avg | ~14ms avg |
+| **Routing** | Radix trie O(k) | Regex scan O(N) |
 | **Serialization** | msgspec + orjson | Pydantic v2 |
 | **Request compilation** | Once at startup | Per request |
+| **Middleware overhead** | User-only stack | +2 auto middleware layers |
 | **Bundle size** | Minimal (4 deps) | Larger (~15 deps) |
 | **Learning curve** | Easy (FastAPI-like) | Easy |
 | **Type safety** | Full (msgspec Struct) | Full (Pydantic) |
