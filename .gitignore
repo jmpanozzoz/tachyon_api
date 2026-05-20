@@ -211,3 +211,9 @@ __marimo__/
 
 # Project-specific
 ROADMAP.md
+
+# Cython build artifacts (compiled .so/.pyd are platform-specific, not committed)
+*.so
+*.pyd
+tachyon_api/processing/*.c
+build/
