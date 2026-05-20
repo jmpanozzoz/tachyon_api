@@ -78,19 +78,26 @@ Cada middleware puede:
 
 ---
 
-## 2️⃣ Route Matching
+## 2️⃣ Route Matching — Radix Trie (O(k))
 
-Tachyon busca el handler que matchea:
-- Path: `/users/123`
-- Method: `GET`
+Tachyon usa un radix trie para resolver paths en O(k) donde k = número de segmentos del path (típicamente 2–5). Esto reemplaza el escaneo lineal O(N×regex) de Starlette.
 
-Si no encuentra: `404 Not Found`
+```
+GET /users/123
+  → root → "users" → {user_id=123} → handler_get_user
+  (cada segmento es un dict lookup O(1))
+```
+
+Si el path no existe → `404 Not Found`  
+Si el path existe pero no el método → `405 Method Not Allowed`
 
 ```python
-@app.get("/users/{user_id}")  # ← Match!
+@app.get("/users/{user_id}")  # Registrado en el trie al arrancar
 def get_user(user_id: str):
     ...
 ```
+
+Las rutas se registran una sola vez en `_add_route()`. En cada request, el trie resuelve en microsegundos sin importar cuántas rutas tenga la app.
 
 ---
 
@@ -249,19 +256,29 @@ Los middlewares procesan la response en orden inverso:
 
 ---
 
-## ⚡ Endpoint Pre-Compilation
+## ⚡ Optimizaciones del hot path
 
-A partir de v1.0.0, Tachyon compila cada endpoint **una sola vez al registrarlo**
-en `_add_route()`. Esto mueve fuera del hot path:
+### Endpoint Pre-Compilation (v1.0.0)
+Tachyon compila cada endpoint **una sola vez al registrarlo** en `_add_route()`. Esto mueve fuera del hot path:
 
-- `inspect.signature()` — introsección de firma
-- `isinstance` chains — detección del tipo de parámetro
-- `typing.get_origin/args` — análisis de genéricos (`List[T]`, `Optional[T]`)
-- `msgspec.json.Decoder(model)` — creación del decoder de body
-- `asyncio.iscoroutinefunction()` — si el endpoint es async
-- Resolución de alias para headers/cookies/form/files
+- `inspect.signature()`, `iscoroutinefunction()`, `isinstance` chains
+- `typing.get_origin/args` — genéricos (`List[T]`, `Optional[T]`)
+- `msgspec.json.Decoder(model)` — decoder de body
+- Resolución de aliases para headers/cookies/form/files
+- `has_params` y `has_callable_deps` — flags para fast-paths en cada request
 
-En cada request el handler solo recorre un `List[ParamDescriptor]` precompilado.
+En request time, el handler recorre una `List[ParamDescriptor]` precompilada con tipos C-level.
+
+### Cython extensions (v1.1+, opcional)
+Con `pip install tachyon-api[fast]`, los módulos de procesamiento se compilan a C:
+- `ParamDescriptor` y `CompiledEndpoint` → `cdef class` (struct C, acceso a campos directo)
+- `KIND_*` constants → enteros (comparación C de un instrucción)
+- Sync helpers → `cdef` functions (sin frame Python por llamada)
+- `process_parameters` path+query: **2.32µs → 0.82µs** (-65%) con Cython
+
+### Pre-built ASGI response dicts
+`TachyonJSONResponse` y `TachyonBytesResponse` pre-construyen los dicts `http.response.start`
+y `http.response.body` en `__init__`. El `__call__` solo hace 2 `await send(prebuilt_dict)`.
 
 ---
 
@@ -273,6 +290,7 @@ En cada request el handler solo recorre un `List[ParamDescriptor]` precompilado.
 4. **Response model**: Evítalo si no necesitas validar el output — la serialización directa es más rápida
 5. **Middlewares**: Menos es mejor; cada middleware agrega overhead a todos los requests
 6. **Structs sobre dicts**: Retornar un `Struct` usa `msgspec.json.encode()` directo (más rápido que un dict)
+7. **Compilación Cython**: `pip install tachyon-api[fast]` para -11% en el hot path Python
 
 ---
 

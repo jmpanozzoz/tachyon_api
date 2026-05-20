@@ -9,14 +9,65 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] — dev branch
 
+### Performance
+
+**Phase 1 — Radix trie router** (`feature/radix-router`)
+- Replaced Starlette's O(N × regex) route scanning with an O(k) radix trie router
+  where k = number of path segments (typically 2–5).
+- `tachyon_api/routing/trie.py`: `RadixTrie` with static dict children (O(1) lookup)
+  and a single param branch per node. Handles FOUND / NOT_FOUND / METHOD_NOT_ALLOWED.
+- `app.py`: replaces `self._router.router.middleware_stack` (Starlette's lazy-built
+  dispatch loop) with a custom HTTP dispatcher before the first request. HTTP goes
+  through the trie; WebSocket and lifespan stay in Starlette's Router unmodified.
+- `_add_route` registers routes in `trie.add()` — no longer appends Starlette `Route` objects.
+- Benchmark delta: **261k → 297k req/s total (+13%)**, DI +20%, response model +17%.
+
+**Phase 2 — Micro-optimizations** (`feature/micro-optimizations`)
+- `CompiledEndpoint` now stores `has_params` and `has_callable_deps` flags pre-computed
+  at registration. Handler closure uses them to skip work at request time.
+- Endpoints with no parameters skip `process_parameters()` entirely (fast-path).
+- `dependency_cache = {}` only created when the endpoint actually has callable deps.
+  `None` is passed otherwise; `DependencyResolver` handles it safely.
+- `TachyonJSONResponse`, `TachyonBytesResponse`, and `_InternalErrorResponse` now
+  pre-build both ASGI send dicts (`http.response.start` + `http.response.body`) in
+  `__init__` and override `__call__` to skip the Starlette websocket-prefix check and
+  background-task branch.
+- Micro-benchmark delta: FULL HANDLER (no network) **1.72µs → 1.31µs (-24%)**.
+
+**Phase 3 — Cython hot path** (`feature/cython-hotpath`)
+- Optional Cython compilation for the three hottest modules:
+  - `processing/compiler.pyx`: `ParamDescriptor` and `CompiledEndpoint` as `cdef class`
+    (C structs — attribute access is a direct field read, not a Python dict lookup).
+  - `processing/parameters.pyx`: `ParameterProcessor` with C-typed locals (`cdef int kind`,
+    `cdef str name`, `cdef bint is_list`) and all sync helpers as `cdef` functions
+    (zero Python frame overhead per parameter).
+  - `processing/response_processor.pyx`: `ResponseProcessor` compiled to C.
+- `KIND_*` constants changed from strings to integers in `compiler.py` — int comparison
+  is a single machine instruction in C vs string hash+compare.
+- Build system: `python setup.py build_ext --inplace` (development) or
+  `pip install tachyon-api[fast]` (users).
+- Falls back to `.py` automatically when `.so` is not present — zero code changes required.
+- Micro-benchmark delta: `process_parameters` path+query **1.28µs → 0.82µs (-36%)**;
+  FULL HANDLER **1.31µs → 1.16µs (-11%)**.
+
 ### Added
-- Custom X favicon (purple/pink gradient) served on Swagger UI, ReDoc, and Scalar docs —
-  no longer defaults to FastAPI's favicon. Uses inline SVG data URI, no external hosting needed.
+- `tachyon_api/routing/__init__.py`, `tachyon_api/routing/trie.py`: radix trie router.
+- `tachyon_api/processing/compiler.pyx`, `parameters.pyx`, `response_processor.pyx`:
+  Cython extensions for the hot path.
+- `setup.py`: build system for Cython extensions.
+- `pyproject.toml` extras: `[fast]` installs with Cython compilation; `cython` in dev deps.
+- Custom X favicon (purple/pink gradient) served on Swagger UI, ReDoc, and Scalar docs.
+- `ROADMAP.md` (gitignored): internal roadmap document for 10x target.
 
 ### Changed
-- `CLAUDE.md` rewritten with minimalism/performance philosophy, opinionated design principles,
-  `p99` target audience, performance-as-feature mandate, and expanded "What NOT to do" list.
-- Changelog update rule added as innegociable rule in `CLAUDE.md`.
+- `app.py`: HTTP routing no longer uses Starlette's Route list. `_add_route` registers
+  in the trie. HTTP dispatch goes through `_trie_dispatch`; WebSocket/lifespan unchanged.
+- `responses.py`: `TachyonJSONResponse`, `TachyonBytesResponse`, `_InternalErrorResponse`
+  pre-build ASGI send dicts and override `__call__` for minimal HTTP dispatch.
+- `processing/compiler.py`: `KIND_*` constants changed from str to int.
+- `processing/dependencies.py`: `resolve_callable_dependency` handles `cache=None`.
+- `CLAUDE.md`: rewritten with minimalism/performance philosophy, opinionated design
+  principles, p99 target audience, branching strategy, and changelog rule.
 
 ---
 
