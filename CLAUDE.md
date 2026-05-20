@@ -6,6 +6,13 @@
 
 **2. Changelog siempre actualizado.** Ante cualquier commit que implique un cambio de versión (major, minor o patch), actualizar `CHANGELOG.md` antes de hacer el commit. Sin excepción. El formato sigue Keep a Changelog. Cada entrada debe tener: versión, fecha, y categorías (Added / Changed / Fixed / Security / Performance / Removed).
 
+**3. Branching strategy.** Todo trabajo nuevo se hace en una rama propia por feature:
+- `feature/<nombre>` para features nuevas (ej: `feature/radix-router`)
+- `fix/<nombre>` para bug fixes
+- `perf/<nombre>` para optimizaciones de performance
+- El flujo es siempre: `feature/*` → merge a `dev` → cuando sale release, `dev` → merge a `main`
+- Nunca commitear directamente a `dev` ni a `main` trabajo de feature en progreso.
+
 ---
 
 ## Qué es este proyecto
