@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased] — dev branch
+
+### Added
+- Custom X favicon (purple/pink gradient) served on Swagger UI, ReDoc, and Scalar docs —
+  no longer defaults to FastAPI's favicon. Uses inline SVG data URI, no external hosting needed.
+
+### Changed
+- `CLAUDE.md` rewritten with minimalism/performance philosophy, opinionated design principles,
+  `p99` target audience, performance-as-feature mandate, and expanded "What NOT to do" list.
+- Changelog update rule added as innegociable rule in `CLAUDE.md`.
+
+---
+
 ## [1.0.0] - 2026-05-20
 
 ### Performance — 4.25x faster than FastAPI 0.136.1
@@ -78,6 +91,17 @@ FastAPI across 8 real-world benchmark scenarios (262k vs 62k req/s total).
 - New tests: circular dependency detection, `File(alias=)`, XSS escaping,
   `List[Optional[T]]` runtime, generic response model, UUID path params,
   body size edge cases, `Request` injection with default value
+
+### Refactoring (pre-audit cleanup — 2026-05-19)
+These commits were part of the cleanup sweep immediately before the security and performance
+audit that led to v1.0.0:
+- Stripped verbose/obvious docstrings from 35+ test files, test methods, classes, and fixtures.
+  Removed docstrings that only restated the function name — code is now leaner without losing
+  signal.
+- Structural improvements in `app.py` and `security.py`: tightened class layout, removed
+  redundant blank lines, aligned with the "less is more" style guide.
+- Trimmed verbose docstrings in `HTTPAuthorizationCredentials`, `HTTPBasicCredentials`,
+  `exceptions.py`, `app.middleware`, and `middlewares/core.py`.
 
 ---
 
