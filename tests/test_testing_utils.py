@@ -12,10 +12,7 @@ import pytest
 
 
 class TestTachyonTestClient:
-    """Tests for TachyonTestClient."""
-
     def test_client_get_request(self):
-        """Should make GET requests."""
         from tachyon_api import Tachyon
         from tachyon_api.testing import TachyonTestClient
 
@@ -32,7 +29,6 @@ class TestTachyonTestClient:
         assert response.json() == {"message": "Hello, World!"}
 
     def test_client_post_request(self):
-        """Should make POST requests with JSON body."""
         from tachyon_api import Tachyon, Struct, Body
         from tachyon_api.testing import TachyonTestClient
 
@@ -53,7 +49,6 @@ class TestTachyonTestClient:
         assert response.json() == {"name": "Widget", "price": 9.99}
 
     def test_client_with_headers(self):
-        """Should send custom headers."""
         from tachyon_api import Tachyon, Header
         from tachyon_api.testing import TachyonTestClient
 
@@ -70,7 +65,6 @@ class TestTachyonTestClient:
         assert response.json() == {"auth": "Bearer token123"}
 
     def test_client_with_query_params(self):
-        """Should send query parameters."""
         from tachyon_api import Tachyon, Query
         from tachyon_api.testing import TachyonTestClient
 
@@ -87,7 +81,6 @@ class TestTachyonTestClient:
         assert response.json() == {"query": "test", "limit": 5}
 
     def test_client_with_cookies(self):
-        """Should send cookies."""
         from tachyon_api import Tachyon, Cookie
         from tachyon_api.testing import TachyonTestClient
 
@@ -105,7 +98,6 @@ class TestTachyonTestClient:
         assert response.json() == {"session": "abc123"}
 
     def test_client_context_manager(self):
-        """Should work as context manager."""
         from tachyon_api import Tachyon
         from tachyon_api.testing import TachyonTestClient
 
@@ -126,10 +118,7 @@ class TestTachyonTestClient:
 
 
 class TestDependencyOverrides:
-    """Tests for dependency_overrides functionality."""
-
     def test_override_injectable_class(self):
-        """Should override @injectable dependencies."""
         from tachyon_api import Tachyon, injectable, Depends
         from tachyon_api.testing import TachyonTestClient
 
@@ -164,7 +153,6 @@ class TestDependencyOverrides:
         assert response.json() == {"user": "real_user"}
 
     def test_override_callable_dependency(self):
-        """Should override Depends(callable) dependencies."""
         from tachyon_api import Tachyon, Depends
         from tachyon_api.testing import TachyonTestClient
 
@@ -192,7 +180,6 @@ class TestDependencyOverrides:
         assert response.json() == {"api_key": "mock_api_key"}
 
     def test_override_with_lambda(self):
-        """Should override with lambda functions."""
         from tachyon_api import Tachyon, injectable, Depends
         from tachyon_api.testing import TachyonTestClient
 
@@ -219,7 +206,6 @@ class TestDependencyOverrides:
         assert response.json() == {"env": "test"}
 
     def test_multiple_overrides(self):
-        """Should handle multiple dependency overrides."""
         from tachyon_api import Tachyon, injectable, Depends
         from tachyon_api.testing import TachyonTestClient
 
@@ -262,11 +248,8 @@ class TestDependencyOverrides:
 
 
 class TestAsyncClient:
-    """Tests for async testing support."""
-
     @pytest.mark.asyncio
     async def test_async_client(self):
-        """Should support async testing."""
         from tachyon_api import Tachyon
         from tachyon_api.testing import AsyncTachyonTestClient
 
@@ -283,7 +266,6 @@ class TestAsyncClient:
 
     @pytest.mark.asyncio
     async def test_async_client_post(self):
-        """Async client should handle POST requests."""
         from tachyon_api import Tachyon, Struct, Body
         from tachyon_api.testing import AsyncTachyonTestClient
 

@@ -1,26 +1,8 @@
 import pytest
-from httpx import AsyncClient, ASGITransport
 from tachyon_api import Tachyon
+from tests.helpers import create_client
 from tachyon_api.di import injectable, Depends
-
-
-@injectable
-class MockRepository:
-    """Simulates a repository that accesses a database."""
-
-    def find_user(self, user_id: int):
-        return {"id": user_id, "source": "mock_db", "method": "implicit"}
-
-
-@injectable
-class MockUserService:
-    """Simulates a service that depends on the repository."""
-
-    def __init__(self, repo: MockRepository):
-        self.repo = repo
-
-    def get_user_data(self, user_id: int):
-        return self.repo.find_user(user_id)
+from tests.shared import MockRepository, MockUserService
 
 
 @pytest.mark.asyncio
@@ -32,8 +14,7 @@ async def test_explicit_dependency_injection():
     def get_user_explicitly(user_id: int, service: MockUserService = Depends()):
         return service.get_user_data(user_id)
 
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+    async with create_client(app) as client:
         response = await client.get("/di_explicit/123")
 
     assert response.status_code == 200
@@ -49,10 +30,39 @@ async def test_implicit_dependency_injection():
     def get_user_implicitly(user_id: int, service: MockUserService):
         return service.get_user_data(user_id)
 
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+    async with create_client(app) as client:
         response = await client.get("/di_implicit/456")
 
     assert response.status_code == 200
     assert response.json()["id"] == 456
     assert response.json()["source"] == "mock_db"
+
+
+def test_circular_dependency_raises_type_error():
+    from tachyon_api import Tachyon
+    from tachyon_api.di import injectable
+    from tachyon_api.processing.dependencies import DependencyResolver
+
+    @injectable
+    class CycleB:
+        pass
+
+    @injectable
+    class CycleA:
+        def __init__(self, b: CycleB):
+            self.b = b
+
+    # Create the cycle: patch CycleB to depend on CycleA
+    def _cycleB_init(self, a: CycleA):
+        self.a = a
+
+    CycleB.__init__ = _cycleB_init  # type: ignore[method-assign]
+
+    try:
+        app = Tachyon()
+        resolver = DependencyResolver(app)
+        import pytest
+        with pytest.raises(TypeError, match="[Cc]ircular"):
+            resolver.resolve_dependency(CycleA)
+    finally:
+        del CycleB.__init__  # type: ignore[attr-defined]

@@ -4,7 +4,7 @@ Release 0.6.4 - Security Foundation
 """
 
 import pytest
-from httpx import AsyncClient, ASGITransport
+from tests.helpers import create_client
 
 
 # =============================================================================
@@ -25,9 +25,7 @@ async def test_http_bearer_valid_token():
     def protected(credentials: HTTPAuthorizationCredentials = Depends(security)):
         return {"token": credentials.credentials, "scheme": credentials.scheme}
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as client:
+    async with create_client(app) as client:
         response = await client.get(
             "/protected", headers={"Authorization": "Bearer my-secret-token"}
         )
@@ -50,9 +48,7 @@ async def test_http_bearer_missing_header():
     def protected(credentials: HTTPAuthorizationCredentials = Depends(security)):
         return {"token": credentials.credentials}
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as client:
+    async with create_client(app) as client:
         response = await client.get("/protected")
         assert response.status_code == 403
 
@@ -70,9 +66,7 @@ async def test_http_bearer_invalid_scheme():
     def protected(credentials: HTTPAuthorizationCredentials = Depends(security)):
         return {"token": credentials.credentials}
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as client:
+    async with create_client(app) as client:
         response = await client.get(
             "/protected", headers={"Authorization": "Basic dXNlcjpwYXNz"}
         )
@@ -97,9 +91,7 @@ async def test_http_bearer_auto_error_false():
             return {"authenticated": False}
         return {"authenticated": True, "token": credentials.credentials}
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as client:
+    async with create_client(app) as client:
         # Without token
         response = await client.get("/optional")
         assert response.status_code == 200
@@ -134,9 +126,7 @@ async def test_http_basic_valid_credentials():
     def basic_auth(credentials: HTTPBasicCredentials = Depends(security)):
         return {"username": credentials.username, "password": credentials.password}
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as client:
+    async with create_client(app) as client:
         # Encode "admin:secret123"
         encoded = base64.b64encode(b"admin:secret123").decode()
         response = await client.get(
@@ -161,9 +151,7 @@ async def test_http_basic_missing_header():
     def basic_auth(credentials: HTTPBasicCredentials = Depends(security)):
         return {"username": credentials.username}
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as client:
+    async with create_client(app) as client:
         response = await client.get("/basic")
         assert response.status_code == 401
         # Should include WWW-Authenticate header
@@ -188,9 +176,7 @@ async def test_api_key_header():
     def api_endpoint(api_key: str = Depends(api_key_header)):
         return {"api_key": api_key}
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as client:
+    async with create_client(app) as client:
         response = await client.get("/api", headers={"X-API-Key": "my-api-key-123"})
         assert response.status_code == 200
         assert response.json() == {"api_key": "my-api-key-123"}
@@ -209,9 +195,7 @@ async def test_api_key_header_missing():
     def api_endpoint(api_key: str = Depends(api_key_header)):
         return {"api_key": api_key}
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as client:
+    async with create_client(app) as client:
         response = await client.get("/api")
         assert response.status_code == 403
 
@@ -229,9 +213,7 @@ async def test_api_key_query():
     def api_endpoint(api_key: str = Depends(api_key_query)):
         return {"api_key": api_key}
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as client:
+    async with create_client(app) as client:
         response = await client.get("/api?api_key=query-key-456")
         assert response.status_code == 200
         assert response.json() == {"api_key": "query-key-456"}
@@ -250,9 +232,7 @@ async def test_api_key_cookie():
     def api_endpoint(api_key: str = Depends(api_key_cookie)):
         return {"api_key": api_key}
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as client:
+    async with create_client(app) as client:
         response = await client.get("/api", cookies={"session_token": "cookie-key-789"})
         assert response.status_code == 200
         assert response.json() == {"api_key": "cookie-key-789"}
@@ -276,9 +256,7 @@ async def test_oauth2_password_bearer():
     def get_current_user(token: str = Depends(oauth2_scheme)):
         return {"token": token}
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as client:
+    async with create_client(app) as client:
         response = await client.get(
             "/users/me", headers={"Authorization": "Bearer jwt-token-here"}
         )
@@ -299,8 +277,6 @@ async def test_oauth2_password_bearer_missing():
     def get_current_user(token: str = Depends(oauth2_scheme)):
         return {"token": token}
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as client:
+    async with create_client(app) as client:
         response = await client.get("/users/me")
         assert response.status_code == 401

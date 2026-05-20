@@ -216,6 +216,11 @@ async def update_profile(
         result["avatar"] = avatar.filename
     return result
 
+# Con alias (nombre del campo multipart distinto al nombre del parámetro)
+@app.post("/documents")
+async def upload_doc(document: UploadFile = File(..., alias="doc")):
+    return {"filename": document.filename}
+
 # Múltiples archivos
 @app.post("/gallery")
 async def upload_gallery(

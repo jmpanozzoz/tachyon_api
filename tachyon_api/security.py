@@ -6,6 +6,7 @@ compatible with FastAPI's security utilities.
 """
 
 import base64
+import binascii
 from typing import Optional
 
 from starlette.requests import Request
@@ -14,13 +15,7 @@ from .exceptions import HTTPException
 
 
 class HTTPAuthorizationCredentials:
-    """
-    Credentials extracted from HTTP Authorization header.
-
-    Attributes:
-        scheme: The authentication scheme (e.g., "Bearer", "Basic")
-        credentials: The credentials value (e.g., the token or encoded credentials)
-    """
+    """Holds scheme + credentials from the Authorization header."""
 
     def __init__(self, scheme: str, credentials: str):
         self.scheme = scheme
@@ -28,36 +23,25 @@ class HTTPAuthorizationCredentials:
 
 
 class HTTPBasicCredentials:
-    """
-    Credentials extracted from HTTP Basic authentication.
-
-    Attributes:
-        username: The decoded username
-        password: The decoded password
-    """
+    """Holds decoded username + password from Basic auth."""
 
     def __init__(self, username: str, password: str):
         self.username = username
         self.password = password
 
 
+def _extract_bearer(authorization: Optional[str]) -> Optional[tuple]:
+    """Parse 'Bearer <token>' header. Returns (scheme, token) or None if invalid."""
+    if not authorization:
+        return None
+    parts = authorization.split()
+    if len(parts) != 2 or parts[0].lower() != "bearer":
+        return None
+    return parts[0], parts[1]
+
+
 class HTTPBearer:
-    """
-    HTTP Bearer token authentication scheme.
-
-    Extracts Bearer token from the Authorization header.
-
-    Args:
-        auto_error: If True (default), raises HTTPException on missing/invalid token.
-                   If False, returns None instead.
-
-    Example:
-        security = HTTPBearer()
-
-        @app.get("/protected")
-        def protected(credentials: HTTPAuthorizationCredentials = Depends(security)):
-            return {"token": credentials.credentials}
-    """
+    """Extracts Bearer token from Authorization header. Returns HTTPAuthorizationCredentials."""
 
     def __init__(self, auto_error: bool = True):
         self.auto_error = auto_error
@@ -65,53 +49,17 @@ class HTTPBearer:
     async def __call__(
         self, request: Request
     ) -> Optional[HTTPAuthorizationCredentials]:
-        authorization = request.headers.get("Authorization")
-
-        if not authorization:
+        parsed = _extract_bearer(request.headers.get("Authorization"))
+        if parsed is None:
             if self.auto_error:
                 raise HTTPException(status_code=403, detail="Not authenticated")
             return None
-
-        parts = authorization.split()
-        if len(parts) != 2:
-            if self.auto_error:
-                raise HTTPException(
-                    status_code=403, detail="Invalid authorization header"
-                )
-            return None
-
-        scheme, credentials = parts
-
-        if scheme.lower() != "bearer":
-            if self.auto_error:
-                raise HTTPException(
-                    status_code=403, detail="Invalid authentication scheme"
-                )
-            return None
-
+        scheme, credentials = parsed
         return HTTPAuthorizationCredentials(scheme=scheme, credentials=credentials)
 
 
 class HTTPBasic:
-    """
-    HTTP Basic authentication scheme.
-
-    Extracts and decodes username/password from the Authorization header.
-
-    Args:
-        auto_error: If True (default), raises HTTPException on missing/invalid credentials.
-                   If False, returns None instead.
-        realm: The realm name to include in WWW-Authenticate header.
-
-    Example:
-        security = HTTPBasic()
-
-        @app.get("/admin")
-        def admin(credentials: HTTPBasicCredentials = Depends(security)):
-            if credentials.username == "admin" and credentials.password == "secret":
-                return {"message": "Welcome, admin!"}
-            raise HTTPException(status_code=401, detail="Invalid credentials")
-    """
+    """Decodes Basic auth credentials from Authorization header. Returns HTTPBasicCredentials."""
 
     def __init__(self, auto_error: bool = True, realm: Optional[str] = None):
         self.auto_error = auto_error
@@ -141,9 +89,12 @@ class HTTPBasic:
 
         try:
             decoded = base64.b64decode(parts[1]).decode("utf-8")
-            username, password = decoded.split(":", 1)
+            split = decoded.split(":", 1)
+            if len(split) != 2:
+                raise ValueError("Missing colon separator in Basic credentials")
+            username, password = split
             return HTTPBasicCredentials(username=username, password=password)
-        except Exception:
+        except (binascii.Error, UnicodeDecodeError, ValueError):
             if self.auto_error:
                 raise HTTPException(
                     status_code=401,
@@ -153,127 +104,54 @@ class HTTPBasic:
             return None
 
 
-class APIKeyHeader:
-    """
-    API Key authentication via HTTP header.
-
-    Args:
-        name: The header name to look for (e.g., "X-API-Key")
-        auto_error: If True (default), raises HTTPException on missing key.
-
-    Example:
-        api_key = APIKeyHeader(name="X-API-Key")
-
-        @app.get("/api")
-        def api_endpoint(key: str = Depends(api_key)):
-            return {"api_key": key}
-    """
-
+class _APIKeyBase:
     def __init__(self, name: str, auto_error: bool = True):
         self.name = name
         self.auto_error = auto_error
 
-    async def __call__(self, request: Request) -> Optional[str]:
-        api_key = request.headers.get(self.name)
+    def _get_raw(self, request: Request) -> Optional[str]:
+        raise NotImplementedError
 
+    async def __call__(self, request: Request) -> Optional[str]:
+        api_key = self._get_raw(request)
         if not api_key:
             if self.auto_error:
                 raise HTTPException(status_code=403, detail="Not authenticated")
             return None
-
         return api_key
 
 
-class APIKeyQuery:
-    """
-    API Key authentication via query parameter.
+class APIKeyHeader(_APIKeyBase):
+    """API Key authentication via HTTP header (e.g., 'X-API-Key')."""
 
-    Args:
-        name: The query parameter name to look for (e.g., "api_key")
-        auto_error: If True (default), raises HTTPException on missing key.
-
-    Example:
-        api_key = APIKeyQuery(name="api_key")
-
-        @app.get("/api")
-        def api_endpoint(key: str = Depends(api_key)):
-            return {"api_key": key}
-    """
-
-    def __init__(self, name: str, auto_error: bool = True):
-        self.name = name
-        self.auto_error = auto_error
-
-    async def __call__(self, request: Request) -> Optional[str]:
-        api_key = request.query_params.get(self.name)
-
-        if not api_key:
-            if self.auto_error:
-                raise HTTPException(status_code=403, detail="Not authenticated")
-            return None
-
-        return api_key
+    def _get_raw(self, request: Request) -> Optional[str]:
+        return request.headers.get(self.name)
 
 
-class APIKeyCookie:
-    """
-    API Key authentication via cookie.
+class APIKeyQuery(_APIKeyBase):
+    """API Key authentication via query parameter (e.g., '?api_key=...')."""
 
-    Args:
-        name: The cookie name to look for (e.g., "session_token")
-        auto_error: If True (default), raises HTTPException on missing key.
+    def _get_raw(self, request: Request) -> Optional[str]:
+        return request.query_params.get(self.name)
 
-    Example:
-        api_key = APIKeyCookie(name="session_token")
 
-        @app.get("/api")
-        def api_endpoint(key: str = Depends(api_key)):
-            return {"api_key": key}
-    """
+class APIKeyCookie(_APIKeyBase):
+    """API Key authentication via cookie."""
 
-    def __init__(self, name: str, auto_error: bool = True):
-        self.name = name
-        self.auto_error = auto_error
-
-    async def __call__(self, request: Request) -> Optional[str]:
-        api_key = request.cookies.get(self.name)
-
-        if not api_key:
-            if self.auto_error:
-                raise HTTPException(status_code=403, detail="Not authenticated")
-            return None
-
-        return api_key
+    def _get_raw(self, request: Request) -> Optional[str]:
+        return request.cookies.get(self.name)
 
 
 class OAuth2PasswordBearer:
-    """
-    OAuth2 Password Bearer token scheme.
-
-    Extracts the token from Authorization header (Bearer scheme).
-    Similar to HTTPBearer but returns just the token string and uses 401 status.
-
-    Args:
-        tokenUrl: The URL to obtain the token (for OpenAPI documentation).
-        auto_error: If True (default), raises HTTPException on missing token.
-
-    Example:
-        oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/token")
-
-        @app.get("/users/me")
-        def get_current_user(token: str = Depends(oauth2_scheme)):
-            # Decode and validate token here
-            return {"token": token}
-    """
+    """Like HTTPBearer but returns raw token string and uses 401 (tokenUrl for OpenAPI docs)."""
 
     def __init__(self, tokenUrl: str, auto_error: bool = True):
         self.tokenUrl = tokenUrl
         self.auto_error = auto_error
 
     async def __call__(self, request: Request) -> Optional[str]:
-        authorization = request.headers.get("Authorization")
-
-        if not authorization:
+        parsed = _extract_bearer(request.headers.get("Authorization"))
+        if parsed is None:
             if self.auto_error:
                 raise HTTPException(
                     status_code=401,
@@ -281,15 +159,5 @@ class OAuth2PasswordBearer:
                     headers={"WWW-Authenticate": "Bearer"},
                 )
             return None
-
-        parts = authorization.split()
-        if len(parts) != 2 or parts[0].lower() != "bearer":
-            if self.auto_error:
-                raise HTTPException(
-                    status_code=401,
-                    detail="Invalid authentication credentials",
-                    headers={"WWW-Authenticate": "Bearer"},
-                )
-            return None
-
-        return parts[1]
+        _, token = parsed
+        return token

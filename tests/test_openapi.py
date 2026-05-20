@@ -1,6 +1,6 @@
 import pytest
-from httpx import AsyncClient, ASGITransport
 from tachyon_api import Tachyon
+from tests.helpers import create_client
 from tachyon_api.params import Body, Path
 from tachyon_api.models import Struct
 from tachyon_api.openapi import (
@@ -47,8 +47,7 @@ async def test_openapi_schema_generation():
             "item_price": item.price,
         }
 
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+    async with create_client(app) as client:
         response = await client.get("/openapi.json")
 
     assert response.status_code == 200
@@ -86,7 +85,6 @@ async def test_openapi_schema_generation():
 
 
 def test_default_openapi_config():
-    """Test that the default configuration works"""
     config = create_openapi_config()
 
     assert config.info.title == "Tachyon API"
@@ -99,7 +97,6 @@ def test_default_openapi_config():
 
 
 def test_custom_openapi_config():
-    """Test for custom configuration similar to FastAPI"""
     contact = Contact(
         name="Development Team",
         url="https://example.com/contact",
@@ -136,7 +133,6 @@ def test_custom_openapi_config():
 
 
 def test_openapi_generator():
-    """Test that the OpenAPI generator works correctly"""
     config = create_openapi_config(title="Test API", description="Test API")
 
     generator = OpenAPIGenerator(config)
@@ -150,7 +146,6 @@ def test_openapi_generator():
 
 
 def test_swagger_ui_html_generation():
-    """Test HTML generation for Swagger UI"""
     config = create_openapi_config(title="Test API")
     generator = OpenAPIGenerator(config)
 
@@ -163,7 +158,6 @@ def test_swagger_ui_html_generation():
 
 
 def test_redoc_html_generation():
-    """Test HTML generation for ReDoc"""
     config = create_openapi_config(title="Test API")
     generator = OpenAPIGenerator(config)
 
@@ -176,7 +170,6 @@ def test_redoc_html_generation():
 
 
 def test_add_path_to_schema():
-    """Test adding routes to the OpenAPI schema"""
     generator = OpenAPIGenerator()
 
     operation_data = {
@@ -199,7 +192,6 @@ def test_add_path_to_schema():
 
 
 def test_contact_to_dict():
-    """Test conversion of Contact to dictionary"""
     contact = Contact(
         name="John Doe", url="https://example.com", email="john@example.com"
     )
@@ -212,7 +204,6 @@ def test_contact_to_dict():
 
 
 def test_license_to_dict():
-    """Test conversion of License to dictionary"""
     license = License(name="Apache 2.0", url="https://apache.org/licenses/LICENSE-2.0")
 
     result = license.to_dict()
@@ -222,7 +213,6 @@ def test_license_to_dict():
 
 
 def test_server_to_dict():
-    """Test conversion of Server to dictionary"""
     server = Server(url="https://api.example.com", description="Main server")
 
     result = server.to_dict()
@@ -232,7 +222,6 @@ def test_server_to_dict():
 
 
 def test_scalar_html_generation():
-    """Test HTML generation for Scalar API Reference"""
     config = create_openapi_config(title="Test API")
     generator = OpenAPIGenerator(config)
 
@@ -243,3 +232,46 @@ def test_scalar_html_generation():
     assert 'data-url="/openapi.json"' in html
     assert "Test API" in html
     assert config.scalar_js_url in html
+
+
+def test_generic_response_model_does_not_raise():
+    """response_model=List[Item] must not crash (was raising TypeError with issubclass)."""
+    from typing import List
+    from tachyon_api.params import Query
+
+    app = Tachyon()
+
+    @app.get("/items", response_model=List[Item])
+    def list_items(limit: int = Query(10)):
+        return []
+
+    schema = app.openapi_generator.get_openapi_schema()
+    assert "/items" in schema["paths"]
+
+
+def test_openapi_body_param_struct_adds_component():
+    """Body params with Struct annotation register a component schema."""
+    app = Tachyon()
+
+    @app.post("/create")
+    def create(payload: Item = Body()):
+        return {}
+
+    schema = app.openapi_generator.get_openapi_schema()
+    assert "Item" in schema["components"]["schemas"]
+    assert "requestBody" in schema["paths"]["/create"]["post"]
+
+
+def test_openapi_html_escapes_special_chars_in_url():
+    """OpenAPI HTML generators must escape URLs to prevent XSS."""
+    config = create_openapi_config()
+    generator = OpenAPIGenerator(config)
+
+    malicious_url = '/api"</script><script>alert(1)</script>'
+    swagger_html = generator.get_swagger_ui_html(malicious_url, "Test")
+    redoc_html = generator.get_redoc_html(malicious_url, "Test")
+    scalar_html = generator.get_scalar_html(malicious_url, "Test")
+
+    assert "<script>alert(1)</script>" not in swagger_html
+    assert "<script>alert(1)</script>" not in redoc_html
+    assert "<script>alert(1)</script>" not in scalar_html

@@ -7,6 +7,80 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.0.0] - 2026-05-20
+
+### Performance — 4.25x faster than FastAPI 0.136.1
+
+This release delivers a systematic performance overhaul through endpoint pre-compilation
+and accumulated micro-optimizations, bringing Tachyon from 3x to **4.25x** faster than
+FastAPI across 8 real-world benchmark scenarios (262k vs 62k req/s total).
+
+#### Endpoint Pre-Compilation (`processing/compiler.py`)
+- New `compile_endpoint()` runs `inspect.signature()`, `isinstance` chains,
+  `typing.get_origin/args`, alias resolution, and `msgspec.Decoder` creation **once
+  at route registration**, not per request
+- `CompiledEndpoint` + `ParamDescriptor` use `__slots__` for faster attribute access
+- Type dispatch replaces O(n) `isinstance` chain with O(1) kind-string lookup
+- `iscoroutinefunction()` cached at registration time for both endpoints and dependencies
+
+#### Response Path
+- `TachyonJSONResponse` / `TachyonBytesResponse` bypass `starlette.Response.__init__`
+  (was 0.96µs) via direct `raw_headers` construction (0.27µs) — **3.5x faster**
+- `Struct` payloads use `msgspec.json.encode()` directly (no `to_builtins` roundtrip)
+- Pre-rendered singleton for `internal_server_error_response` — never rebuilt
+- `_ORJSON_OPTS` pre-computed as module constant (was bitwise OR on every call)
+
+#### TypeConverter
+- `convert_value_bare()` / `convert_list_values_bare()` skip `unwrap_optional()` (0.54µs/param)
+  since `ParamDescriptor` already stores pre-unwrapped types
+- `item_is_optional` tracked separately from `is_optional` for correct `List[Optional[T]]` handling
+
+#### Other micro-optimizations
+- `__slots__` on all param marker classes (`Query`, `Path`, `Body`, `Header`, `Cookie`, `Form`, `File`)
+- `__slots__` on `BackgroundTasks`; `iscoroutinefunction()` cached at `add_task()` time
+
+### Security Fixes
+- XSS: OpenAPI HTML generators now use `_safe_json()` which escapes `<`, `>`, `&`
+  in script-embedded JSON (prevents `</script>` injection)
+- HTTPBasic: catches `binascii.Error`, `UnicodeDecodeError`, `ValueError` specifically
+  instead of bare `except Exception`
+
+### New Features
+- `Tachyon(max_body_size=10MB)` — configurable request body size limit (default 10MB);
+  enforced via both `Content-Length` header and post-read byte check
+- `app.register_instance(cls, instance)` / `app.get_instance(cls)` — public API for
+  DI singleton cache (replaces direct `_instances_cache` access)
+- `File(alias="field_name")` — file upload params now support `alias=` for multipart
+  field name mapping, consistent with `Form`, `Header`, and `Cookie`
+- `TypeUtils.normalize_header_name()` — centralized underscore→hyphen conversion
+- Circular dependency detection in `DependencyResolver` (raises `TypeError` instead of
+  infinite recursion)
+- `inspect.Parameter.empty` validation before resolving unannotated injectable params
+- OpenAPI generation moved to `openapi.py` — `generate_route()` on `OpenAPIGenerator`;
+  `_build_param_openapi_schema` consolidated as `build_param_schema()`
+
+### Bug Fixes
+- `BackgroundTasks.__bool__` now returns `bool(self._tasks)` (was always `True`)
+- `response_model=List[SomeStruct]` no longer raises `TypeError` in `issubclass()`
+- `msgspec.DecodeError` (malformed JSON body) now returns 422 instead of 500
+- `request.form()` and `request.body()` failures now return 422 instead of crashing
+- `Body(alias=...)` and `File(alias=...)` now correctly resolve multipart field names
+
+### Infrastructure
+- `starlette` upgraded to 1.0.0 (resolves anyio 4.x incompatibility)
+- `ruff` moved to dev dependencies
+- `pytest.ini`: `testpaths`, `addopts` configured
+- `tests/shared.py`: single source of truth for shared test models
+- Exhaustive benchmark suite in `benchmark/` (FastAPI vs Tachyon, 8 scenarios)
+
+### Testing
+- **233/233 tests passing** ✅ (+10 new tests)
+- New tests: circular dependency detection, `File(alias=)`, XSS escaping,
+  `List[Optional[T]]` runtime, generic response model, UUID path params,
+  body size edge cases, `Request` injection with default value
+
+---
+
 ## [0.9.0] - 2025-12-12
 
 ### ♻️ Refactored - Major Architecture Improvements

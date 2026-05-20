@@ -1,6 +1,6 @@
 import pytest
-from httpx import AsyncClient, ASGITransport
 from starlette.responses import JSONResponse
+from tests.helpers import create_client
 
 from tachyon_api.responses import (
     success_response,
@@ -12,10 +12,7 @@ from tachyon_api.responses import (
 
 
 class TestSimpleResponseHelpers:
-    """Test suite for simple response helper functions"""
-
     def test_success_response_default(self):
-        """Test success response with default message"""
         response = success_response({"user_id": 123})
 
         assert isinstance(response, JSONResponse)
@@ -32,7 +29,6 @@ class TestSimpleResponseHelpers:
         assert data["data"] == {"user_id": 123}
 
     def test_success_response_custom_message(self):
-        """Test success response with custom message and status"""
         response = success_response(
             {"user_id": 123}, message="User created successfully", status_code=201
         )
@@ -49,7 +45,6 @@ class TestSimpleResponseHelpers:
         assert data["data"] == {"user_id": 123}
 
     def test_success_response_no_data(self):
-        """Test success response without data"""
         response = success_response(message="Operation completed")
 
         content = response.body.decode()
@@ -62,7 +57,6 @@ class TestSimpleResponseHelpers:
         assert data["data"] is None
 
     def test_error_response_basic(self):
-        """Test basic error response"""
         response = error_response("Something went wrong")
 
         assert response.status_code == 400
@@ -77,7 +71,6 @@ class TestSimpleResponseHelpers:
         assert "code" not in data
 
     def test_error_response_with_code(self):
-        """Test error response with error code and custom status"""
         response = error_response(
             "Invalid input", status_code=422, code="VALIDATION_ERROR"
         )
@@ -94,7 +87,6 @@ class TestSimpleResponseHelpers:
         assert data["code"] == "VALIDATION_ERROR"
 
     def test_not_found_response_default(self):
-        """Test not found response with default message"""
         response = not_found_response()
 
         assert response.status_code == 404
@@ -109,7 +101,6 @@ class TestSimpleResponseHelpers:
         assert data["code"] == "NOT_FOUND"
 
     def test_not_found_response_custom(self):
-        """Test not found response with custom message"""
         response = not_found_response("User not found")
 
         assert response.status_code == 404
@@ -124,7 +115,6 @@ class TestSimpleResponseHelpers:
         assert data["code"] == "NOT_FOUND"
 
     def test_conflict_response_default(self):
-        """Test conflict response with default message"""
         response = conflict_response()
 
         assert response.status_code == 409
@@ -139,7 +129,6 @@ class TestSimpleResponseHelpers:
         assert data["code"] == "CONFLICT"
 
     def test_conflict_response_custom(self):
-        """Test conflict response with custom message"""
         response = conflict_response("Item already exists")
 
         assert response.status_code == 409
@@ -154,7 +143,6 @@ class TestSimpleResponseHelpers:
         assert data["code"] == "CONFLICT"
 
     def test_validation_error_response_basic(self):
-        """Test validation error response without field errors"""
         response = validation_error_response()
 
         assert response.status_code == 422
@@ -170,7 +158,6 @@ class TestSimpleResponseHelpers:
         assert "errors" not in data
 
     def test_validation_error_response_with_errors(self):
-        """Test validation error response with field errors"""
         field_errors = {
             "name": ["This field is required"],
             "email": ["Invalid email format", "Email already exists"],
@@ -193,7 +180,6 @@ class TestSimpleResponseHelpers:
         assert data["errors"] == field_errors
 
     def test_response_headers(self):
-        """Test that responses accept custom headers"""
         response = JSONResponse(
             {"test": "data"}, headers={"X-Custom-Header": "custom-value"}
         )
@@ -204,11 +190,8 @@ class TestSimpleResponseHelpers:
 
 @pytest.mark.asyncio
 class TestResponsesInEndpoints:
-    """Test response helpers working in actual endpoints"""
-
     @pytest.fixture
     def app(self):
-        """Create test app with response endpoints"""
         from tachyon_api import Tachyon
         from tachyon_api.responses import (
             success_response,
@@ -243,11 +226,7 @@ class TestResponsesInEndpoints:
         return app
 
     async def test_success_response_in_endpoint(self, app):
-        """Test success response helper in actual endpoint"""
-        transport = ASGITransport(app=app)
-        async with AsyncClient(
-            transport=transport, base_url="http://testserver"
-        ) as client:
+        async with create_client(app) as client:
             response = await client.get("/success")
 
         assert response.status_code == 200
@@ -257,11 +236,7 @@ class TestResponsesInEndpoints:
         assert data["data"]["message"] == "All good"
 
     async def test_error_response_in_endpoint(self, app):
-        """Test error response helper in actual endpoint"""
-        transport = ASGITransport(app=app)
-        async with AsyncClient(
-            transport=transport, base_url="http://testserver"
-        ) as client:
+        async with create_client(app) as client:
             response = await client.get("/error")
 
         assert response.status_code == 400
@@ -270,11 +245,7 @@ class TestResponsesInEndpoints:
         assert data["error"] == "Something failed"
 
     async def test_not_found_response_in_endpoint(self, app):
-        """Test not found response helper in actual endpoint"""
-        transport = ASGITransport(app=app)
-        async with AsyncClient(
-            transport=transport, base_url="http://testserver"
-        ) as client:
+        async with create_client(app) as client:
             response = await client.get("/not-found")
 
         assert response.status_code == 404
@@ -284,11 +255,7 @@ class TestResponsesInEndpoints:
         assert data["code"] == "NOT_FOUND"
 
     async def test_conflict_response_in_endpoint(self, app):
-        """Test conflict response helper in actual endpoint"""
-        transport = ASGITransport(app=app)
-        async with AsyncClient(
-            transport=transport, base_url="http://testserver"
-        ) as client:
+        async with create_client(app) as client:
             response = await client.get("/conflict")
 
         assert response.status_code == 409
@@ -298,11 +265,7 @@ class TestResponsesInEndpoints:
         assert data["code"] == "CONFLICT"
 
     async def test_regular_json_still_works(self, app):
-        """Test that regular JSON responses still work alongside helpers"""
-        transport = ASGITransport(app=app)
-        async with AsyncClient(
-            transport=transport, base_url="http://testserver"
-        ) as client:
+        async with create_client(app) as client:
             response = await client.get("/regular-json")
 
         assert response.status_code == 200
@@ -311,10 +274,7 @@ class TestResponsesInEndpoints:
 
 
 class TestStarletteCompatibility:
-    """Test compatibility with Starlette responses"""
-
     def test_starlette_imports_available(self):
-        """Test that Starlette response imports work"""
         from tachyon_api.responses import JSONResponse, HTMLResponse
 
         # Test that we can create responses
@@ -326,7 +286,6 @@ class TestStarletteCompatibility:
         assert html_resp.media_type == "text/html"
 
     def test_response_helpers_return_starlette_responses(self):
-        """Test that our helpers return actual Starlette JSONResponse objects"""
         from starlette.responses import JSONResponse
 
         response = success_response({"test": "data"})
@@ -340,10 +299,7 @@ class TestStarletteCompatibility:
 
 
 class TestResponseConsistency:
-    """Test response structure consistency"""
-
     def test_success_responses_have_consistent_structure(self):
-        """Test that all success responses have the same structure"""
         response = success_response({"data": "test"})
 
         content = response.body.decode()
@@ -359,7 +315,6 @@ class TestResponseConsistency:
         assert data["success"] is True
 
     def test_error_responses_have_consistent_structure(self):
-        """Test that all error responses have the same base structure"""
         responses = [
             error_response("test error"),
             not_found_response("not found"),

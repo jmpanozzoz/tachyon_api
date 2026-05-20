@@ -12,10 +12,7 @@ runner = CliRunner()
 
 
 class TestNewCommand:
-    """Tests for `tachyon new` command."""
-
     def test_new_creates_project_structure(self):
-        """Should create complete project structure."""
         with tempfile.TemporaryDirectory() as tmpdir:
             result = runner.invoke(app, ["new", "my-api", "--path", tmpdir])
 
@@ -38,7 +35,6 @@ class TestNewCommand:
             assert (project_path / "tests" / "conftest.py").exists()
 
     def test_new_fails_if_exists(self):
-        """Should fail if project directory already exists."""
         with tempfile.TemporaryDirectory() as tmpdir:
             # Create project once
             runner.invoke(app, ["new", "existing", "--path", tmpdir])
@@ -51,10 +47,7 @@ class TestNewCommand:
 
 
 class TestGenerateCommand:
-    """Tests for `tachyon generate` commands."""
-
     def test_generate_service_creates_all_files(self):
-        """Should create complete service module."""
         with tempfile.TemporaryDirectory() as tmpdir:
             modules_path = Path(tmpdir) / "modules"
             modules_path.mkdir()
@@ -77,7 +70,6 @@ class TestGenerateCommand:
             assert (service_path / "tests" / "test_auth_service.py").exists()
 
     def test_generate_service_with_crud(self):
-        """Should generate CRUD operations with --crud flag."""
         with tempfile.TemporaryDirectory() as tmpdir:
             modules_path = Path(tmpdir) / "modules"
             modules_path.mkdir()
@@ -107,7 +99,6 @@ class TestGenerateCommand:
             assert "def delete_product" in content
 
     def test_generate_service_no_tests(self):
-        """Should skip tests with --no-tests flag."""
         with tempfile.TemporaryDirectory() as tmpdir:
             modules_path = Path(tmpdir) / "modules"
             modules_path.mkdir()
@@ -131,7 +122,6 @@ class TestGenerateCommand:
             assert not (service_path / "tests" / "test_users_service.py").exists()
 
     def test_generate_controller_only(self):
-        """Should generate only controller."""
         with tempfile.TemporaryDirectory() as tmpdir:
             result = runner.invoke(
                 app, ["generate", "controller", "items", "--path", tmpdir]
@@ -141,7 +131,6 @@ class TestGenerateCommand:
             assert (Path(tmpdir) / "items_controller.py").exists()
 
     def test_generate_repository_only(self):
-        """Should generate only repository."""
         with tempfile.TemporaryDirectory() as tmpdir:
             result = runner.invoke(
                 app, ["generate", "repository", "items", "--path", tmpdir]
@@ -151,7 +140,6 @@ class TestGenerateCommand:
             assert (Path(tmpdir) / "items_repository.py").exists()
 
     def test_generate_dto_only(self):
-        """Should generate only DTO."""
         with tempfile.TemporaryDirectory() as tmpdir:
             result = runner.invoke(app, ["generate", "dto", "items", "--path", tmpdir])
 
@@ -159,7 +147,6 @@ class TestGenerateCommand:
             assert (Path(tmpdir) / "items_dto.py").exists()
 
     def test_generate_converts_kebab_to_snake(self):
-        """Should convert kebab-case to snake_case."""
         with tempfile.TemporaryDirectory() as tmpdir:
             modules_path = Path(tmpdir) / "modules"
             modules_path.mkdir()
@@ -178,10 +165,7 @@ class TestGenerateCommand:
 
 
 class TestVersionCommand:
-    """Tests for version command."""
-
     def test_version_shows_version(self):
-        """Should display version."""
         result = runner.invoke(app, ["version"])
 
         assert result.exit_code == 0
@@ -189,10 +173,7 @@ class TestVersionCommand:
 
 
 class TestLintCommand:
-    """Tests for lint commands."""
-
     def test_lint_check_runs(self):
-        """Lint check should run (may fail if ruff not installed)."""
         with tempfile.TemporaryDirectory() as tmpdir:
             # Create a simple Python file
             test_file = Path(tmpdir) / "test.py"
@@ -206,10 +187,7 @@ class TestLintCommand:
 
 
 class TestOpenAPICommand:
-    """Tests for openapi commands."""
-
     def test_openapi_validate_valid_schema(self):
-        """Should validate a correct OpenAPI schema."""
         import json
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -227,7 +205,6 @@ class TestOpenAPICommand:
             assert "valid" in result.stdout.lower()
 
     def test_openapi_validate_invalid_schema(self):
-        """Should reject invalid schema."""
         import json
 
         with tempfile.TemporaryDirectory() as tmpdir:
