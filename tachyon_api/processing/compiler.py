@@ -1,0 +1,197 @@
+"""Endpoint pre-compilation: analyse a function once at registration, reuse per request."""
+
+from __future__ import annotations
+
+import asyncio
+import inspect
+from typing import Any, Callable, List, Optional, Type
+
+import msgspec
+
+from ..params import Body, Query, Path, Header, Cookie, Form, File
+from ..models import Struct
+from ..background import BackgroundTasks
+from ..di import Depends, _registry
+from ..utils import TypeUtils
+
+
+# Parameter kinds — string constants avoid repeated isinstance at request time
+KIND_REQUEST          = "request"
+KIND_BG               = "background_tasks"
+KIND_BODY             = "body"
+KIND_QUERY            = "query"
+KIND_HEADER           = "header"
+KIND_COOKIE           = "cookie"
+KIND_FORM             = "form"
+KIND_FILE             = "file"
+KIND_PATH             = "path"
+KIND_PATH_IMPLICIT    = "path_implicit"
+KIND_DEP_CALLABLE     = "dep_callable"
+KIND_DEP_CLASS        = "dep_class"
+
+# Param marker classes → kind string (O(1) lookup replaces isinstance chain)
+_MARKER_TO_KIND = {
+    Body:   KIND_BODY,
+    Query:  KIND_QUERY,
+    Header: KIND_HEADER,
+    Cookie: KIND_COOKIE,
+    Form:   KIND_FORM,
+    File:   KIND_FILE,
+    Path:   KIND_PATH,
+}
+
+
+class ParamDescriptor:
+    __slots__ = (
+        "name", "kind", "annotation", "marker", "effective_name", "default",
+        "is_list", "item_type", "base_type", "is_optional",
+        "decoder", "dependency", "dep_is_async",
+    )
+
+    def __init__(
+        self,
+        name: str,
+        kind: str,
+        annotation: Any = None,
+        marker: Any = None,
+        effective_name: str = "",
+        default: Any = inspect.Parameter.empty,
+        is_list: bool = False,
+        item_type: Any = str,
+        base_type: Any = str,
+        is_optional: bool = False,
+        decoder: Any = None,
+        dependency: Optional[Callable] = None,
+        dep_is_async: bool = False,
+    ):
+        self.name = name
+        self.kind = kind
+        self.annotation = annotation
+        self.marker = marker
+        self.effective_name = effective_name if effective_name else name
+        self.default = default
+        self.is_list = is_list
+        self.item_type = item_type
+        self.base_type = base_type
+        self.is_optional = is_optional
+        self.decoder = decoder
+        self.dependency = dependency
+        self.dep_is_async = dep_is_async
+
+
+class CompiledEndpoint:
+    __slots__ = ("func", "is_async", "params")
+
+    def __init__(self, func: Callable, is_async: bool, params: List[ParamDescriptor]):
+        self.func = func
+        self.is_async = is_async
+        self.params = params
+
+
+# Global cache: func → CompiledEndpoint (populated once per registered endpoint)
+_COMPILED: dict[Callable, CompiledEndpoint] = {}
+
+
+def compile_endpoint(func: Callable, path: str) -> CompiledEndpoint:
+    """Analyse endpoint signature once and return a CompiledEndpoint descriptor."""
+    if func in _COMPILED:
+        return _COMPILED[func]
+
+    is_async = asyncio.iscoroutinefunction(func)
+    sig = inspect.signature(func)
+    params: List[ParamDescriptor] = []
+
+    for param in sig.parameters.values():
+        ann   = param.annotation
+        default = param.default
+
+        # 1. Starlette Request injection
+        from starlette.requests import Request
+        if ann is Request:
+            params.append(ParamDescriptor(name=param.name, kind=KIND_REQUEST))
+            continue
+
+        # 2. BackgroundTasks injection
+        if ann is BackgroundTasks:
+            params.append(ParamDescriptor(name=param.name, kind=KIND_BG))
+            continue
+
+        # 3. Explicit callable dependency: Depends(some_callable)
+        if isinstance(default, Depends) and default.dependency is not None:
+            dep_fn = default.dependency
+            params.append(ParamDescriptor(
+                name=param.name,
+                kind=KIND_DEP_CALLABLE,
+                dependency=dep_fn,
+                dep_is_async=asyncio.iscoroutinefunction(dep_fn),
+            ))
+            continue
+
+        # 4. Implicit or explicit class dependency (@injectable / Depends())
+        is_implicit = (default is inspect.Parameter.empty and ann in _registry)
+        is_explicit_class = isinstance(default, Depends) and default.dependency is None
+        if is_implicit or is_explicit_class:
+            params.append(ParamDescriptor(
+                name=param.name,
+                kind=KIND_DEP_CLASS,
+                annotation=ann,
+            ))
+            continue
+
+        # 5. Explicit param markers
+        kind = _MARKER_TO_KIND.get(type(default))
+        if kind is not None:
+            pd = _build_typed_descriptor(param.name, kind, ann, default)
+            params.append(pd)
+            continue
+
+        # 6. Implicit path param (no default, name in path template)
+        if default is inspect.Parameter.empty and f"{{{param.name}}}" in path:
+            base_type, is_opt = TypeUtils.unwrap_optional(ann)
+            is_list, item_type = TypeUtils.is_list_type(base_type)
+            params.append(ParamDescriptor(
+                name=param.name,
+                kind=KIND_PATH_IMPLICIT,
+                annotation=ann,
+                base_type=base_type,
+                is_optional=is_opt,
+                is_list=is_list,
+                item_type=item_type,
+            ))
+            continue
+
+    compiled = CompiledEndpoint(func=func, is_async=is_async, params=params)
+    _COMPILED[func] = compiled
+    return compiled
+
+
+def _build_typed_descriptor(name: str, kind: str, ann: Any, marker: Any) -> ParamDescriptor:
+    base_type, is_opt = TypeUtils.unwrap_optional(ann)
+    is_list, item_type = TypeUtils.is_list_type(base_type)
+
+    effective_name = name
+    if kind == KIND_HEADER:
+        effective_name = (
+            marker.alias.lower() if getattr(marker, "alias", None)
+            else TypeUtils.normalize_header_name(name)
+        )
+    elif kind in (KIND_COOKIE, KIND_FORM, KIND_FILE):
+        effective_name = getattr(marker, "alias", None) or name
+
+    decoder = None
+    if kind == KIND_BODY and isinstance(ann, type) and issubclass(ann, Struct):
+        decoder = msgspec.json.Decoder(ann)
+
+    return ParamDescriptor(
+        name=name,
+        kind=kind,
+        annotation=ann,
+        marker=marker,
+        effective_name=effective_name,
+        default=marker.default if hasattr(marker, "default") else inspect.Parameter.empty,
+        is_list=is_list,
+        item_type=item_type,
+        base_type=base_type,
+        is_optional=is_opt,
+        decoder=decoder,
+    )

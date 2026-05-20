@@ -24,9 +24,11 @@ def _orjson_default(obj: Any) -> Any:
     raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
 
 
+_ORJSON_OPTS = orjson.OPT_SERIALIZE_DATACLASS | orjson.OPT_SERIALIZE_UUID | orjson.OPT_UTC_Z
+
+
 def encode_json(obj: Any, option: Optional[int] = None) -> bytes:
-    opts = option or orjson.OPT_SERIALIZE_DATACLASS | orjson.OPT_SERIALIZE_UUID | orjson.OPT_UTC_Z
-    return orjson.dumps(obj, default=_orjson_default, option=opts)
+    return orjson.dumps(obj, default=_orjson_default, option=option or _ORJSON_OPTS)
 
 
 def decode_json(data: Union[bytes, str], type_: Type[T] = Dict[str, Any]) -> T:
