@@ -18,14 +18,16 @@ cdef class _Node:
     cdef public object param_child
     cdef public object param_name
     cdef public dict   handlers
-    cdef public object allowed
+    cdef public object allowed       # set[str] — for add() bookkeeping
+    cdef public str    allow_header  # pre-sorted "GET, POST" string for 405 responses
 
     def __init__(self):
-        self.static      = {}
-        self.param_child = None
-        self.param_name  = None
-        self.handlers    = {}
-        self.allowed     = set()
+        self.static       = {}
+        self.param_child  = None
+        self.param_name   = None
+        self.handlers     = {}
+        self.allowed      = set()
+        self.allow_header = ""
 
 
 cdef class RadixTrie:
@@ -60,6 +62,7 @@ cdef class RadixTrie:
         m = method.upper()
         node.handlers[m] = handler
         node.allowed.add(m)
+        node.allow_header = ", ".join(sorted(node.allowed))
 
     def match(self, path, method):
         """
@@ -81,9 +84,11 @@ cdef class RadixTrie:
 
         handler = node.handlers.get(method.upper())
         if handler is not None:
-            return 2, handler, path_params, None  # _FOUND
+            # Return singleton for empty params — one less dict allocation per static route
+            return 2, handler, path_params if path_params else {}, None  # _FOUND
         if node.allowed:
-            return 1, None, path_params, node.allowed  # _METHOD_NOT_ALLOWED
+            # Return pre-sorted allow_header string — no sorting at request time
+            return 1, None, path_params, node.allow_header  # _METHOD_NOT_ALLOWED
         return 0, None, {}, None  # _NOT_FOUND
 
 

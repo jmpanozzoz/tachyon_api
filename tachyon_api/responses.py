@@ -10,10 +10,19 @@ _CT_JSON = b"application/json"
 _CT_NAME = b"content-type"
 _CL_NAME = b"content-length"
 
-
 # Pre-interned strings for ASGI protocol dict keys
 _ASGI_START = "http.response.start"
 _ASGI_BODY  = "http.response.body"
+
+# Content-length bytes cache — avoids str(n).encode() on every response.
+# Covers 0–8191 bytes which includes almost all JSON API responses.
+_CL_CACHE: dict = {i: str(i).encode() for i in range(8192)}
+
+
+def _cl_bytes(n: int) -> bytes:
+    """Return pre-cached bytes for content-length value n."""
+    cached = _CL_CACHE.get(n)
+    return cached if cached is not None else str(n).encode()
 
 
 class TachyonJSONResponse(JSONResponse):
@@ -28,7 +37,7 @@ class TachyonJSONResponse(JSONResponse):
 
     def __init__(self, content, status_code: int = 200):
         body = encode_json(content)
-        headers = [(_CL_NAME, str(len(body)).encode()), (_CT_NAME, _CT_JSON)]
+        headers = [(_CL_NAME, _cl_bytes(len(body))), (_CT_NAME, _CT_JSON)]
         # Set attrs expected by Response.__call__ (kept for third-party middleware compat)
         self.body = body
         self.status_code = status_code
@@ -52,7 +61,7 @@ class TachyonBytesResponse(JSONResponse):
     media_type = "application/json"
 
     def __init__(self, body: bytes, status_code: int = 200):
-        headers = [(_CL_NAME, str(len(body)).encode()), (_CT_NAME, _CT_JSON)]
+        headers = [(_CL_NAME, _cl_bytes(len(body))), (_CT_NAME, _CT_JSON)]
         self.body = body
         self.status_code = status_code
         self.background = None
@@ -108,7 +117,7 @@ _INTERNAL_ERROR_BODY = encode_json(
     {"success": False, "error": "Internal Server Error", "code": "INTERNAL_SERVER_ERROR"}
 )
 _INTERNAL_ERROR_HEADERS = [
-    (_CL_NAME, str(len(_INTERNAL_ERROR_BODY)).encode()),
+    (_CL_NAME, _cl_bytes(len(_INTERNAL_ERROR_BODY))),
     (_CT_NAME, _CT_JSON),
 ]
 
