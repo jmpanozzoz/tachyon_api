@@ -1,8 +1,10 @@
 # CLAUDE.md — Tachyon API
 
-## Regla innegociable
+## Reglas innegociables
 
-**Nunca incluir "Co-Authored-By: Claude" ni ninguna referencia a Claude o Anthropic en commits, PRs, changelogs ni ningún artefacto del proyecto.** Los commits son de Juan Manuel Panozzo Zenere únicamente.
+**1. Sin Co-Author.** Nunca incluir "Co-Authored-By: Claude" ni ninguna referencia a Claude o Anthropic en commits, PRs, changelogs ni ningún artefacto del proyecto. Los commits son de Juan Manuel Panozzo Zenere únicamente.
+
+**2. Changelog siempre actualizado.** Ante cualquier commit que implique un cambio de versión (major, minor o patch), actualizar `CHANGELOG.md` antes de hacer el commit. Sin excepción. El formato sigue Keep a Changelog. Cada entrada debe tener: versión, fecha, y categorías (Added / Changed / Fixed / Security / Performance / Removed).
 
 ---
 
