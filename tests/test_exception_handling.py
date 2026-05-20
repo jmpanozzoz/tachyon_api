@@ -4,7 +4,7 @@ Release 0.6.3 - Exception Handling
 """
 
 import pytest
-from httpx import AsyncClient, ASGITransport
+from tests.helpers import create_client
 
 
 # =============================================================================
@@ -23,9 +23,7 @@ async def test_http_exception_basic():
     def raise_error():
         raise HTTPException(status_code=404, detail="Item not found")
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as client:
+    async with create_client(app) as client:
         response = await client.get("/error")
         assert response.status_code == 404
         assert response.json() == {"detail": "Item not found"}
@@ -42,9 +40,7 @@ async def test_http_exception_401_unauthorized():
     def protected():
         raise HTTPException(status_code=401, detail="Not authenticated")
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as client:
+    async with create_client(app) as client:
         response = await client.get("/protected")
         assert response.status_code == 401
         assert response.json() == {"detail": "Not authenticated"}
@@ -61,9 +57,7 @@ async def test_http_exception_403_forbidden():
     def admin_only():
         raise HTTPException(status_code=403, detail="Forbidden")
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as client:
+    async with create_client(app) as client:
         response = await client.get("/admin")
         assert response.status_code == 403
         assert response.json() == {"detail": "Forbidden"}
@@ -84,9 +78,7 @@ async def test_http_exception_with_headers():
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as client:
+    async with create_client(app) as client:
         response = await client.get("/auth")
         assert response.status_code == 401
         assert response.headers.get("WWW-Authenticate") == "Bearer"
@@ -104,9 +96,7 @@ async def test_http_exception_500_server_error():
     def server_fail():
         raise HTTPException(status_code=500, detail="Internal error")
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as client:
+    async with create_client(app) as client:
         response = await client.get("/fail")
         assert response.status_code == 500
         assert response.json() == {"detail": "Internal error"}
@@ -138,9 +128,7 @@ async def test_custom_exception_handler_decorator():
     def raise_custom():
         raise CustomError("Something went wrong")
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as client:
+    async with create_client(app) as client:
         response = await client.get("/custom")
         assert response.status_code == 418
         assert response.json() == {"custom_error": "Something went wrong"}
@@ -165,9 +153,7 @@ async def test_custom_exception_handler_sync():
     def validate():
         raise ValidationError()
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as client:
+    async with create_client(app) as client:
         response = await client.get("/validate")
         assert response.status_code == 400
         assert response.json() == {"error": "Validation failed"}
@@ -192,9 +178,7 @@ async def test_exception_handler_receives_request():
     def test_path():
         raise PathError()
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as client:
+    async with create_client(app) as client:
         response = await client.get("/test-path")
         assert response.status_code == 500
         assert response.json() == {"path": "/test-path"}
@@ -230,9 +214,7 @@ async def test_multiple_exception_handlers():
     def raise_b():
         raise ErrorB()
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as client:
+    async with create_client(app) as client:
         resp_a = await client.get("/error-a")
         assert resp_a.status_code == 400
         assert resp_a.json() == {"type": "A"}
@@ -260,9 +242,7 @@ async def test_override_http_exception_handler():
     def not_found():
         raise HTTPException(status_code=404, detail="Not found")
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as client:
+    async with create_client(app) as client:
         response = await client.get("/not-found")
         assert response.status_code == 404
         assert response.json() == {"error": "Not found", "custom": True}
@@ -279,8 +259,6 @@ async def test_unhandled_exception_returns_500():
     def crash():
         raise RuntimeError("Unexpected error")
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as client:
+    async with create_client(app) as client:
         response = await client.get("/crash")
         assert response.status_code == 500

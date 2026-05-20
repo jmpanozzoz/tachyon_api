@@ -11,9 +11,8 @@ This feature adds support for:
 """
 
 import pytest
-from httpx import AsyncClient, ASGITransport
-
 from tachyon_api import Tachyon, Depends
+from tests.helpers import create_client
 from tachyon_api.params import Header
 
 
@@ -45,17 +44,13 @@ def get_settings():
 
 @pytest.mark.asyncio
 async def test_depends_with_sync_function():
-    """
-    Test that Depends() works with a regular sync function.
-    """
     app = Tachyon()
 
     @app.get("/db")
     def check_db(db=Depends(get_db_connection)):
         return {"db_type": db["type"], "connected": db["connected"]}
 
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+    async with create_client(app) as client:
         response = await client.get("/db")
 
     assert response.status_code == 200
@@ -66,17 +61,13 @@ async def test_depends_with_sync_function():
 
 @pytest.mark.asyncio
 async def test_depends_with_async_function():
-    """
-    Test that Depends() works with an async function.
-    """
     app = Tachyon()
 
     @app.get("/service")
     async def check_service(svc=Depends(get_async_service)):
         return {"service": svc["service"], "ready": svc["ready"]}
 
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+    async with create_client(app) as client:
         response = await client.get("/service")
 
     assert response.status_code == 200
@@ -87,17 +78,13 @@ async def test_depends_with_async_function():
 
 @pytest.mark.asyncio
 async def test_depends_with_lambda():
-    """
-    Test that Depends() works with a lambda function.
-    """
     app = Tachyon()
 
     @app.get("/config")
     def get_config(config=Depends(lambda: {"env": "test", "port": 8000})):
         return config
 
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+    async with create_client(app) as client:
         response = await client.get("/config")
 
     assert response.status_code == 200
@@ -108,9 +95,6 @@ async def test_depends_with_lambda():
 
 @pytest.mark.asyncio
 async def test_depends_multiple_callables():
-    """
-    Test that multiple Depends(callable) work together.
-    """
     app = Tachyon()
 
     @app.get("/status")
@@ -125,8 +109,7 @@ async def test_depends_multiple_callables():
             "debug": settings["debug"],
         }
 
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+    async with create_client(app) as client:
         response = await client.get("/status")
 
     assert response.status_code == 200
@@ -138,9 +121,6 @@ async def test_depends_multiple_callables():
 
 @pytest.mark.asyncio
 async def test_depends_callable_with_other_params():
-    """
-    Test that Depends(callable) works alongside Query, Header, etc.
-    """
     app = Tachyon()
 
     from tachyon_api.params import Query
@@ -157,8 +137,7 @@ async def test_depends_callable_with_other_params():
             "searched_by": user["name"],
         }
 
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+    async with create_client(app) as client:
         response = await client.get(
             "/search?q=tachyon", headers={"Authorization": "Bearer token"}
         )
@@ -172,9 +151,6 @@ async def test_depends_callable_with_other_params():
 
 @pytest.mark.asyncio
 async def test_depends_nested_callables():
-    """
-    Test that dependencies can depend on other dependencies (nested).
-    """
     app = Tachyon()
 
     def get_db():
@@ -190,8 +166,7 @@ async def test_depends_nested_callables():
             "db_status": repo["db"]["connection"],
         }
 
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+    async with create_client(app) as client:
         response = await client.get("/repo")
 
     assert response.status_code == 200
@@ -222,8 +197,7 @@ async def test_depends_callable_caching():
         # Both should receive the same instance (cached)
         return {"dep1": dep1["count"], "dep2": dep2["count"]}
 
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+    async with create_client(app) as client:
         call_count = 0  # Reset before request
         response = await client.get("/count")
 

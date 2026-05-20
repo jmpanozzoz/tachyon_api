@@ -11,9 +11,8 @@ Features to test:
 """
 
 import pytest
-from httpx import AsyncClient, ASGITransport
-
 from tachyon_api import Tachyon
+from tests.helpers import create_client
 from tachyon_api.params import Form, File
 from tachyon_api.files import UploadFile
 
@@ -23,17 +22,13 @@ from tachyon_api.files import UploadFile
 
 @pytest.mark.asyncio
 async def test_form_required_parameter():
-    """
-    Test that a required Form parameter is extracted correctly.
-    """
     app = Tachyon()
 
     @app.post("/login")
     async def login(username: str = Form(...), password: str = Form(...)):
         return {"username": username, "authenticated": True}
 
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+    async with create_client(app) as client:
         response = await client.post(
             "/login", data={"username": "john", "password": "secret123"}
         )
@@ -46,17 +41,13 @@ async def test_form_required_parameter():
 
 @pytest.mark.asyncio
 async def test_form_missing_required_returns_422():
-    """
-    Test that missing required form field returns 422.
-    """
     app = Tachyon()
 
     @app.post("/login")
     async def login(username: str = Form(...)):
         return {"username": username}
 
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+    async with create_client(app) as client:
         response = await client.post("/login", data={})
 
     assert response.status_code == 422
@@ -64,17 +55,13 @@ async def test_form_missing_required_returns_422():
 
 @pytest.mark.asyncio
 async def test_form_optional_with_default():
-    """
-    Test that optional form field uses default value when not provided.
-    """
     app = Tachyon()
 
     @app.post("/settings")
     async def settings(theme: str = Form("light"), lang: str = Form("en")):
         return {"theme": theme, "lang": lang}
 
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+    async with create_client(app) as client:
         # Without form data
         response = await client.post("/settings", data={})
         assert response.status_code == 200
@@ -92,9 +79,6 @@ async def test_form_optional_with_default():
 
 @pytest.mark.asyncio
 async def test_file_upload_basic():
-    """
-    Test basic file upload with UploadFile.
-    """
     app = Tachyon()
 
     @app.post("/upload")
@@ -106,8 +90,7 @@ async def test_file_upload_basic():
             "content_type": file.content_type,
         }
 
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+    async with create_client(app) as client:
         files = {"file": ("test.txt", b"Hello, World!", "text/plain")}
         response = await client.post("/upload", files=files)
 
@@ -120,9 +103,6 @@ async def test_file_upload_basic():
 
 @pytest.mark.asyncio
 async def test_file_upload_read_content():
-    """
-    Test reading file content from UploadFile.
-    """
     app = Tachyon()
 
     @app.post("/read-file")
@@ -130,8 +110,7 @@ async def test_file_upload_read_content():
         content = await file.read()
         return {"content": content.decode("utf-8")}
 
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+    async with create_client(app) as client:
         files = {"file": ("hello.txt", b"Hello from file!", "text/plain")}
         response = await client.post("/read-file", files=files)
 
@@ -141,9 +120,6 @@ async def test_file_upload_read_content():
 
 @pytest.mark.asyncio
 async def test_multiple_file_uploads():
-    """
-    Test uploading multiple files.
-    """
     app = Tachyon()
 
     @app.post("/multi-upload")
@@ -156,8 +132,7 @@ async def test_multiple_file_uploads():
             "file2": file2.filename,
         }
 
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+    async with create_client(app) as client:
         files = [
             ("file1", ("first.txt", b"First file", "text/plain")),
             ("file2", ("second.txt", b"Second file", "text/plain")),
@@ -172,9 +147,6 @@ async def test_multiple_file_uploads():
 
 @pytest.mark.asyncio
 async def test_file_with_form_data():
-    """
-    Test combining file upload with form data.
-    """
     app = Tachyon()
 
     @app.post("/profile")
@@ -191,8 +163,7 @@ async def test_file_with_form_data():
             "avatar_size": len(content),
         }
 
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+    async with create_client(app) as client:
         response = await client.post(
             "/profile",
             data={"name": "John Doe", "bio": "Developer"},
@@ -208,9 +179,6 @@ async def test_file_with_form_data():
 
 @pytest.mark.asyncio
 async def test_optional_file_upload():
-    """
-    Test optional file upload (not required).
-    """
     app = Tachyon()
 
     @app.post("/optional-upload")
@@ -222,8 +190,7 @@ async def test_optional_file_upload():
             return {"name": name, "has_file": True, "filename": file.filename}
         return {"name": name, "has_file": False}
 
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+    async with create_client(app) as client:
         # Without file
         response = await client.post("/optional-upload", data={"name": "Test"})
         assert response.status_code == 200
@@ -240,10 +207,25 @@ async def test_optional_file_upload():
 
 
 @pytest.mark.asyncio
+async def test_file_upload_with_alias():
+    app = Tachyon()
+
+    @app.post("/upload-alias")
+    async def upload_alias(document: UploadFile = File(..., alias="doc")):
+        content = await document.read()
+        return {"filename": document.filename, "size": len(content)}
+
+    async with create_client(app) as client:
+        files = {"doc": ("report.pdf", b"PDF data", "application/pdf")}
+        response = await client.post("/upload-alias", files=files)
+
+    assert response.status_code == 200
+    assert response.json()["filename"] == "report.pdf"
+    assert response.json()["size"] == 8
+
+
+@pytest.mark.asyncio
 async def test_upload_file_seek_and_read():
-    """
-    Test UploadFile seek() and multiple read() operations.
-    """
     app = Tachyon()
 
     @app.post("/seek-test")
@@ -260,8 +242,7 @@ async def test_upload_file_seek_and_read():
             "equal": content1 == content2,
         }
 
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+    async with create_client(app) as client:
         files = {"file": ("data.bin", b"some binary data", "application/octet-stream")}
         response = await client.post("/seek-test", files=files)
 

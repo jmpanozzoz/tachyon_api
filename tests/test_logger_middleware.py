@@ -1,8 +1,7 @@
 import logging
 import pytest
-from httpx import AsyncClient, ASGITransport
-
 from tachyon_api import Tachyon
+from tests.helpers import create_client
 from tachyon_api.middlewares import LoggerMiddleware
 
 
@@ -40,8 +39,7 @@ async def test_logger_middleware_basic_logging():
     def endpoint():
         return {"ok": True}
 
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+    async with create_client(app) as client:
         response = await client.get(
             "/log-test", headers={"X-Test": "1", "Authorization": "secret"}
         )

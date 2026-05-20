@@ -1,7 +1,6 @@
 import pytest
-from httpx import AsyncClient, ASGITransport
-
 from tachyon_api import Tachyon, Query
+from tests.helpers import create_client
 
 
 @pytest.mark.asyncio
@@ -12,8 +11,7 @@ async def test_openapi_includes_422_and_500_error_responses():
     def items(q: str = Query(...)):
         return {"q": q}
 
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+    async with create_client(app) as client:
         schema = (await client.get("/openapi.json")).json()
 
     op = schema["paths"]["/items"]["get"]

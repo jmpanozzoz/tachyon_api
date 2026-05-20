@@ -1,8 +1,7 @@
-from httpx import AsyncClient, ASGITransport
 from typing import Optional, List
 import pytest
-
 from tachyon_api import Tachyon, Query
+from tests.helpers import create_client
 
 
 @pytest.mark.asyncio
@@ -13,8 +12,7 @@ async def test_openapi_query_list_of_optional_items():
     def get_opt(items: List[Optional[int]] = Query(...)):
         return {"items": items}
 
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+    async with create_client(app) as client:
         schema = (await client.get("/openapi.json")).json()
 
     op = schema["paths"]["/opt"]["get"]

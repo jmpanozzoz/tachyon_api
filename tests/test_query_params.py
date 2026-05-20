@@ -1,6 +1,6 @@
 import pytest
-from httpx import AsyncClient, ASGITransport
 from tachyon_api import Tachyon
+from tests.helpers import create_client
 from tachyon_api.params import Query
 
 
@@ -19,7 +19,6 @@ from tachyon_api.params import Query
     ],
 )
 async def test_query_params_success_cases(url, expected_json):
-    """Test cases for successful query parameter handling in Tachyon API."""
     # Create a Tachyon instance for this specific test
     app = Tachyon()
 
@@ -31,8 +30,7 @@ async def test_query_params_success_cases(url, expected_json):
     ):
         return {"name": name, "limit": limit, "active": is_active}
 
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+    async with create_client(app) as client:
         response = await client.get(url)
 
     assert response.status_code == 200
@@ -48,7 +46,6 @@ async def test_query_params_success_cases(url, expected_json):
     ],
 )
 async def test_query_params_error_cases(url, expected_detail_part):
-    """Test cases for error handling in query parameter processing."""
     # Create a Tachyon instance for this specific test
     app = Tachyon()
 
@@ -60,8 +57,7 @@ async def test_query_params_error_cases(url, expected_detail_part):
     ):
         return {"name": name, "limit": limit, "active": is_active}
 
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+    async with create_client(app) as client:
         response = await client.get(url)
 
     # The framework now uses 422 for parameter validation errors

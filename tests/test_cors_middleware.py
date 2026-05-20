@@ -1,7 +1,6 @@
 import pytest
-from httpx import AsyncClient, ASGITransport
-
 from tachyon_api import Tachyon
+from tests.helpers import create_client
 from tachyon_api.middlewares import CORSMiddleware
 
 
@@ -24,8 +23,7 @@ async def test_cors_preflight_allows_any_origin_no_credentials():
     def preflight_target():
         return {"ok": True}
 
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+    async with create_client(app) as client:
         headers = {
             "Origin": "http://example.com",
             "Access-Control-Request-Method": "GET",
@@ -66,8 +64,7 @@ async def test_cors_preflight_echo_origin_with_credentials():
     def target():
         return {"ok": True}
 
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+    async with create_client(app) as client:
         headers = {
             "Origin": "http://example.com",
             "Access-Control-Request-Method": "POST",
@@ -98,8 +95,7 @@ async def test_cors_normal_request_injects_headers():
     def items():
         return {"items": []}
 
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+    async with create_client(app) as client:
         response = await client.get("/items", headers={"Origin": "http://example.com"})
 
     assert response.status_code == 200

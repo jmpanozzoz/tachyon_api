@@ -1,6 +1,6 @@
 import pytest
-from httpx import AsyncClient, ASGITransport
 from tachyon_api import Tachyon
+from tests.helpers import create_client
 from tachyon_api.params import Body
 from tachyon_api.models import Struct
 
@@ -14,9 +14,6 @@ class Item(Struct):
 
 @pytest.mark.asyncio
 async def test_valid_body_is_processed():
-    """
-    Test that a valid body is processed correctly by the endpoint.
-    """
     # Create a Tachyon instance for this specific test
     app = Tachyon()
 
@@ -29,8 +26,7 @@ async def test_valid_body_is_processed():
             "item_price": item.price,
         }
 
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+    async with create_client(app) as client:
         response = await client.post(
             "/items", json={"name": "Tachyon Core", "price": 99.99}
         )
@@ -41,9 +37,6 @@ async def test_valid_body_is_processed():
 
 @pytest.mark.asyncio
 async def test_invalid_body_returns_422():
-    """
-    Test that an invalid body returns a 422 status code with validation errors.
-    """
     # Create a Tachyon instance for this specific test
     app = Tachyon()
 
@@ -56,8 +49,7 @@ async def test_invalid_body_returns_422():
             "item_price": item.price,
         }
 
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+    async with create_client(app) as client:
         response = await client.post(
             "/items", json={"name": "Defective Core", "price": "barato"}
         )
@@ -65,3 +57,31 @@ async def test_invalid_body_returns_422():
     assert response.status_code == 422
     assert "price" in response.text
     assert "str" in response.text
+
+
+@pytest.mark.asyncio
+async def test_empty_body_returns_422():
+    app = Tachyon()
+
+    @app.post("/items")
+    def create_item(item: Item = Body()):
+        return {"name": item.name}
+
+    async with create_client(app) as client:
+        response = await client.post("/items", content=b"", headers={"content-type": "application/json"})
+
+    assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_body_missing_required_field_returns_422():
+    app = Tachyon()
+
+    @app.post("/items")
+    def create_item(item: Item = Body()):
+        return {"name": item.name, "price": item.price}
+
+    async with create_client(app) as client:
+        response = await client.post("/items", json={"name": "only name"})
+
+    assert response.status_code == 422

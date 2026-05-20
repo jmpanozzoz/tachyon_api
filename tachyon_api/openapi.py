@@ -1,11 +1,24 @@
-from typing import Dict, Any, Optional, List, Type
+from typing import Dict, Any, Optional, List, Type, Callable
 from dataclasses import dataclass, field
 import datetime
+import html
+import inspect
 import uuid
 import json
 
 from .models import Struct
 from .utils import TypeUtils, OPENAPI_TYPE_MAP
+
+
+def _safe_json(value: Any) -> str:
+    """JSON-encode a value safe for embedding inside a <script> tag.
+    Escapes <, >, and & so browsers cannot interpret them as HTML tags."""
+    return (
+        json.dumps(value, ensure_ascii=True)
+        .replace("<", "\\u003c")
+        .replace(">", "\\u003e")
+        .replace("&", "\\u0026")
+    )
 
 
 def _schema_for_python_type(
@@ -98,33 +111,20 @@ def build_components_for_struct(
 
 @dataclass
 class Contact:
-    """Contact information for the API"""
-
     name: Optional[str] = None
     url: Optional[str] = None
     email: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
-        """Convert to OpenAPI contact object"""
-        result = {}
-        if self.name:
-            result["name"] = self.name
-        if self.url:
-            result["url"] = self.url
-        if self.email:
-            result["email"] = self.email
-        return result
+        return {k: v for k, v in {"name": self.name, "url": self.url, "email": self.email}.items() if v}
 
 
 @dataclass
 class License:
-    """License information for the API"""
-
     name: str
     url: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
-        """Convert to OpenAPI license object"""
         result = {"name": self.name}
         if self.url:
             result["url"] = self.url
@@ -133,8 +133,6 @@ class License:
 
 @dataclass
 class Info:
-    """General information about the API"""
-
     title: str = "Tachyon API"
     description: Optional[str] = "A fast API built with Tachyon"
     version: str = "0.1.0"
@@ -143,7 +141,6 @@ class Info:
     license: Optional[License] = None
 
     def to_dict(self) -> Dict[str, Any]:
-        """Convert to OpenAPI info object"""
         result: Dict[str, Any] = {"title": self.title, "version": self.version}
         if self.description:
             result["description"] = self.description
@@ -158,13 +155,10 @@ class Info:
 
 @dataclass
 class Server:
-    """Server information"""
-
     url: str
     description: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
-        """Convert to OpenAPI server object"""
         result = {"url": self.url}
         if self.description:
             result["description"] = self.description
@@ -173,21 +167,14 @@ class Server:
 
 @dataclass
 class OpenAPIConfig:
-    """Configuration for OpenAPI/Swagger documentation"""
-
     info: Info = field(default_factory=Info)
     servers: List[Server] = field(default_factory=list)
     openapi_version: str = "3.0.0"
     docs_url: str = "/docs"
     redoc_url: str = "/redoc"
     openapi_url: str = "/openapi.json"
-    include_in_schema: bool = True
-    # Scalar configuration
     scalar_js_url: str = "https://cdn.jsdelivr.net/npm/@scalar/api-reference"
     scalar_favicon_url: str = "https://fastapi.tiangolo.com/img/favicon.png"
-    # Swagger UI configuration (legacy support)
-    swagger_ui_oauth2_redirect_url: Optional[str] = None
-    swagger_ui_init_oauth: Optional[Dict[str, Any]] = None
     swagger_ui_parameters: Optional[Dict[str, Any]] = None
     swagger_favicon_url: str = "https://fastapi.tiangolo.com/img/favicon.png"
     swagger_js_url: str = (
@@ -201,35 +188,23 @@ class OpenAPIConfig:
     )
 
     def to_openapi_dict(self) -> Dict[str, Any]:
-        """Generate the complete OpenAPI dictionary"""
         openapi_dict = {
             "openapi": self.openapi_version,
             "info": self.info.to_dict(),
             "paths": {},
             "components": {"schemas": {}},
         }
-
         if self.servers:
             openapi_dict["servers"] = [server.to_dict() for server in self.servers]
-
         return openapi_dict
 
 
 class OpenAPIGenerator:
-    """Generator for OpenAPI documentation"""
-
     def __init__(self, config: Optional[OpenAPIConfig] = None):
-        """
-        Initialize the OpenAPI generator.
-
-        Args:
-            config: Optional OpenAPI configuration. Uses defaults if not provided.
-        """
         self.config = config or OpenAPIConfig()
         self._openapi_schema: Optional[Dict[str, Any]] = None
 
     def get_openapi_schema(self) -> Dict[str, Any]:
-        """Get the complete OpenAPI schema"""
         if self._openapi_schema is None:
             self._openapi_schema = self.config.to_openapi_dict()
         return self._openapi_schema
@@ -237,23 +212,23 @@ class OpenAPIGenerator:
     def get_swagger_ui_html(self, openapi_url: str, title: str) -> str:
         """Generate HTML for Swagger UI"""
         swagger_ui_parameters = self.config.swagger_ui_parameters or {}
+        params_json = _safe_json(swagger_ui_parameters)
+        safe_url = _safe_json(openapi_url)
+        safe_title = html.escape(title)
 
-        # Serialize parameters to JSON safely
-        params_json = json.dumps(swagger_ui_parameters)
-
-        html = f"""<!DOCTYPE html>
+        return f"""<!DOCTYPE html>
 <html>
 <head>
     <link type="text/css" rel="stylesheet" href="{self.config.swagger_css_url}">
     <link rel="shortcut icon" href="{self.config.swagger_favicon_url}">
-    <title>{title}</title>
+    <title>{safe_title}</title>
 </head>
 <body>
     <div id="swagger-ui"></div>
     <script src="{self.config.swagger_js_url}"></script>
     <script>
     const ui = SwaggerUIBundle({{
-        url: '{openapi_url}',
+        url: {safe_url},
         dom_id: '#swagger-ui',
         presets: [
             SwaggerUIBundle.presets.apis,
@@ -265,14 +240,16 @@ class OpenAPIGenerator:
     </script>
 </body>
 </html>"""
-        return html
 
     def get_redoc_html(self, openapi_url: str, title: str) -> str:
         """Generate HTML for ReDoc"""
-        html = f"""<!DOCTYPE html>
+        safe_url = html.escape(openapi_url, quote=True)
+        safe_title = html.escape(title)
+
+        return f"""<!DOCTYPE html>
 <html>
 <head>
-    <title>{title}</title>
+    <title>{safe_title}</title>
     <meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link href="https://fonts.googleapis.com/css?family=Montserrat:300,400,700|Roboto:300,400,700" rel="stylesheet">
@@ -284,18 +261,20 @@ class OpenAPIGenerator:
     </style>
 </head>
 <body>
-    <redoc spec-url='{openapi_url}'></redoc>
+    <redoc spec-url='{safe_url}'></redoc>
     <script src="{self.config.redoc_js_url}"></script>
 </body>
 </html>"""
-        return html
 
     def get_scalar_html(self, openapi_url: str, title: str) -> str:
         """Generate HTML for Scalar API Reference"""
-        html = f"""<!DOCTYPE html>
+        safe_url = html.escape(openapi_url, quote=True)
+        safe_title = html.escape(title)
+
+        return f"""<!DOCTYPE html>
 <html>
 <head>
-    <title>{title}</title>
+    <title>{safe_title}</title>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="shortcut icon" href="{self.config.scalar_favicon_url}">
@@ -309,40 +288,137 @@ class OpenAPIGenerator:
 <body>
     <script
         id="api-reference"
-        data-url="{openapi_url}"
+        data-url="{safe_url}"
         src="{self.config.scalar_js_url}"></script>
 </body>
 </html>"""
-        return html
 
     def add_path(self, path: str, method: str, operation_data: Dict[str, Any]) -> None:
-        """
-        Add a path operation to the OpenAPI schema.
-
-        Args:
-            path: The URL path (e.g., "/items/{item_id}")
-            method: HTTP method (e.g., "get", "post")
-            operation_data: OpenAPI operation object
-        """
         if self._openapi_schema is None:
             self._openapi_schema = self.config.to_openapi_dict()
         if path not in self._openapi_schema["paths"]:
             self._openapi_schema["paths"][path] = {}
-
         self._openapi_schema["paths"][path][method.lower()] = operation_data
 
     def add_schema(self, name: str, schema_data: Dict[str, Any]) -> None:
-        """
-        Add a component schema to the OpenAPI specification.
-
-        Args:
-            name: Schema name (e.g., "Item", "User")
-            schema_data: OpenAPI schema object
-        """
         if self._openapi_schema is None:
             self._openapi_schema = self.config.to_openapi_dict()
-
         self._openapi_schema["components"]["schemas"][name] = schema_data
+
+    def generate_route(self, path: str, method: str, endpoint_func: Callable, **kwargs: Any) -> None:
+        """Introspect endpoint_func and register its OpenAPI operation."""
+        from .params import Body, Query, Path, Header, Cookie
+        from .di import Depends, _registry
+
+        sig = inspect.signature(endpoint_func)
+        operation: Dict[str, Any] = {
+            "summary": kwargs.get("summary", _summary_from_func(endpoint_func)),
+            "description": kwargs.get("description", endpoint_func.__doc__ or ""),
+            "responses": {
+                "200": {
+                    "description": "Successful Response",
+                    "content": {"application/json": {"schema": {"type": "object"}}},
+                },
+                "422": {
+                    "description": "Validation Error",
+                    "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ValidationErrorResponse"}}},
+                },
+                "500": {
+                    "description": "Response Validation Error",
+                    "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ResponseValidationError"}}},
+                },
+            },
+        }
+
+        response_model = kwargs.get("response_model")
+        try:
+            is_struct = (
+                response_model is not None
+                and isinstance(response_model, type)
+                and issubclass(response_model, Struct)
+            )
+        except TypeError:
+            is_struct = False
+        if is_struct:
+            for name, schema in build_components_for_struct(response_model).items():
+                self.add_schema(name, schema)
+            operation["responses"]["200"]["content"]["application/json"]["schema"] = {
+                "$ref": f"#/components/schemas/{response_model.__name__}"
+            }
+
+        if "tags" in kwargs:
+            operation["tags"] = kwargs["tags"]
+
+        _PARAM_IN = {Query: "query", Header: "header", Cookie: "cookie"}
+        parameters: List[Dict[str, Any]] = []
+        request_body_schema = None
+
+        for param in sig.parameters.values():
+            if isinstance(param.default, Depends) or (
+                param.default is inspect.Parameter.empty and param.annotation in _registry
+            ):
+                continue
+
+            for param_cls, location in _PARAM_IN.items():
+                if isinstance(param.default, param_cls):
+                    parameters.append({
+                        "name": param.name,
+                        "in": location,
+                        "required": param.default.default is ...,
+                        "schema": build_param_schema(param.annotation),
+                        "description": getattr(param.default, "description", ""),
+                    })
+                    break
+            else:
+                if isinstance(param.default, Path) or f"{{{param.name}}}" in path:
+                    parameters.append({
+                        "name": param.name,
+                        "in": "path",
+                        "required": True,
+                        "schema": build_param_schema(param.annotation),
+                        "description": getattr(param.default, "description", "") if isinstance(param.default, Path) else "",
+                    })
+                elif (
+                    isinstance(param.default, Body)
+                    and isinstance(param.annotation, type)
+                    and issubclass(param.annotation, Struct)
+                ):
+                    for name, schema in build_components_for_struct(param.annotation).items():
+                        self.add_schema(name, schema)
+                    request_body_schema = {
+                        "content": {"application/json": {"schema": {"$ref": f"#/components/schemas/{param.annotation.__name__}"}}},
+                        "required": True,
+                    }
+
+        if parameters:
+            operation["parameters"] = parameters
+        if request_body_schema:
+            operation["requestBody"] = request_body_schema
+
+        self.add_path(path, method, operation)
+
+
+def build_param_schema(python_type: Type) -> Dict[str, Any]:
+    """Build an OpenAPI schema for a simple parameter type (scalar, list, optional)."""
+    inner_type, nullable = TypeUtils.unwrap_optional(python_type)
+    is_list, item_type = TypeUtils.is_list_type(inner_type)
+    if is_list:
+        base_item_type, item_nullable = TypeUtils.unwrap_optional(item_type)
+        schema: Dict[str, Any] = {
+            "type": "array",
+            "items": {"type": TypeUtils.get_openapi_type(base_item_type)},
+        }
+        if item_nullable:
+            schema["items"]["nullable"] = True
+    else:
+        schema = {"type": TypeUtils.get_openapi_type(inner_type)}
+    if nullable:
+        schema["nullable"] = True
+    return schema
+
+
+def _summary_from_func(func: Callable) -> str:
+    return func.__name__.replace("_", " ").title()
 
 
 def create_openapi_config(
@@ -357,42 +433,14 @@ def create_openapi_config(
     license: Optional[License] = None,
     servers: Optional[List[Server]] = None,
     terms_of_service: Optional[str] = None,
-    # Scalar configuration
     scalar_js_url: str = "https://cdn.jsdelivr.net/npm/@scalar/api-reference",
     scalar_favicon_url: str = "https://fastapi.tiangolo.com/img/favicon.png",
-    # Swagger UI configuration (legacy support)
     swagger_ui_parameters: Optional[Dict[str, Any]] = None,
     swagger_favicon_url: str = "https://fastapi.tiangolo.com/img/favicon.png",
     swagger_js_url: str = "https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui-bundle.js",
     swagger_css_url: str = "https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui.css",
     redoc_js_url: str = "https://cdn.jsdelivr.net/npm/redoc@next/bundles/redoc.standalone.js",
 ) -> OpenAPIConfig:
-    """
-    Create a customizable OpenAPI configuration similar to FastAPI.
-
-    Args:
-        title: API title
-        description: API description
-        version: API version
-        openapi_version: OpenAPI specification version
-        docs_url: URL for Scalar API Reference documentation (default)
-        redoc_url: URL for ReDoc documentation
-        openapi_url: URL for OpenAPI JSON schema
-        contact: Contact information
-        license: License information
-        servers: List of servers
-        terms_of_service: Terms of service URL
-        scalar_js_url: Scalar API Reference JavaScript URL
-        scalar_favicon_url: Favicon URL for Scalar
-        swagger_ui_parameters: Additional Swagger UI parameters
-        swagger_favicon_url: Favicon URL for Swagger UI
-        swagger_js_url: Swagger UI JavaScript URL
-        swagger_css_url: Swagger UI CSS URL
-        redoc_js_url: ReDoc JavaScript URL
-
-    Returns:
-        Configured OpenAPIConfig instance
-    """
     info = Info(
         title=title,
         description=description,

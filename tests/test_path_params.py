@@ -1,14 +1,13 @@
+import uuid
 import pytest
-from httpx import AsyncClient, ASGITransport
+from tachyon_api import Tachyon
+from tachyon_api.params import Path
+from tests.helpers import create_client
 
 
 @pytest.mark.asyncio
 async def test_path_param_is_extracted_and_converted(app):
-    """
-    Test that a path parameter is correctly extracted and converted to the expected type.
-    """
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+    async with create_client(app) as client:
         response = await client.get("/items/123")
 
     assert response.status_code == 200
@@ -17,11 +16,38 @@ async def test_path_param_is_extracted_and_converted(app):
 
 @pytest.mark.asyncio
 async def test_path_param_with_invalid_type_returns_404(app):
-    """
-    Test that a path parameter with an invalid type (e.g., non-integer) returns a 404 status code.
-    """
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+    async with create_client(app) as client:
         response = await client.get("/items/abc")
 
     assert response.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_path_param_uuid():
+    app = Tachyon()
+    sample_id = uuid.uuid4()
+
+    @app.get("/resources/{resource_id}")
+    def get_resource(resource_id: uuid.UUID = Path()):
+        return {"id": str(resource_id)}
+
+    async with create_client(app) as client:
+        response = await client.get(f"/resources/{sample_id}")
+
+    assert response.status_code == 200
+    assert response.json()["id"] == str(sample_id)
+
+
+@pytest.mark.asyncio
+async def test_path_param_float():
+    app = Tachyon()
+
+    @app.get("/price/{value}")
+    def get_price(value: float = Path()):
+        return {"value": value}
+
+    async with create_client(app) as client:
+        response = await client.get("/price/3.14")
+
+    assert response.status_code == 200
+    assert response.json()["value"] == pytest.approx(3.14)
