@@ -279,6 +279,59 @@ my-api/
 
 ---
 
+## ⚡ Production Performance
+
+### ✅ Use uvloop and httptools
+
+```bash
+uvicorn app:app --loop uvloop --http httptools --workers 4
+```
+
+- `uvloop`: Cython-based event loop, ~20% faster than asyncio
+- `httptools`: C-based HTTP parser, faster than h11
+- `--workers N`: multiple processes for CPU-bound workloads
+
+### ✅ Install Cython extensions
+
+```bash
+pip install tachyon-api[fast]
+python setup.py build_ext --inplace
+```
+
+Compiles the radix trie router and parameter processor to C. Pure Python fallback if not compiled.
+
+### ✅ Prefer `@injectable` over `Depends(factory)`
+
+`@injectable` creates a singleton once at startup. `Depends(factory)` creates a new instance
+per request unless you add `@lru_cache`. Use `@injectable` for stateless services.
+
+### ✅ Return `Struct` from endpoints instead of plain dicts
+
+```python
+class UserResponse(Struct):
+    id: int
+    name: str
+
+@app.get("/users/{id}", response_model=UserResponse)
+def get_user(id: int) -> UserResponse:
+    return UserResponse(id=id, name="Alice")  # uses msgspec.json.encode directly
+```
+
+Structs serialize via `msgspec.json.encode()` (pure C), avoiding the Python intermediate step
+that dict responses require.
+
+### ✅ Minimize middleware
+
+Each middleware adds overhead to every request. Register only what you need:
+
+```python
+# Only add what you actually need
+app.add_middleware(CORSMiddleware, allow_origins=["*"])  # if you need CORS
+# Skip LoggerMiddleware in high-throughput production
+```
+
+---
+
 ## 📋 Checklist
 
 - [ ] Controllers solo manejan HTTP
@@ -290,6 +343,8 @@ my-api/
 - [ ] Tests por capas
 - [ ] Cache donde aplique
 - [ ] Background tasks para trabajo pesado
+- [ ] uvloop + httptools en producción
+- [ ] `pip install tachyon-api[fast]` para extensiones Cython
 
 ---
 
