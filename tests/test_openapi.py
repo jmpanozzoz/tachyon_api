@@ -232,3 +232,46 @@ def test_scalar_html_generation():
     assert 'data-url="/openapi.json"' in html
     assert "Test API" in html
     assert config.scalar_js_url in html
+
+
+def test_generic_response_model_does_not_raise():
+    """response_model=List[Item] must not crash (was raising TypeError with issubclass)."""
+    from typing import List
+    from tachyon_api.params import Query
+
+    app = Tachyon()
+
+    @app.get("/items", response_model=List[Item])
+    def list_items(limit: int = Query(10)):
+        return []
+
+    schema = app.openapi_generator.get_openapi_schema()
+    assert "/items" in schema["paths"]
+
+
+def test_openapi_body_param_struct_adds_component():
+    """Body params with Struct annotation register a component schema."""
+    app = Tachyon()
+
+    @app.post("/create")
+    def create(payload: Item = Body()):
+        return {}
+
+    schema = app.openapi_generator.get_openapi_schema()
+    assert "Item" in schema["components"]["schemas"]
+    assert "requestBody" in schema["paths"]["/create"]["post"]
+
+
+def test_openapi_html_escapes_special_chars_in_url():
+    """OpenAPI HTML generators must escape URLs to prevent XSS."""
+    config = create_openapi_config()
+    generator = OpenAPIGenerator(config)
+
+    malicious_url = '/api"</script><script>alert(1)</script>'
+    swagger_html = generator.get_swagger_ui_html(malicious_url, "Test")
+    redoc_html = generator.get_redoc_html(malicious_url, "Test")
+    scalar_html = generator.get_scalar_html(malicious_url, "Test")
+
+    assert "<script>alert(1)</script>" not in swagger_html
+    assert "<script>alert(1)</script>" not in redoc_html
+    assert "<script>alert(1)</script>" not in scalar_html

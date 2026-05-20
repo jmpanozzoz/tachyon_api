@@ -23,8 +23,9 @@ class DependencyResolver:
                 return override()
             return override
 
-        if cls in self.app._instances_cache:
-            return self.app._instances_cache[cls]
+        cached = self.app.get_instance(cls)
+        if cached is not None:
+            return cached
 
         if cls not in _registry:
             try:
@@ -56,7 +57,10 @@ class DependencyResolver:
             self._resolving.discard(cls)
 
         instance = cls(**dependencies)
-        self.app._instances_cache[cls] = instance
+        # register_instance is the public API; singletons are app-scoped (not request-scoped).
+        # In pure asyncio, resolve_dependency is synchronous so there is no concurrent
+        # mutation risk; multi-threaded servers should use request-scoped Depends() instead.
+        self.app.register_instance(cls, instance)
         return instance
 
     async def resolve_callable_dependency(

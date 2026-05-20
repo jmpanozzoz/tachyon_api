@@ -1,12 +1,24 @@
-from typing import Dict, Any, Optional, List, Type
+from typing import Dict, Any, Optional, List, Type, Callable
 from dataclasses import dataclass, field
 import datetime
 import html
+import inspect
 import uuid
 import json
 
 from .models import Struct
 from .utils import TypeUtils, OPENAPI_TYPE_MAP
+
+
+def _safe_json(value: Any) -> str:
+    """JSON-encode a value safe for embedding inside a <script> tag.
+    Escapes <, >, and & so browsers cannot interpret them as HTML tags."""
+    return (
+        json.dumps(value, ensure_ascii=True)
+        .replace("<", "\\u003c")
+        .replace(">", "\\u003e")
+        .replace("&", "\\u0026")
+    )
 
 
 def _schema_for_python_type(
@@ -200,8 +212,8 @@ class OpenAPIGenerator:
     def get_swagger_ui_html(self, openapi_url: str, title: str) -> str:
         """Generate HTML for Swagger UI"""
         swagger_ui_parameters = self.config.swagger_ui_parameters or {}
-        params_json = json.dumps(swagger_ui_parameters, ensure_ascii=True)
-        safe_url = json.dumps(openapi_url, ensure_ascii=True)
+        params_json = _safe_json(swagger_ui_parameters)
+        safe_url = _safe_json(openapi_url)
         safe_title = html.escape(title)
 
         return f"""<!DOCTYPE html>
@@ -292,6 +304,121 @@ class OpenAPIGenerator:
         if self._openapi_schema is None:
             self._openapi_schema = self.config.to_openapi_dict()
         self._openapi_schema["components"]["schemas"][name] = schema_data
+
+    def generate_route(self, path: str, method: str, endpoint_func: Callable, **kwargs: Any) -> None:
+        """Introspect endpoint_func and register its OpenAPI operation."""
+        from .params import Body, Query, Path, Header, Cookie
+        from .di import Depends, _registry
+
+        sig = inspect.signature(endpoint_func)
+        operation: Dict[str, Any] = {
+            "summary": kwargs.get("summary", _summary_from_func(endpoint_func)),
+            "description": kwargs.get("description", endpoint_func.__doc__ or ""),
+            "responses": {
+                "200": {
+                    "description": "Successful Response",
+                    "content": {"application/json": {"schema": {"type": "object"}}},
+                },
+                "422": {
+                    "description": "Validation Error",
+                    "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ValidationErrorResponse"}}},
+                },
+                "500": {
+                    "description": "Response Validation Error",
+                    "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ResponseValidationError"}}},
+                },
+            },
+        }
+
+        response_model = kwargs.get("response_model")
+        try:
+            is_struct = (
+                response_model is not None
+                and isinstance(response_model, type)
+                and issubclass(response_model, Struct)
+            )
+        except TypeError:
+            is_struct = False
+        if is_struct:
+            for name, schema in build_components_for_struct(response_model).items():
+                self.add_schema(name, schema)
+            operation["responses"]["200"]["content"]["application/json"]["schema"] = {
+                "$ref": f"#/components/schemas/{response_model.__name__}"
+            }
+
+        if "tags" in kwargs:
+            operation["tags"] = kwargs["tags"]
+
+        _PARAM_IN = {Query: "query", Header: "header", Cookie: "cookie"}
+        parameters: List[Dict[str, Any]] = []
+        request_body_schema = None
+
+        for param in sig.parameters.values():
+            if isinstance(param.default, Depends) or (
+                param.default is inspect.Parameter.empty and param.annotation in _registry
+            ):
+                continue
+
+            for param_cls, location in _PARAM_IN.items():
+                if isinstance(param.default, param_cls):
+                    parameters.append({
+                        "name": param.name,
+                        "in": location,
+                        "required": param.default.default is ...,
+                        "schema": build_param_schema(param.annotation),
+                        "description": getattr(param.default, "description", ""),
+                    })
+                    break
+            else:
+                if isinstance(param.default, Path) or f"{{{param.name}}}" in path:
+                    parameters.append({
+                        "name": param.name,
+                        "in": "path",
+                        "required": True,
+                        "schema": build_param_schema(param.annotation),
+                        "description": getattr(param.default, "description", "") if isinstance(param.default, Path) else "",
+                    })
+                elif (
+                    isinstance(param.default, Body)
+                    and isinstance(param.annotation, type)
+                    and issubclass(param.annotation, Struct)
+                ):
+                    for name, schema in build_components_for_struct(param.annotation).items():
+                        self.add_schema(name, schema)
+                    request_body_schema = {
+                        "content": {"application/json": {"schema": {"$ref": f"#/components/schemas/{param.annotation.__name__}"}}},
+                        "required": True,
+                    }
+
+        if parameters:
+            operation["parameters"] = parameters
+        if request_body_schema:
+            operation["requestBody"] = request_body_schema
+
+        self.add_path(path, method, operation)
+
+
+def build_param_schema(python_type: Type) -> Dict[str, Any]:
+    """Build an OpenAPI schema for a simple parameter type (scalar, list, optional)."""
+    inner_type, nullable = TypeUtils.unwrap_optional(python_type)
+    is_list, item_type = TypeUtils.is_list_type(inner_type)
+    if is_list:
+        base_item_type, item_nullable = TypeUtils.unwrap_optional(item_type)
+        schema: Dict[str, Any] = {
+            "type": "array",
+            "items": {"type": TypeUtils.get_openapi_type(base_item_type)},
+        }
+        if item_nullable:
+            schema["items"]["nullable"] = True
+    else:
+        schema = {"type": TypeUtils.get_openapi_type(inner_type)}
+    if nullable:
+        schema["nullable"] = True
+    return schema
+
+
+def _summary_from_func(func: Callable) -> str:
+    return func.__name__.replace("_", " ").title()
 
 
 def create_openapi_config(

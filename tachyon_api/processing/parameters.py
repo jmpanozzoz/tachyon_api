@@ -16,6 +16,9 @@ from ..background import BackgroundTasks
 from ..di import Depends, _registry
 
 
+_DEFAULT_MAX_BODY_SIZE = 10 * 1024 * 1024  # 10 MB
+
+
 class ParameterProcessor:
     def __init__(self, app_instance):
         self.app = app_instance
@@ -147,11 +150,26 @@ class ParameterProcessor:
                 "Body type must be an instance of Tachyon_api.models.Struct"
             )
 
+        max_body_size = getattr(self.app, "max_body_size", _DEFAULT_MAX_BODY_SIZE)
+        content_length = request.headers.get("content-length")
+        if content_length is not None:
+            try:
+                if int(content_length) > max_body_size:
+                    return validation_error_response(
+                        f"Request body too large (max {max_body_size} bytes)"
+                    )
+            except ValueError:
+                pass
+
         decoder = msgspec.json.Decoder(model_class)
         try:
             raw_body = await request.body()
         except Exception:
             return validation_error_response("Failed to read request body")
+        if len(raw_body) > max_body_size:
+            return validation_error_response(
+                f"Request body too large (max {max_body_size} bytes)"
+            )
         try:
             validated_data = decoder.decode(raw_body)
             kwargs_to_inject[param.name] = validated_data
@@ -240,7 +258,7 @@ class ParameterProcessor:
         kwargs_to_inject: Dict,
     ) -> Optional[JSONResponse]:
         header_info = param.default
-        header_name = header_info.alias.lower() if header_info.alias else param.name.replace("_", "-").lower()
+        header_name = header_info.alias.lower() if header_info.alias else TypeUtils.normalize_header_name(param.name)
         header_value = request.headers.get(header_name)
 
         if header_value is not None:

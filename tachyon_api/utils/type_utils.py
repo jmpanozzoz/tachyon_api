@@ -43,6 +43,11 @@ class TypeUtils:
         return OPENAPI_TYPE_MAP.get(python_type, "string")
 
     @staticmethod
+    def normalize_header_name(param_name: str) -> str:
+        """Convert a Python param name to its canonical HTTP header name (underscore → hyphen, lowercase)."""
+        return param_name.replace("_", "-").lower()
+
+    @staticmethod
     def get_origin(python_type: Type) -> Any:
         return typing.get_origin(python_type)
 
