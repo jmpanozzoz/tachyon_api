@@ -111,21 +111,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   FULL HANDLER **1.14µs → 1.11µs** (-3%).
 
 ### Changed
+
 - `app.py`: `Tachyon.__call__` bypasses Starlette middleware for HTTP (Phase 4).
   Adds `_build_http_app()`, `_ASGIHandler`, and fast-path ASGI handler for no-param endpoints.
 - `app.py`: `add_middleware()` invalidates `_http_app` cache for lazy rebuild.
-- `routing/trie.py`: `match()` now returns `allow_header: str` instead of `allowed: Set[str]`
-  for `_METHOD_NOT_ALLOWED` — pre-sorted at registration time, not per-405-request.
-
-### Changed
 - `app.py`: HTTP routing no longer uses Starlette's Route list. `_add_route` registers
   in the trie. HTTP dispatch goes through `_trie_dispatch`; WebSocket/lifespan unchanged.
+- `routing/trie.py`: `match()` now returns `allow_header: str` instead of `allowed: Set[str]`
+  for `_METHOD_NOT_ALLOWED` — pre-sorted at registration time, not per-405-request.
 - `responses.py`: `TachyonJSONResponse`, `TachyonBytesResponse`, `_InternalErrorResponse`
   pre-build ASGI send dicts and override `__call__` for minimal HTTP dispatch.
 - `processing/compiler.py`: `KIND_*` constants changed from str to int.
 - `processing/dependencies.py`: `resolve_callable_dependency` handles `cache=None`.
 - `CLAUDE.md`: rewritten with minimalism/performance philosophy, opinionated design
   principles, p99 target audience, branching strategy, and changelog rule.
+
+### Fixed
+
+- **HF-01**: Remove mutable `_EMPTY_PARAMS` singleton from `routing/trie.py` — static routes
+  now allocate a fresh `{}` per match to prevent cross-request state mutation.
+- **HF-02**: Add `MANIFEST.in` and correct `pyproject.toml` includes for `.pyx` source files —
+  sdist now packages all Cython source files required for compilation from source.
+- **HF-04**: Wrap pre-built 404/405 ASGI dicts in `MappingProxyType` — prevents accidental
+  mutation of shared module-level objects between requests.
+- **HF-05**: `pyproject.toml` `[fast]` extra clarification — `pip install tachyon-api[fast]`
+  installs the `cython` package but does **not** auto-compile extensions.
+  Manual `python setup.py build_ext --inplace` step required after install.
+- Fix `pyproject.toml` `tool.poetry.include` syntax — must be an array of objects
+  (`{ path = ..., format = [...] }`), not a TOML table. Required for `python -m build`
+  and PyPI upload to succeed.
+
+### Testing
+
+- **HF-06/07/08/10/11**: 41 new tests covering radix trie edge cases (`_EMPTY_PARAMS`,
+  wildcard matching, conflicting static/param routes), fast-path dispatch for no-param
+  endpoints, and 405 `Allow` header correctness.
+- **97% test coverage** — 87 new tests across all modules. `.coveragerc` added with
+  `[run] source`, `[report] exclude_lines` for unreachable error branches and abstract
+  methods. `coverage.json` gitignored.
+
+### Documentation
+
+- **HF-12/13**: Migration guide translated to English (`docs/14-migration-fastapi.md`).
+- **HF-14/15**: `[fast]` Cython extra documented in README and `docs/` — install steps,
+  compilation requirement, fallback behavior, and per-phase benchmark impact.
+- **HF-17**: `.pyx` / `.py` dual-file pattern explained — how Python auto-prefers the
+  compiled `.so` over `.py` at import time; no code changes required in either mode.
 
 ---
 
