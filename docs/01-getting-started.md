@@ -24,6 +24,24 @@ Tachyon instala automáticamente:
 - `msgspec` - Validación y serialización ultra-rápida
 - `orjson` - JSON encoding/decoding rápido
 
+### Optional: High-Performance Builds
+
+For additional speed on the request hot path (radix trie + parameter processing compiled to C):
+
+```bash
+pip install tachyon-api[fast]          # installs cython
+python setup.py build_ext --inplace    # compile extensions
+```
+
+Falls back to pure Python automatically when `.so` is not present — no code changes needed.
+The Cython extensions give ~11% improvement on the Python processing layer.
+
+For production servers, also use:
+
+```bash
+uvicorn app:app --loop uvloop --http httptools
+```
+
 ---
 
 ## 🚀 Hello World

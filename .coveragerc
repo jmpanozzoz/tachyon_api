@@ -1,0 +1,21 @@
+[run]
+source = tachyon_api
+omit =
+    # Cython-compiled modules — covered by .so at runtime, .py is fallback only
+    tachyon_api/processing/compiler.py
+    tachyon_api/processing/parameters.py
+    tachyon_api/processing/response_processor.py
+    tachyon_api/routing/trie.py
+    # CLI entry point (not meaningful to test)
+    tachyon_api/cli/__main__.py
+
+[report]
+exclude_lines =
+    # Don't require coverage for defensive unreachable branches
+    pragma: no cover
+    # Abstract / interface methods
+    raise NotImplementedError
+    # Type checking only
+    if TYPE_CHECKING:
+    # Protocol interface stubs
+    \.\.\.

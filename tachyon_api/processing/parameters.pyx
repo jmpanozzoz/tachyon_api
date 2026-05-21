@@ -1,0 +1,288 @@
+# cython: language_level=3, boundscheck=False, wraparound=False
+"""
+Cython-compiled parameter processor.
+
+Without cimport access to the compiler.so types, we use Python-level imports
+and rely on typed local variables for the main gains. The cdef helper methods
+are the biggest win: zero Python frame overhead per parameter.
+"""
+
+import cython
+import msgspec
+import typing
+
+from starlette.requests import Request
+from starlette.responses import JSONResponse
+
+from ..responses import validation_error_response
+from ..utils import TypeConverter, TypeUtils
+from ..background import BackgroundTasks
+from .compiler import (
+    KIND_REQUEST, KIND_BG, KIND_BODY, KIND_QUERY,
+    KIND_HEADER, KIND_COOKIE, KIND_FORM, KIND_FILE,
+    KIND_PATH, KIND_PATH_IMPLICIT, KIND_DEP_CALLABLE, KIND_DEP_CLASS,
+)
+
+# C-level integer constants — avoids Python object lookup on each comparison
+cdef int _KIND_REQUEST       = KIND_REQUEST
+cdef int _KIND_BG            = KIND_BG
+cdef int _KIND_BODY          = KIND_BODY
+cdef int _KIND_QUERY         = KIND_QUERY
+cdef int _KIND_HEADER        = KIND_HEADER
+cdef int _KIND_COOKIE        = KIND_COOKIE
+cdef int _KIND_FORM          = KIND_FORM
+cdef int _KIND_FILE          = KIND_FILE
+cdef int _KIND_PATH          = KIND_PATH
+cdef int _KIND_PATH_IMPLICIT = KIND_PATH_IMPLICIT
+cdef int _KIND_DEP_CALLABLE  = KIND_DEP_CALLABLE
+cdef int _KIND_DEP_CLASS     = KIND_DEP_CLASS
+
+cdef int _DEFAULT_MAX_BODY_SIZE = 10 * 1024 * 1024
+
+
+cdef class ParameterProcessor:
+    """Parameter extractor with cdef sync helpers — zero Python call overhead."""
+
+    cdef object app
+
+    def __init__(self, app_instance):
+        self.app = app_instance
+
+    async def process_parameters(self, compiled, request, dependency_cache):
+        cdef dict kwargs = {}
+        cdef object _bg = None
+        cdef object _form_data = None
+        cdef int kind
+        cdef object p
+        cdef object err
+
+        for p in compiled.params:
+            kind = p.kind  # int field from cdef class — direct C read
+
+            if kind == _KIND_REQUEST:
+                kwargs[p.name] = request
+
+            elif kind == _KIND_BG:
+                if _bg is None:
+                    _bg = BackgroundTasks()
+                kwargs[p.name] = _bg
+
+            elif kind == _KIND_DEP_CALLABLE:
+                resolved = await self.app._dependency_resolver.resolve_callable_dependency(
+                    p.dependency, dependency_cache, request
+                )
+                kwargs[p.name] = resolved
+
+            elif kind == _KIND_DEP_CLASS:
+                kwargs[p.name] = self.app._dependency_resolver.resolve_dependency(p.annotation)
+
+            elif kind == _KIND_BODY:
+                err = await self._process_body(p, request, kwargs)
+                if err is not None:
+                    return kwargs, err, _bg
+
+            elif kind == _KIND_QUERY:
+                err = self._process_query(p, request.query_params, kwargs)
+                if err is not None:
+                    return kwargs, err, _bg
+
+            elif kind == _KIND_HEADER:
+                err = self._process_header(p, request, kwargs)
+                if err is not None:
+                    return kwargs, err, _bg
+
+            elif kind == _KIND_COOKIE:
+                err = self._process_cookie(p, request, kwargs)
+                if err is not None:
+                    return kwargs, err, _bg
+
+            elif kind == _KIND_FORM:
+                if _form_data is None:
+                    try:
+                        _form_data = await request.form()
+                    except Exception:
+                        return kwargs, validation_error_response("Failed to parse form data"), _bg
+                err = self._process_form(p, _form_data, kwargs)
+                if err is not None:
+                    return kwargs, err, _bg
+
+            elif kind == _KIND_FILE:
+                if _form_data is None:
+                    try:
+                        _form_data = await request.form()
+                    except Exception:
+                        return kwargs, validation_error_response("Failed to parse form data"), _bg
+                err = self._process_file(p, _form_data, kwargs)
+                if err is not None:
+                    return kwargs, err, _bg
+
+            elif kind == _KIND_PATH or kind == _KIND_PATH_IMPLICIT:
+                err = self._process_path(p, request.path_params, kwargs)
+                if err is not None:
+                    return kwargs, err, _bg
+
+        return kwargs, None, _bg
+
+    # ── cdef helpers — compiled as C functions, zero Python frame overhead ───────
+
+    async def _process_body(self, p, request, dict kwargs):
+        cdef int max_body_size = getattr(self.app, "max_body_size", _DEFAULT_MAX_BODY_SIZE)
+        cdef object cl = request.headers.get("content-length")
+        if cl is not None:
+            try:
+                if int(cl) > max_body_size:
+                    return validation_error_response(
+                        f"Request body too large (max {max_body_size} bytes)"
+                    )
+            except ValueError:
+                pass
+        try:
+            raw_body = await request.body()
+        except Exception:
+            return validation_error_response("Failed to read request body")
+        if len(raw_body) > max_body_size:
+            return validation_error_response(
+                f"Request body too large (max {max_body_size} bytes)"
+            )
+        cdef object decoder = p.decoder
+        if decoder is None:
+            return validation_error_response("Body type must be a Struct subclass")
+        try:
+            kwargs[p.name] = decoder.decode(raw_body)
+            return None
+        except msgspec.DecodeError as e:
+            return validation_error_response(f"Invalid JSON body: {e}")
+        except msgspec.ValidationError as e:
+            field_errors = None
+            try:
+                path_attr = getattr(e, "path", None)
+                if path_attr:
+                    for seg in reversed(path_attr):
+                        if isinstance(seg, str):
+                            field_errors = {seg: [str(e)]}
+                            break
+            except Exception:
+                pass
+            return validation_error_response(str(e), errors=field_errors)
+
+    @cython.cfunc
+    def _process_query(self, p, query_params, dict kwargs):
+        cdef str name = p.name
+        cdef bint is_list = p.is_list
+
+        if is_list:
+            raw_values = query_params.getlist(name)
+            if not raw_values and name in query_params:
+                raw_values = [query_params[name]]
+            values = []
+            for v in raw_values:
+                if isinstance(v, str) and "," in v:
+                    values.extend(v.split(","))
+                else:
+                    values.append(v)
+            if not values:
+                if p.default is not ...:
+                    kwargs[name] = p.default
+                    return None
+                return validation_error_response(f"Missing required query parameter: {name}")
+            converted = TypeConverter.convert_list_values_bare(
+                values, p.item_type, p.item_is_optional, name, is_path_param=False
+            )
+            if isinstance(converted, JSONResponse):
+                return converted
+            kwargs[name] = converted
+            return None
+
+        if name in query_params:
+            converted = TypeConverter.convert_value_bare(
+                query_params[name], p.base_type, name, is_path_param=False
+            )
+            if isinstance(converted, JSONResponse):
+                return converted
+            kwargs[name] = converted
+        elif p.default is not ...:
+            kwargs[name] = p.default
+        else:
+            return validation_error_response(f"Missing required query parameter: {name}")
+        return None
+
+    @cython.cfunc
+    def _process_header(self, p, request, dict kwargs):
+        cdef object value = request.headers.get(p.effective_name)
+        if value is not None:
+            kwargs[p.name] = value
+        elif p.default is not ...:
+            kwargs[p.name] = p.default
+        else:
+            return validation_error_response(f"Missing required header: {p.effective_name}")
+        return None
+
+    @cython.cfunc
+    def _process_cookie(self, p, request, dict kwargs):
+        cdef object value = request.cookies.get(p.effective_name)
+        if value is not None:
+            kwargs[p.name] = value
+        elif p.default is not ...:
+            kwargs[p.name] = p.default
+        else:
+            return validation_error_response(f"Missing required cookie: {p.effective_name}")
+        return None
+
+    @cython.cfunc
+    def _process_form(self, p, form_data, dict kwargs):
+        cdef str name = p.effective_name
+        if name in form_data:
+            kwargs[p.name] = form_data[name]
+        elif p.default is not ...:
+            kwargs[p.name] = p.default
+        else:
+            return validation_error_response(f"Missing required form field: {name}")
+        return None
+
+    @cython.cfunc
+    def _process_file(self, p, form_data, dict kwargs):
+        cdef str name = p.effective_name
+        if name in form_data:
+            uploaded = form_data[name]
+            if hasattr(uploaded, "filename"):
+                kwargs[p.name] = uploaded
+            elif p.default is not ...:
+                kwargs[p.name] = p.default
+            else:
+                return validation_error_response(f"Invalid file upload for: {name}")
+        elif p.default is not ...:
+            kwargs[p.name] = p.default
+        else:
+            return validation_error_response(f"Missing required file: {name}")
+        return None
+
+    @cython.cfunc
+    def _process_path(self, p, path_params, dict kwargs):
+        cdef str name = p.name
+        cdef str value_str
+        cdef bint is_list = p.is_list
+
+        if name not in path_params:
+            if p.kind == _KIND_PATH:
+                return JSONResponse({"detail": "Not Found"}, status_code=404)
+            return None
+
+        value_str = path_params[name]
+
+        if is_list:
+            parts = value_str.split(",") if value_str else []
+            converted = TypeConverter.convert_list_values_bare(
+                parts, p.item_type, p.item_is_optional, name, is_path_param=True
+            )
+            if isinstance(converted, JSONResponse):
+                return converted
+            kwargs[name] = converted
+        else:
+            converted = TypeConverter.convert_value_bare(
+                value_str, p.base_type, name, is_path_param=True
+            )
+            if isinstance(converted, JSONResponse):
+                return converted
+            kwargs[name] = converted
+
+        return None

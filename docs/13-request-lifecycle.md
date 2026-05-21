@@ -63,34 +63,44 @@
 
 ## 1️⃣ Middlewares (Pre-request)
 
-Los middlewares se ejecutan primero, en orden de registro:
+Los middlewares del usuario se ejecutan primero, en orden de registro:
 
 ```python
-app.add_middleware(CORSMiddleware)  # 1ro
-app.add_middleware(LoggerMiddleware)  # 2do
-app.add_middleware(CustomMiddleware)  # 3ro
+app.add_middleware(CORSMiddleware)   # 1ro
+app.add_middleware(LoggerMiddleware) # 2do
+app.add_middleware(CustomMiddleware) # 3ro
 ```
 
-Cada middleware puede:
-- Modificar la request
-- Rechazar la request (retornar response)
-- Pasar al siguiente middleware
+Cada middleware puede modificar, rechazar o pasar la request al siguiente.
+
+> **Nota de rendimiento (Phase 4):** Tachyon construye su propio HTTP stack con solo
+> los middlewares del usuario, sin las capas automáticas de Starlette
+> (`ServerErrorMiddleware` + `ExceptionMiddleware`). Las excepciones ya se manejan
+> dentro de cada handler closure con `try/except`. Esto ahorra ~1.5–2µs por request.
+> WebSockets y lifespan sí usan el stack completo de Starlette.
 
 ---
 
-## 2️⃣ Route Matching
+## 2️⃣ Route Matching — Radix Trie (O(k))
 
-Tachyon busca el handler que matchea:
-- Path: `/users/123`
-- Method: `GET`
+Tachyon usa un radix trie para resolver paths en O(k) donde k = número de segmentos del path (típicamente 2–5). Esto reemplaza el escaneo lineal O(N×regex) de Starlette.
 
-Si no encuentra: `404 Not Found`
+```
+GET /users/123
+  → root → "users" → {user_id=123} → handler_get_user
+  (cada segmento es un dict lookup O(1))
+```
+
+Si el path no existe → `404 Not Found`  
+Si el path existe pero no el método → `405 Method Not Allowed`
 
 ```python
-@app.get("/users/{user_id}")  # ← Match!
+@app.get("/users/{user_id}")  # Registrado en el trie al arrancar
 def get_user(user_id: str):
     ...
 ```
+
+Las rutas se registran una sola vez en `_add_route()`. En cada request, el trie resuelve en microsegundos sin importar cuántas rutas tenga la app.
 
 ---
 
@@ -249,19 +259,39 @@ Los middlewares procesan la response en orden inverso:
 
 ---
 
-## ⚡ Endpoint Pre-Compilation
+## ⚡ Optimizaciones del hot path
 
-A partir de v1.0.0, Tachyon compila cada endpoint **una sola vez al registrarlo**
-en `_add_route()`. Esto mueve fuera del hot path:
+### Endpoint Pre-Compilation (v1.0.0)
+Tachyon compila cada endpoint **una sola vez al registrarlo** en `_add_route()`. Esto mueve fuera del hot path:
 
-- `inspect.signature()` — introsección de firma
-- `isinstance` chains — detección del tipo de parámetro
-- `typing.get_origin/args` — análisis de genéricos (`List[T]`, `Optional[T]`)
-- `msgspec.json.Decoder(model)` — creación del decoder de body
-- `asyncio.iscoroutinefunction()` — si el endpoint es async
-- Resolución de alias para headers/cookies/form/files
+- `inspect.signature()`, `iscoroutinefunction()`, `isinstance` chains
+- `typing.get_origin/args` — genéricos (`List[T]`, `Optional[T]`)
+- `msgspec.json.Decoder(model)` — decoder de body
+- Resolución de aliases para headers/cookies/form/files
+- `has_params` y `has_callable_deps` — flags para fast-paths en cada request
 
-En cada request el handler solo recorre un `List[ParamDescriptor]` precompilado.
+En request time, el handler recorre una `List[ParamDescriptor]` precompilada con tipos C-level.
+
+### Middleware bypass (Phase 4)
+Para requests HTTP, Tachyon saltea `ServerErrorMiddleware` y `ExceptionMiddleware` de
+Starlette. Solo aplica los middlewares del usuario. Ahorra ~1.5–2µs por request.
+
+### Cython extensions (optional — `pip install tachyon-api[fast]`)
+Con extensiones compiladas:
+- `ParamDescriptor` y `CompiledEndpoint` → `cdef class` (struct C, acceso a campos directo)
+- `routing/trie.pyx` → trie en C, match loop sin overhead Python por segmento
+- `KIND_*` constants → enteros (comparación C de una instrucción)
+- Sync helpers → `cdef` functions (sin frame Python por llamada)
+- `process_parameters` path+query: **2.32µs → 0.82µs** (-65%) con Cython
+
+### No-Request fast path (Phase 5)
+Endpoints sin parámetros ni dependencias callable se registran como `_ASGIHandler`:
+el dispatcher llama `handler(scope, receive, send)` directamente, sin crear el objeto
+`Request(scope, receive, send)`. Una allocación menos por request.
+
+### Pre-built ASGI response dicts (Phase 2)
+`TachyonJSONResponse` y `TachyonBytesResponse` pre-construyen los dicts `http.response.start`
+y `http.response.body` en `__init__`. El `__call__` solo hace 2 `await send(prebuilt_dict)`.
 
 ---
 
@@ -273,6 +303,7 @@ En cada request el handler solo recorre un `List[ParamDescriptor]` precompilado.
 4. **Response model**: Evítalo si no necesitas validar el output — la serialización directa es más rápida
 5. **Middlewares**: Menos es mejor; cada middleware agrega overhead a todos los requests
 6. **Structs sobre dicts**: Retornar un `Struct` usa `msgspec.json.encode()` directo (más rápido que un dict)
+7. **Compilación Cython**: `pip install tachyon-api[fast]` para -11% en el hot path Python
 
 ---
 

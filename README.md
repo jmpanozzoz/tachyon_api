@@ -1,6 +1,6 @@
 # 🚀 Tachyon API
 
-![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)
+![Version](https://img.shields.io/badge/version-1.1.0-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.10+-brightgreen.svg)
 ![License](https://img.shields.io/badge/license-GPL--3.0-orange.svg)
 ![Tests](https://img.shields.io/badge/tests-233%20passed-brightgreen.svg)
@@ -49,26 +49,43 @@ Benchmarked against **FastAPI 0.136.1 (Pydantic v2)** · 1 worker · 100 concurr
 
 | Scenario | FastAPI | Tachyon | Speedup |
 |---|---:|---:|---:|
-| Hello World | 10,283 req/s | **40,545 req/s** | **3.94x** |
-| Path + query params | 7,133 req/s | **30,637 req/s** | **4.30x** |
-| Body validation (Struct) | 8,336 req/s | **31,808 req/s** | **3.82x** |
-| Nested body (complex Struct) | 8,006 req/s | **30,807 req/s** | **3.85x** |
-| Response model serialization | 6,673 req/s | **34,991 req/s** | **5.24x** |
-| Header param + auth | 8,662 req/s | **34,126 req/s** | **3.94x** |
-| Dependency injection | 6,225 req/s | **32,941 req/s** | **5.29x** |
-| Multiple query params | 6,242 req/s | **25,915 req/s** | **4.15x** |
-| **Total throughput** | **61,560 req/s** | **261,770 req/s** | **4.25x** |
+| Hello World | 10,159 req/s | **52,321 req/s** | **5.15x** |
+| Path + query params | 6,930 req/s | **37,384 req/s** | **5.39x** |
+| Body validation (Struct) | 8,189 req/s | **36,593 req/s** | **4.47x** |
+| Nested body (complex Struct) | 7,888 req/s | **38,522 req/s** | **4.88x** |
+| Response model serialization | 6,370 req/s | **44,557 req/s** | **6.99x** |
+| Header param + auth | 7,894 req/s | **45,727 req/s** | **5.79x** |
+| Dependency injection | 6,284 req/s | **46,592 req/s** | **7.41x** |
+| Multiple query params | 6,161 req/s | **33,930 req/s** | **5.51x** |
+| **Total throughput** | **59,875 req/s** | **335,626 req/s** | **5.61x** |
 
-**Latency:** ~3ms (Tachyon) vs ~14ms (FastAPI) on average.
+**Latency:** ~2.1ms (Tachyon) vs ~14ms (FastAPI) on average.
 
 > Benchmark code in [`benchmark/`](./benchmark/). Run with `bash benchmark/run_benchmark.sh`.
 
+### Optional: Cython compilation
+
+Install with Cython extensions for additional speedup on the request hot path:
+
+```bash
+pip install tachyon-api[fast]          # installs cython dependency
+python setup.py build_ext --inplace    # compile extensions (required step)
+```
+
+> **Note:** `pip install tachyon-api[fast]` installs the `cython` package but does **not**
+> auto-compile the extensions. Run `python setup.py build_ext --inplace` manually after install.
+> Falls back to pure Python automatically when `.so` is not present — no code changes needed.
+> Numbers above reflect the compiled version (~11% faster Python hot path).
+
 ### Why is Tachyon faster?
 
+- **Radix trie routing** — O(k) path matching vs Starlette's O(N×regex) scan; trie compiled to C
+- **Middleware bypass** — HTTP requests skip Starlette's `ServerErrorMiddleware` and `ExceptionMiddleware` entirely; exceptions handled directly in each closure
 - **Endpoint pre-compilation** — `inspect.signature()`, `isinstance` chains, type resolution, and `msgspec.Decoder` creation run once at startup, not per request
+- **No-Request fast path** — endpoints with no parameters skip `Request()` creation and call the ASGI handler directly
 - **msgspec** — validation and deserialization in C, 5–10x faster than Pydantic
 - **Direct serialization** — `Struct` responses use `msgspec.json.encode()` directly (no Python intermediate step)
-- **Minimal response overhead** — custom response class bypasses Starlette's `MutableHeaders` construction
+- **Pre-built ASGI dicts** — response send payloads constructed once in `__init__`, not recreated per request
 - **No middleware bloat** — Tachyon mounts only what you register; FastAPI adds ~15 middlewares by default
 
 ---
@@ -251,10 +268,12 @@ pytest tests/ -v
 
 | Feature | Tachyon | FastAPI |
 |---------|---------|---------|
-| **Throughput** | ~262k req/s total | ~62k req/s total |
-| **Latency** | ~3ms avg | ~14ms avg |
+| **Throughput** | ~336k req/s total | ~60k req/s total |
+| **Latency** | ~2.1ms avg | ~14ms avg |
+| **Routing** | Radix trie O(k) | Regex scan O(N) |
 | **Serialization** | msgspec + orjson | Pydantic v2 |
 | **Request compilation** | Once at startup | Per request |
+| **Middleware overhead** | User-only stack | +2 auto middleware layers |
 | **Bundle size** | Minimal (4 deps) | Larger (~15 deps) |
 | **Learning curve** | Easy (FastAPI-like) | Easy |
 | **Type safety** | Full (msgspec Struct) | Full (Pydantic) |
