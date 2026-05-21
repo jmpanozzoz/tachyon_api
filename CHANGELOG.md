@@ -7,6 +7,128 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.1.0] - 2026-05-20
+
+### ⚠️ Breaking Changes (internal APIs only)
+
+- **`KIND_*` constants**: Changed from `str` to `int` in `processing/compiler.py`.
+  Public API unaffected. If you imported these constants directly and compared them
+  as strings (`kind == "query"`), update to integer comparison (`kind == KIND_QUERY`).
+- **`RadixTrie.match()` return type**: The 4th return value for `_METHOD_NOT_ALLOWED`
+  changed from `Set[str]` to `str` (pre-sorted Allow header value like `"GET, POST"`).
+  Internal API — no user-facing impact.
+- **`scope["app"]`**: Now set to `Tachyon` instance (not `Starlette`). Third-party
+  middleware doing `isinstance(scope["app"], Starlette)` will return False.
+- **HTTP routing**: `_add_route` no longer appends Starlette `Route` objects to
+  `self._router.routes`. Code accessing `app._router.routes` directly will see an
+  empty list. Use `app.routes` (public API) instead.
+- **Trailing slashes**: The radix trie ignores trailing slashes — `/users` and `/users/`
+  resolve to the same handler. Previously Starlette would 307 redirect; now both match.
+
+### Performance
+
+**Phase 1 — Radix trie router** (`feature/radix-router`)
+- Replaced Starlette's O(N × regex) route scanning with an O(k) radix trie router
+  where k = number of path segments (typically 2–5).
+- `tachyon_api/routing/trie.py`: `RadixTrie` with static dict children (O(1) lookup)
+  and a single param branch per node. Handles FOUND / NOT_FOUND / METHOD_NOT_ALLOWED.
+- `app.py`: replaces `self._router.router.middleware_stack` (Starlette's lazy-built
+  dispatch loop) with a custom HTTP dispatcher before the first request. HTTP goes
+  through the trie; WebSocket and lifespan stay in Starlette's Router unmodified.
+- `_add_route` registers routes in `trie.add()` — no longer appends Starlette `Route` objects.
+- Benchmark delta: **261k → 297k req/s total (+13%)**, DI +20%, response model +17%.
+
+**Phase 2 — Micro-optimizations** (`feature/micro-optimizations`)
+- `CompiledEndpoint` now stores `has_params` and `has_callable_deps` flags pre-computed
+  at registration. Handler closure uses them to skip work at request time.
+- Endpoints with no parameters skip `process_parameters()` entirely (fast-path).
+- `dependency_cache = {}` only created when the endpoint actually has callable deps.
+  `None` is passed otherwise; `DependencyResolver` handles it safely.
+- `TachyonJSONResponse`, `TachyonBytesResponse`, and `_InternalErrorResponse` now
+  pre-build both ASGI send dicts (`http.response.start` + `http.response.body`) in
+  `__init__` and override `__call__` to skip the Starlette websocket-prefix check and
+  background-task branch.
+- Micro-benchmark delta: FULL HANDLER (no network) **1.72µs → 1.31µs (-24%)**.
+
+**Phase 3 — Cython hot path** (`feature/cython-hotpath`)
+- Optional Cython compilation for the three hottest modules:
+  - `processing/compiler.pyx`: `ParamDescriptor` and `CompiledEndpoint` as `cdef class`
+    (C structs — attribute access is a direct field read, not a Python dict lookup).
+  - `processing/parameters.pyx`: `ParameterProcessor` with C-typed locals (`cdef int kind`,
+    `cdef str name`, `cdef bint is_list`) and all sync helpers as `cdef` functions
+    (zero Python frame overhead per parameter).
+  - `processing/response_processor.pyx`: `ResponseProcessor` compiled to C.
+- `KIND_*` constants changed from strings to integers in `compiler.py` — int comparison
+  is a single machine instruction in C vs string hash+compare.
+- Build system: `python setup.py build_ext --inplace` (development) or
+  `pip install tachyon-api[fast]` (users).
+- Falls back to `.py` automatically when `.so` is not present — zero code changes required.
+- Micro-benchmark delta: `process_parameters` path+query **1.28µs → 0.82µs (-36%)**;
+  FULL HANDLER **1.31µs → 1.16µs (-11%)**.
+
+**Phase 4 — Bypass Starlette middleware stack** (`feature/phase4-5-bypass-and-trie-cython`)
+- `Tachyon.__call__` now handles HTTP directly without passing through Starlette's
+  `ServerErrorMiddleware` and `ExceptionMiddleware` (~1.5–2µs saving per HTTP request).
+  Exception handling was already provided by the try/except in each handler closure.
+- `_build_http_app()`: lazily builds an ASGI stack wrapping only user-registered
+  middlewares around `_trie_dispatch`. Rebuilt automatically when `add_middleware()` is called.
+- WebSocket and lifespan still delegated to Starlette's full stack unchanged.
+- `scope["app"]` now set by `Tachyon.__call__` directly (previously done by Starlette).
+
+**Phase 5 — Cython trie + Request-less fast path** (`feature/phase4-5-bypass-and-trie-cython`)
+- `routing/trie.pyx`: radix trie compiled to C. `_Node` as `cdef class` (C struct fields),
+  `RadixTrie` as `cdef class` with a typed `_root`. Segment matching and dict ops use
+  C-level attribute access.
+- `_ASGIHandler` sentinel class: endpoints with `has_params=False` and
+  `has_callable_deps=False` are registered as ASGI handlers that take `(scope, receive, send)`
+  directly — skipping `Request(scope, receive, send)` object creation entirely.
+- `_trie_dispatch` detects `_ASGIHandler` and calls `handler.fn(scope, receive, send)`
+  directly, eliminating one Python object allocation and its GC overhead per request.
+- Combined F4+F5 benchmark delta: **296k → 336k req/s total (+13%)**,
+  DI scenario: **39k → 47k (+20%)**, Hello World: **43k → 52k (+21%)**.
+
+### Added
+- `tachyon_api/routing/__init__.py`, `tachyon_api/routing/trie.py`: pure-Python radix trie router (fallback).
+- `tachyon_api/routing/trie.pyx`: Cython-compiled trie router.
+- `tachyon_api/processing/compiler.pyx`, `parameters.pyx`, `response_processor.pyx`:
+  Cython extensions for the processing hot path.
+- `setup.py`: build system for all Cython extensions.
+- `pyproject.toml` extras: `[fast]` installs with Cython compilation; `cython` in dev deps.
+- Custom X favicon (purple/pink gradient) served on Swagger UI, ReDoc, and Scalar docs.
+- `ROADMAP.md` (gitignored): internal roadmap document for 10x target.
+
+**Phase 5 remaining micro-improvements** (`feature/phase5-remaining-micro`)
+- `responses.py`: `_CL_CACHE` — pre-computed content-length bytes for sizes 0–8191.
+  Eliminates `str(n).encode()` on every response. `_cl_bytes()` helper used in all
+  response classes.
+- `routing/trie.py` + `trie.pyx`: `_EMPTY_PARAMS` singleton for static routes —
+  no dict allocation per match. `_Node.allow_header` stores the pre-sorted `"GET, POST"`
+  string at registration, eliminating `sorted()` + `join` on every 405 response.
+- `app.py`: pre-built `_404_START`, `_404_BODY_MSG` module-level dicts — 404s send
+  two pre-built ASGI messages directly without creating a `starlette.Response` object
+  (~1µs saved per 404 response). 405 similarly uses `allow_header.encode()` directly.
+- Micro-benchmark delta: `TachyonJSONResponse(dict)` **0.66µs → 0.62µs** (-6%);
+  FULL HANDLER **1.14µs → 1.11µs** (-3%).
+
+### Changed
+- `app.py`: `Tachyon.__call__` bypasses Starlette middleware for HTTP (Phase 4).
+  Adds `_build_http_app()`, `_ASGIHandler`, and fast-path ASGI handler for no-param endpoints.
+- `app.py`: `add_middleware()` invalidates `_http_app` cache for lazy rebuild.
+- `routing/trie.py`: `match()` now returns `allow_header: str` instead of `allowed: Set[str]`
+  for `_METHOD_NOT_ALLOWED` — pre-sorted at registration time, not per-405-request.
+
+### Changed
+- `app.py`: HTTP routing no longer uses Starlette's Route list. `_add_route` registers
+  in the trie. HTTP dispatch goes through `_trie_dispatch`; WebSocket/lifespan unchanged.
+- `responses.py`: `TachyonJSONResponse`, `TachyonBytesResponse`, `_InternalErrorResponse`
+  pre-build ASGI send dicts and override `__call__` for minimal HTTP dispatch.
+- `processing/compiler.py`: `KIND_*` constants changed from str to int.
+- `processing/dependencies.py`: `resolve_callable_dependency` handles `cache=None`.
+- `CLAUDE.md`: rewritten with minimalism/performance philosophy, opinionated design
+  principles, p99 target audience, branching strategy, and changelog rule.
+
+---
+
 ## [1.0.0] - 2026-05-20
 
 ### Performance — 4.25x faster than FastAPI 0.136.1
@@ -78,6 +200,17 @@ FastAPI across 8 real-world benchmark scenarios (262k vs 62k req/s total).
 - New tests: circular dependency detection, `File(alias=)`, XSS escaping,
   `List[Optional[T]]` runtime, generic response model, UUID path params,
   body size edge cases, `Request` injection with default value
+
+### Refactoring (pre-audit cleanup — 2026-05-19)
+These commits were part of the cleanup sweep immediately before the security and performance
+audit that led to v1.0.0:
+- Stripped verbose/obvious docstrings from 35+ test files, test methods, classes, and fixtures.
+  Removed docstrings that only restated the function name — code is now leaner without losing
+  signal.
+- Structural improvements in `app.py` and `security.py`: tightened class layout, removed
+  redundant blank lines, aligned with the "less is more" style guide.
+- Trimmed verbose docstrings in `HTTPAuthorizationCredentials`, `HTTPBasicCredentials`,
+  `exceptions.py`, `app.middleware`, and `middlewares/core.py`.
 
 ---
 

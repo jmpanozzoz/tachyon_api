@@ -41,7 +41,6 @@ async def test_all_http_methods(http_method, path, expected_payload):
 
 @pytest.mark.asyncio
 async def test_invalid_method():
-    # Create a Tachyon instance for this specific test
     app = Tachyon()
 
     @app.get("/get")
@@ -52,3 +51,61 @@ async def test_invalid_method():
         response = await client.patch("/get")
         assert response.status_code == 405
         assert response.text == "Method Not Allowed"
+
+
+@pytest.mark.asyncio
+async def test_405_allow_header_single_method():
+    """HF-08: Allow header must be present and correct for single-method routes."""
+    app = Tachyon()
+
+    @app.get("/items")
+    def get_items():
+        return []
+
+    async with create_client(app) as client:
+        r = await client.post("/items")
+
+    assert r.status_code == 405
+    assert r.headers.get("allow") == "GET"
+    assert r.headers.get("content-type") == "text/plain; charset=utf-8"
+
+
+@pytest.mark.asyncio
+async def test_405_allow_header_multiple_methods_presorted():
+    """HF-08: Allow header must list methods alphabetically."""
+    app = Tachyon()
+
+    @app.post("/endpoint")
+    def create():
+        return {}
+
+    @app.get("/endpoint")
+    def read():
+        return {}
+
+    @app.delete("/endpoint")
+    def delete():
+        return {}
+
+    async with create_client(app) as client:
+        r = await client.patch("/endpoint")
+
+    assert r.status_code == 405
+    assert r.headers.get("allow") == "DELETE, GET, POST"
+
+
+@pytest.mark.asyncio
+async def test_404_body_and_content_type():
+    """HF-08: 404 response must have correct body and content-type."""
+    app = Tachyon()
+
+    @app.get("/exists")
+    def ep():
+        return {}
+
+    async with create_client(app) as client:
+        r = await client.get("/does-not-exist")
+
+    assert r.status_code == 404
+    assert r.text == "Not Found"
+    assert "text/plain" in r.headers.get("content-type", "")

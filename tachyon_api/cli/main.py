@@ -57,7 +57,7 @@ def new(
 @app.command()
 def version():
     """Show Tachyon version."""
-    typer.echo("Tachyon API v1.0.0")
+    typer.echo("Tachyon API v1.1.0")
 
 
 def main():

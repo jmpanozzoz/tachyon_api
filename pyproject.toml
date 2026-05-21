@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "tachyon-api"
-version = "1.0.0"
+version = "1.1.0"
 description = "A lightweight, FastAPI-inspired web framework"
 authors = ["Juan Manuel Panozzo Zénere <jm.panozzozenere@gmail.com>"]
 license = "GPL-3.0-or-later"
@@ -15,11 +15,26 @@ typer = "^0.16.0"
 orjson = "^3.11.1"
 python-multipart = "^0.0.20"
 
+[tool.poetry.include]
+# Include Cython source files and build scripts in sdist for source compilation
+"setup.py" = ["sdist"]
+"MANIFEST.in" = ["sdist"]
+"tachyon_api/routing/trie.pyx" = ["sdist"]
+"tachyon_api/processing/compiler.pyx" = ["sdist"]
+"tachyon_api/processing/parameters.pyx" = ["sdist"]
+"tachyon_api/processing/response_processor.pyx" = ["sdist"]
+
+[tool.poetry.extras]
+# Note: pip install tachyon-api[fast] installs cython but does NOT auto-compile.
+# Run `python setup.py build_ext --inplace` manually after install.
+fast = ["cython"]
+
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.4.1"
 pytest-asyncio = "^1.1.0"
 httpx = "^0.28.1"
 ruff = "0.14.9"
+cython = ">=3.0"
 
 [tool.poetry.scripts]
 tachyon = "tachyon_api.cli:app"

@@ -1,16 +1,52 @@
 # CLAUDE.md — Tachyon API
 
-## Regla innegociable
+## Reglas innegociables
 
-**Nunca incluir "Co-Authored-By: Claude" ni ninguna referencia a Claude o Anthropic en commits, PRs, changelogs ni ningún artefacto del proyecto.** Los commits son de Juan Manuel Panozzo Zenere únicamente.
+**1. Sin Co-Author.** Nunca incluir "Co-Authored-By: Claude" ni ninguna referencia a Claude o Anthropic en commits, PRs, changelogs ni ningún artefacto del proyecto. Los commits son de Juan Manuel Panozzo Zenere únicamente.
+
+**2. Changelog siempre actualizado.** Ante cualquier commit que implique un cambio de versión (major, minor o patch), actualizar `CHANGELOG.md` antes de hacer el commit. Sin excepción. El formato sigue Keep a Changelog. Cada entrada debe tener: versión, fecha, y categorías (Added / Changed / Fixed / Security / Performance / Removed).
+
+**3. Branching strategy.** Todo trabajo nuevo se hace en una rama propia por feature:
+- `feature/<nombre>` para features nuevas (ej: `feature/radix-router`)
+- `fix/<nombre>` para bug fixes
+- `perf/<nombre>` para optimizaciones de performance
+- El flujo es siempre: `feature/*` → merge a `dev` → cuando sale release, `dev` → merge a `main`
+- Nunca commitear directamente a `dev` ni a `main` trabajo de feature en progreso.
 
 ---
 
 ## Qué es este proyecto
 
-Tachyon API es un framework web Python propio, liviano, de alto rendimiento e inspirado en FastAPI. **No es un wrapper de FastAPI** — es una implementación independiente construida sobre Starlette + msgspec. El objetivo es ofrecer la misma experiencia de developer (decoradores, inyección de dependencias, OpenAPI automático) con menos overhead y dependencias.
+Tachyon API es un framework web Python **opinado, minimalista y de alto rendimiento**, construido sobre Starlette + msgspec. **No es un wrapper de FastAPI** — es una implementación independiente que toma la DX de FastAPI y la ejecuta sin overhead.
 
-**Stack central:** Starlette (ASGI), msgspec (validación/serialización), orjson (JSON), Typer (CLI).
+El target son **aplicaciones p99**: sistemas donde la latencia en el percentil 99 importa, el throughput es una restricción real, y cada microsegundo de overhead del framework es un costo que el usuario no pidió pagar.
+
+**Stack central (4 dependencias):** Starlette (ASGI), msgspec (validación/serialización), orjson (JSON), Typer (CLI).
+
+---
+
+## Filosofía central
+
+### Menos es más — siempre
+
+Cada dependencia, cada abstracción, cada feature tiene un costo. Si ese costo no está justificado por un caso de uso concreto y frecuente, no entra. La pregunta antes de agregar algo no es "¿podría ser útil?", es **"¿es imprescindible para el 80% de los usuarios?"**
+
+Tachyon es **opinado por diseño**. Elegir msgspec sobre Pydantic no es una preferencia — es una decisión de arquitectura que define el target de usuario. Si alguien necesita Pydantic, FastAPI ya existe.
+
+### Performance como feature, no como bonus
+
+El rendimiento no es una característica opcional a agregar después. Es **un requisito de diseño desde el primer commit**. Toda decisión de implementación se evalúa contra su impacto en latencia y throughput.
+
+Las tres preguntas ante cualquier cambio:
+1. ¿Cuántos µs agrega esto a cada request?
+2. ¿Se puede hacer en startup en vez de en cada request?
+3. ¿Requiere una nueva allocación de objeto? ¿Puede reutilizarse?
+
+### El overhead del framework no debería ser visible
+
+El objetivo es que el costo de Tachyon en producción sea indistinguible del costo de uvicorn solo. Todo lo que hacemos está orientado a reducir la distancia entre "servidor ASGI puro" y "framework completo".
+
+Estado actual: **5.61x más rápido que FastAPI**. Roadmap: **10x**.
 
 ---
 
@@ -19,7 +55,7 @@ Tachyon API es un framework web Python propio, liviano, de alto rendimiento e in
 ```
 tachyon_api/
 ├── app.py                    # Clase principal Tachyon — punto de entrada ASGI
-├── router.py                 # Router para agrupar rutas con prefijo común
+├── router.py                 # Router con prefijo común
 ├── params.py                 # Marcadores: Query, Body, Path, Header, Cookie, Form, File
 ├── models.py                 # Struct (re-export de msgspec) + encode_json
 ├── di.py                     # @injectable, Depends, _registry
@@ -28,91 +64,149 @@ tachyon_api/
 ├── cache.py                  # Decorator @cache + backends
 ├── background.py             # BackgroundTasks
 ├── files.py                  # UploadFile
-├── responses.py              # TachyonJSONResponse + helpers
-├── openapi.py                # OpenAPIGenerator, schemas, HTML de docs
+├── responses.py              # TachyonJSONResponse/TachyonBytesResponse + helpers
+├── openapi.py                # OpenAPIGenerator, generate_route(), build_param_schema()
 ├── testing.py                # TachyonTestClient
 ├── core/
 │   ├── lifecycle.py          # LifecycleManager (startup/shutdown)
 │   └── websocket.py          # WebSocketManager
 ├── processing/
-│   ├── parameters.py         # ParameterProcessor — extrae todos los params del request
+│   ├── compiler.py           # compile_endpoint() — pre-compila endpoints en startup
+│   ├── compiler.pyx          # Cython version (optional, auto-preferred if compiled)
+│   ├── parameters.py         # ParameterProcessor — extrae params del request
+│   ├── parameters.pyx        # Cython version
 │   ├── dependencies.py       # DependencyResolver — resuelve @injectable y Depends()
-│   └── response_processor.py # ResponseProcessor — valida y serializa respuestas
+│   ├── response_processor.py # ResponseProcessor — serializa y valida respuestas
+│   └── response_processor.pyx # Cython version
+├── routing/
+│   ├── trie.py               # RadixTrie — pure Python (always present, fallback)
+│   └── trie.pyx              # Cython version (O(k) in C when compiled)
 ├── middlewares/
-│   ├── core.py               # Infraestructura de middlewares
-│   ├── cors.py               # CORS
-│   └── logger.py             # Request logging
+│   ├── core.py
+│   ├── cors.py
+│   └── logger.py
 ├── utils/
 │   ├── type_utils.py         # TypeUtils — unwrap Optional, is_list_type, etc.
-│   └── type_converter.py     # TypeConverter — conversión str → tipo para URL params
-└── cli/                      # CLI tachyon (new, generate, openapi, lint)
+│   └── type_converter.py     # TypeConverter — str → tipo para URL params
+└── cli/
 ```
 
-### Flujo de un request
+### Patrón `.py` / `.pyx` (Cython opcional)
 
-1. `Tachyon.__call__` → delega a `Starlette._router`
-2. Starlette matchea la ruta → llama al `handler` closure generado en `_add_route`
-3. `ParameterProcessor.process_parameters()` inspecciona la firma del endpoint e inyecta: `Request`, `BackgroundTasks`, dependencias explícitas/implícitas, `Body`, `Query`, `Header`, `Cookie`, `Form`, `File`, `Path`
-4. `ResponseProcessor.call_endpoint()` llama al endpoint (sync o async)
-5. `ResponseProcessor.process_response()` valida contra `response_model`, serializa con orjson, ejecuta `BackgroundTasks`
+Cada módulo del hot path tiene una versión pure Python (`.py`) y una versión Cython (`.pyx`):
+- `.py` — siempre presente, es el fallback automático
+- `.pyx` — compilado a `.so` con `python setup.py build_ext --inplace`
+- Python prefiere `.so` sobre `.py` automáticamente al importar
+- Sin cambios de código necesarios — el framework funciona igual en ambos casos
+
+Esto aplica a: `routing/trie`, `processing/compiler`, `processing/parameters`, `processing/response_processor`.
+
+### Flujo de un request (hot path)
+
+```
+Tachyon.__call__
+  → (user middlewares, if any)
+  → _trie_dispatch: RadixTrie.match() — O(k) lookup
+  → _ASGIHandler (no params) OR handler closure (with params)
+    → ParameterProcessor.process_parameters(compiled, request)  [~0.3µs no-param]
+    → ResponseProcessor.call_endpoint(compiled, kwargs)          [~0.15µs]
+    → ResponseProcessor.process_response(payload, model, bg)     [~0.8µs]
+      → TachyonBytesResponse (Struct) o TachyonJSONResponse (dict)
+```
+
+**Notas de compatibilidad:**
+- `scope["app"] = self` — `self` es `Tachyon`, no `Starlette`. Middleware de terceros que hace `isinstance(scope["app"], Starlette)` retornará False.
+- Starlette's `ServerErrorMiddleware` y `ExceptionMiddleware` se bypasean para HTTP. Excepciones manejadas por try/except en cada handler closure.
+- `routing/trie.py` trata trailing slashes como equivalentes: `/users` y `/users/` matchean el mismo handler.
+
+**Principio clave:** todo lo que puede hacerse en `_add_route()` (startup) no se hace en el request. `processing/compiler.py` es donde se pre-compila la lógica de cada endpoint.
 
 ---
 
 ## Decisiones de diseño
 
 ### Por qué msgspec y no Pydantic
-msgspec es entre 5-10x más rápido en serialización/deserialización. El trade-off es que los modelos son `Struct` (inmutables por defecto) en vez de clases arbitrarias. Para un framework de alta performance, este trade-off es intencional y no debe revertirse.
+msgspec valida y serializa en C. Pydantic en Python (incluso v2 tiene más overhead). El trade-off — usar `Struct` en vez de clases arbitrarias — es **intencional y permanente**. No se revierte.
 
-### Por qué Starlette como base
-Starlette provee el routing ASGI, TestClient, WebSocket, y middlewares. Reimplementar eso sería reinventar la rueda innecesariamente. Tachyon agrega la capa de DX (decoradores, DI, OpenAPI, validación) sobre Starlette.
+### Por qué Starlette como base (y cuándo dejarla de lado)
+Starlette da ASGI, TestClient, WebSocket, lifespan. Reimplementarlos sería deuda técnica enorme sin ganancia real. Sin embargo, el **routing regex lineal de Starlette es el mayor bottleneck actual** (5–8µs/req). La Fase 1 del roadmap lo reemplaza con un radix trie propio.
 
-### Inyección de dependencias dual
-- `@injectable` (implícita): registra la clase en `_registry`. Tachyon la instancia automáticamente si el tipo de la anotación está en el registry. Singleton por request (cacheado en `_instances_cache`).
-- `Depends(callable)` (explícita): factory function, cacheada por request via `dependency_cache`.
+### Por qué endpoint pre-compilation
+`inspect.signature()`, `iscoroutinefunction()`, cadena de `isinstance`, `typing.get_origin/args`, y creación de `msgspec.Decoder` corren **una sola vez en startup** y se guardan en `CompiledEndpoint`. En request time solo se consulta el descriptor. Esto eliminó ~1.5µs del ciclo anterior.
 
-### Por qué `_instances_cache` es por-app y no por-request
-Los singletons de servicios (repositorios, servicios) se crean una vez y se reutilizan. Si necesitás scope por-request, usá `Depends(callable)` que tiene cache per-request.
+### DI dual: `@injectable` vs `Depends(callable)`
+- `@injectable`: singleton app-scoped. Se crea una vez, se reutiliza. Cero overhead en request time para singletons ya cacheados.
+- `Depends(callable)`: factory por request, con cache en `dependency_cache` del mismo request.
+- Si no hay `KIND_DEP_CALLABLE` en el `CompiledEndpoint`, `dependency_cache` ni se crea (F2 del roadmap).
+
+### TachyonJSONResponse hereda de JSONResponse pero bypasea __init__
+`Response.__init__` de Starlette cuesta ~0.96µs (construye `MutableHeaders`). Nuestras clases de response heredan para compatibilidad `isinstance` pero setean atributos directamente. El costo bajó a ~0.27µs.
 
 ---
 
 ## Convenciones de código
 
 ### General
-- Python 3.10+ obligatorio. Usar `X | Y` para unions solo donde haya `from __future__ import annotations`.
-- Sin comentarios obvios. Solo comentar invariantes no evidentes o workarounds específicos.
+- Python 3.10+ obligatorio.
+- Sin comentarios obvios. Solo comentar invariantes no evidentes, workarounds específicos, o decisiones de performance con impacto medible.
 - Sin docstrings en métodos cuyo nombre ya explica qué hacen.
+- Toda nueva función en el hot path debe tener un micro-benchmark antes y después en `benchmark/profile_breakdown.py`.
+
+### Performance en el hot path
+- **Allocaciones por request son caras.** Antes de crear un objeto por request, preguntarse si puede ser creado en startup.
+- **`__slots__` en toda clase que se instancia frecuentemente** (params, descriptors, responses).
+- **No usar `isinstance` donde se puede usar `type(x) is T`** — más rápido para tipos exactos.
+- **Pre-compute todo en `compile_endpoint()`**, nunca en `process_parameters()`.
+- **`_bare` variants** de TypeConverter evitan `unwrap_optional()` redundante cuando el tipo ya está pre-unwrapped en el descriptor.
 
 ### Tipos
-- Anotar todos los parámetros y retornos en el código del framework (no en tests).
-- Usar `Optional[X]` (no `X | None`) para consistencia con el resto del codebase.
-- Usar `typing.get_origin` / `typing.get_args` para introspección de genéricos — no re-implementar esa lógica.
+- Anotar todos los parámetros y retornos en código del framework (no en tests).
+- Usar `Optional[X]` para consistencia con el resto del codebase.
 
 ### Manejo de errores
-- Errores del cliente (input inválido) → 422 con `validation_error_response()`.
-- Errores del servidor (bug interno) → 500 con `internal_server_error_response()`.
-- Nunca `except Exception: pass`. Si se swallow una excepción, loggear con `logger.warning`.
-- Los errores de parsing de body/form deben retornar 422, no 500.
+- Errores del cliente → 422 con `validation_error_response()`.
+- Errores del servidor → 500 con `internal_server_error_response()`.
+- Nunca `except Exception: pass`. Si se swallow, loggear con `logger.warning`.
 
 ### Tests
-- Todos los tests usan `async with create_client(app) as client:` (httpx AsyncClient), **no** `TestClient` síncrono para tests nuevos.
-- Cada test crea su propio `app = Tachyon()` — no mutates fixtures globales.
-- Sin `assert True` ni aserciones trivialmente verdaderas.
-- Testear comportamiento observable (HTTP status, response body), no estructura interna.
+- `async with create_client(app) as client:` — no `TestClient` síncrono.
+- Cada test crea su propio `app = Tachyon()`.
+- Testear comportamiento observable (HTTP status, response body), no internals.
+- Sin `assert True`.
 
 ---
 
-## Qué NO hacer
+## Qué NO hacer — lista definitiva
 
-- **No agregar Pydantic** como dependencia ni como alternativa a msgspec.
-- **No expandir el scope de `app.py`**. Ya tiene demasiadas responsabilidades. Cualquier nueva lógica compleja va en `core/`, `processing/`, o un módulo nuevo.
-- **No usar `issubclass` sin verificar `isinstance(x, type)` primero** — falla con tipos genéricos como `List[Struct]`.
-- **No poner lógica de negocio en el framework**. El directorio `example/` es solo para demos.
-- **No usar `sys.path.insert` fuera del CLI** (donde es necesario para cargar módulos del usuario).
-- **No registrar exception handlers síncronos** — bloquean el event loop. Tachyon lo advierte en log; si ves el warning en tests, corregirlo.
+**Dependencias:**
+- No agregar Pydantic. Nunca. El target es msgspec.
+- No agregar dependencies que no estén justificadas por un caso de uso del 80%.
+- No meter en `[dependencies]` lo que pertenece a `[dev.dependencies]`.
+
+**Performance:**
+- No hacer `inspect.signature()` en request time — se hace en startup en `compile_endpoint()`.
+- No crear dicts/listas innecesarios por request — minimizar allocaciones en el hot path.
+- No ignorar el impacto de µs en cambios al hot path. Medir antes y después.
+- No agregar middleware por default — cada middleware es overhead constante en todos los requests.
+
+**Arquitectura:**
+- No expandir `app.py`. OpenAPI va en `openapi.py`, routing irá en `routing/trie.py`, DI en `processing/dependencies.py`.
+- No poner lógica de negocio en el framework. `example/` es solo demo.
+- No usar `issubclass` sin `isinstance(x, type)` antes — falla con genéricos.
+- No `sys.path.insert` fuera del CLI.
+
+**API pública:**
+- No hacer breaking changes en minor versions (estamos en v1.x).
+- No agregar parámetros optativos que cambien semántica por default.
+- No romper compatibilidad con el patrón FastAPI-like de la DX.
+
+**Código:**
+- No exception handlers síncronos — bloquean el event loop.
+- No features "por si acaso" — si no hay un caso de uso concreto hoy, no entra.
 
 ---
 
-## Comandos frecuentes
+## Comandos
 
 ```bash
 # Tests
@@ -122,36 +216,51 @@ pytest tests/ -v
 ruff check tachyon_api/
 ruff check tachyon_api/ --fix
 
-# CLI (desarrollo)
+# Benchmark completo vs FastAPI
+bash benchmark/run_benchmark.sh
+
+# Micro-benchmarks del hot path
+python benchmark/profile_hotpath.py
+python benchmark/profile_breakdown.py
+
+# CLI
 python -m tachyon_api.cli.main --help
 python -m tachyon_api.cli.main new mi-proyecto
 python -m tachyon_api.cli.main generate service users --crud
-
-# Correr el ejemplo
-cd example && uvicorn example.app:app --reload
 ```
 
 ---
 
 ## Dependencias
 
-| Paquete | Versión mínima | Por qué |
-|---------|---------------|---------|
-| `starlette` | `^0.47.2` | ASGI core, routing, TestClient |
-| `msgspec` | `^0.19.0` | Validación + serialización ultra-rápida |
-| `orjson` | `^3.11.1` | JSON encoding de alto rendimiento |
-| `uvicorn` | `^0.35.0` | Servidor ASGI de desarrollo |
-| `typer` | `^0.16.0` | CLI |
-| `python-multipart` | `^0.0.20` | Parsing de form-data y file uploads |
+| Paquete | Por qué está | Por qué NO se saca |
+|---|---|---|
+| `starlette` | ASGI, TestClient, WebSocket, lifespan | Reimplementar sería meses de deuda sin ganancia real |
+| `msgspec` | Validación + serialización en C | Es la razón de ser del framework — sin Pydantic |
+| `orjson` | JSON encoding C, 10x más rápido que stdlib | Sin stdlib json en el hot path |
+| `uvicorn` | ASGI server | Deployment standard, no se compite con él |
+| `typer` | CLI | Pequeño, rápido, suficiente |
+| `python-multipart` | Form + file upload | Sin alternativa viable |
 
 Dev: `pytest`, `pytest-asyncio`, `httpx`, `ruff`.
 
-**Nota:** `starlette >= 0.47` es requisito duro. La versión 0.19.x es incompatible con anyio 4.x.
+**Nota:** starlette >= 0.47 es requisito duro. La routing regex de Starlette se reemplaza en F1 del roadmap pero la dependencia se mantiene.
+
+---
+
+## Roadmap
+
+Ver `ROADMAP.md` (gitignored — no se commitea, es documento de trabajo interno).
+
+Resumen de fases:
+- **F1** — Radix trie router (4.25x → 5.5x) — mayor win único disponible
+- **F2** — Micro-optimizaciones acumuladas (5.5x → 6.5x)
+- **F3** — Cython compilation del hot path (6.5x → 8x)
+- **F4** — Bypass middleware Starlette (8x → 9x)
+- **F5** — C extension core (9x → 10x)
 
 ---
 
 ## Versionado
 
-Semantic Versioning. Breaking changes solo en major version. El framework está en `0.x` — se permiten breaking changes de API en minor versions hasta llegar a `1.0`.
-
-Historial en `CHANGELOG.md`.
+Semantic Versioning. Breaking changes solo en major versions. Historial en `CHANGELOG.md`.

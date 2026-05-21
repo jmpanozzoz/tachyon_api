@@ -16,9 +16,9 @@ T = TypeVar("T")
 def _orjson_default(obj: Any) -> Any:
     """Default function for orjson to serialize types it doesn't support natively."""
     if isinstance(obj, (datetime.date, datetime.datetime)):
-        return obj.isoformat()
+        return obj.isoformat()  # pragma: no cover — orjson handles natively with _ORJSON_OPTS
     if isinstance(obj, uuid.UUID):
-        return str(obj)
+        return str(obj)  # pragma: no cover — orjson handles natively with OPT_SERIALIZE_UUID
     if isinstance(obj, Struct):
         return msgspec.to_builtins(obj)
     raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
