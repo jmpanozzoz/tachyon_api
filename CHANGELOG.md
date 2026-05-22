@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.2.0] — 2026-05-22
 
+This release completes the **F6–F12 Python/Cython optimisation roadmap** and delivers
+a full security + functional audit: path traversal fixes, CORS opt-in, DI scopes,
+WebSocket DI, OpenAPI List[Struct], and more.
+
+| Metric | v1.1.0 | v1.2.0 | Δ |
+|---|---:|---:|---:|
+| Full handler cycle | 1.16 µs | **1.05 µs** | **−9%** |
+| `process_parameters` path+query | 0.82 µs | **0.56 µs** | **−32%** |
+| `process_parameters` body POST | 1.28 µs | **0.79 µs** | **−38%** |
+| Total throughput (100 conns) | 335,626 req/s | **345,046 req/s** | **+2.8%** |
+| Speedup vs FastAPI | 5.61x | **5.50x** | (FastAPI also improved) |
+
 ### Added
 
 - **`di.py`** — `@injectable` accepts optional `scope` keyword: `"singleton"` *(default, unchanged)*, `"request"` *(one instance per HTTP request)*, `"transient"` *(new instance on every injection)*. Backward-compatible; bare `@injectable` still means singleton. Exports `SCOPE_SINGLETON`, `SCOPE_REQUEST`, `SCOPE_TRANSIENT`.
