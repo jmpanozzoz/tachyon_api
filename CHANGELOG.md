@@ -24,10 +24,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`core/lifecycle.py`** — Startup handlers now raise `RuntimeError` on failure (with the original exception as cause), preventing the app from booting in a broken state. Shutdown handlers log failures at WARNING and continue processing remaining handlers.
 - **`cache.py`** — `RedisCacheBackend.clear()` now calls `flushdb()` (current DB only) instead of silently no-oping. Falls back to `flushall()` if `flushdb()` is unavailable.
 
+### Fixed (continued)
+
+- **`security.py`** — `_APIKeyBase._get_raw()` is now a proper `@abstractmethod` (via `ABC`); direct instantiation of the base class is caught at class definition time instead of raising `NotImplementedError` at runtime.
+- **`openapi.py`** — `build_param_schema` now generates correct schemas for `datetime.datetime` (`string/date-time`), `datetime.date` (`string/date`), `uuid.UUID` (`string/uuid`), and `Enum` subclasses (emits `enum` array with inferred `string`/`integer` type).
+- **`cli/templates/service.py`** — `assert True` removed from generated test placeholder (replaced with `pass`); `# TODO:` markers replaced with plain guidance comments.
+
 ### Performance
 
 - **`processing/response_processor.py`** — `msgspec.convert()` is skipped when `type(payload) is response_model`, avoiding a C-level conversion call for endpoints that already return the correct type.
 - **`processing/dependencies.py`** — Module-level `_SIG_CACHE` eliminates repeated `inspect.signature()` calls for `Depends(callable)` deps: O(1) dict lookup after the first resolution of each callable.
+- **`app.py`** — `isinstance(handler, _ASGIHandler)` → `type(handler) is _ASGIHandler` in the trie dispatch path (~5 ns per call).
 
 ### Changed
 
@@ -38,7 +45,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`cli/utils.py`** (new): `validate_name(name, kind)` extracted from the duplicated implementations in `cli/commands/generate.py` and `cli/commands/new.py`.
 - **`processing/parameters.py`** — `_missing_param(p, kind, name)` helper consolidates 6 identical default/error-return patterns across `_process_query`, `_process_header`, `_process_cookie`, `_process_form`, `_process_file`, and `_process_path`.
 
-### Performance
+### Performance (F12b/F12)
 
 **F12b (Cython) — default-headers cache + compiled direct write** (`feature/server-binding-cython`)
 

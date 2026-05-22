@@ -202,7 +202,7 @@ class {class_name}Repository:
     """
 
     def __init__(self):
-        # TODO: Replace with actual database connection
+        # Replace with your actual database connection/ORM session
         self._data: dict = {{}}
 
     def find_all(self, skip: int = 0, limit: int = 100) -> List[dict]:
@@ -252,12 +252,11 @@ class {class_name}Repository:
     """
 
     def __init__(self):
-        # TODO: Replace with actual database connection
+        # Replace with your actual database connection/ORM session
         pass
 
     def find_all(self) -> List[dict]:
         """Get all {snake_name}s."""
-        # TODO: Implement database query
         return []
 '''
 
@@ -319,15 +318,14 @@ class Test{class_name}Service:
     """Unit tests for {class_name}Service."""
 
     def test_placeholder(self):
-        """Placeholder test - implement your tests here."""
-        # TODO: Implement actual tests
+        """Placeholder - replace with real tests for {class_name}Service."""
         # from modules.{snake_name} import {class_name}Service, {class_name}Repository
         #
         # repository = {class_name}Repository()
         # service = {class_name}Service(repository)
         # result = service.get_all()
         # assert result is not None
-        assert True
+        pass
 '''
 
     @staticmethod
@@ -374,8 +372,9 @@ class {class_name}Middleware:
 
         Return a Response to short-circuit (e.g. 401), or None to continue.
         """
-        # TODO: implement your middleware logic here
-        # Example — reject unauthenticated requests:
+        # Implement your middleware logic here.
+        # Return a Response to short-circuit (e.g. reject), or None to continue.
+        # Example:
         # if not request.headers.get("authorization"):
         #     return Response("Unauthorized", status_code=401)
         return None

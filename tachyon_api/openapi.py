@@ -1,3 +1,4 @@
+from enum import Enum
 from typing import Dict, Any, Optional, List, Type, Callable
 from dataclasses import dataclass, field
 import datetime
@@ -8,6 +9,13 @@ import json
 
 from .models import Struct
 from .utils import TypeUtils, OPENAPI_TYPE_MAP
+
+# Types that map to a specific OpenAPI string format
+_OPENAPI_FORMAT_MAP: Dict[Type, tuple] = {
+    datetime.datetime: ("string", "date-time"),
+    datetime.date:     ("string", "date"),
+    uuid.UUID:         ("string", "uuid"),
+}
 
 
 def _safe_json(value: Any) -> str:
@@ -398,20 +406,29 @@ class OpenAPIGenerator:
         self.add_path(path, method, operation)
 
 
+def _scalar_schema(t: Type) -> Dict[str, Any]:
+    fmt = _OPENAPI_FORMAT_MAP.get(t)
+    if fmt:
+        return {"type": fmt[0], "format": fmt[1]}
+    if isinstance(t, type) and issubclass(t, Enum):
+        members = [e.value for e in t]
+        val_type = "integer" if members and all(isinstance(v, int) for v in members) else "string"
+        return {"type": val_type, "enum": members}
+    return {"type": TypeUtils.get_openapi_type(t)}
+
+
 def build_param_schema(python_type: Type) -> Dict[str, Any]:
-    """Build an OpenAPI schema for a simple parameter type (scalar, list, optional)."""
+    """Build an OpenAPI schema for a scalar, list, optional, enum, or formatted type."""
     inner_type, nullable = TypeUtils.unwrap_optional(python_type)
     is_list, item_type = TypeUtils.is_list_type(inner_type)
     if is_list:
         base_item_type, item_nullable = TypeUtils.unwrap_optional(item_type)
-        schema: Dict[str, Any] = {
-            "type": "array",
-            "items": {"type": TypeUtils.get_openapi_type(base_item_type)},
-        }
+        item_schema = _scalar_schema(base_item_type)
         if item_nullable:
-            schema["items"]["nullable"] = True
+            item_schema["nullable"] = True
+        schema: Dict[str, Any] = {"type": "array", "items": item_schema}
     else:
-        schema = {"type": TypeUtils.get_openapi_type(inner_type)}
+        schema = _scalar_schema(inner_type)
     if nullable:
         schema["nullable"] = True
     return schema
