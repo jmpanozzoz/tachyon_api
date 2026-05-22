@@ -7,6 +7,82 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.2.95] — 2026-05-22
+
+**v1.2.9 Cython sprint — Phase 4b.1/7: migrate F11 fast-int/fast-float into the
+cdef extractors.**  Prerequisite for Phase 4b.2 (parameters.pyx rewrite).
+
+### Why this phase exists
+
+Phase 4a compiled five extractors as `cdef class` siblings of the `.py`
+versions.  But the current `parameters.pyx` still has C-level
+`_fast_int` / `_fast_float` (F11 from v1.1.x) using `strtol` / `strtod`
+inline in its `_process_query` / `_process_path`.  If Phase 4b.2
+naively delegates to the new extractors, those F11 fast paths disappear
+in compiled mode — a real regression for int/float path and query params.
+
+This phase **moves F11 into the cdef extractors themselves** so Phase 4b.2
+can delegate without losing the optimization.
+
+### Changed (extractors only)
+
+- **`processing/_extractors/query.pyx`** — added `cdef _fast_int(str s)`
+  and `cdef _fast_float(str s)` using `libc.stdlib.strtol` / `strtod` and
+  `cpython.unicode.PyUnicode_AsUTF8AndSize`.  `QueryExtractor.extract`
+  uses them when `descriptor.base_type is int` / `is float`, otherwise
+  falls back to `TypeConverter.convert_value_bare`.  On conversion
+  failure: returns a 422 `validation_error_response`.
+
+- **`processing/_extractors/path.pyx`** — added `cdef _fast_int_path` and
+  `cdef _fast_float_path` (same shape as above but conversion failure
+  returns 404 `{"detail": "Not Found"}`, matching the original
+  `parameters.pyx` semantics for path-param type mismatch).
+
+The `cdef` helpers are file-local — intra-module zero-overhead calls.
+Code duplication between `query.pyx` and `path.pyx` is intentional: the
+return values on failure differ (422 vs 404) so a shared helper would
+need an extra branch, which costs more than the duplicated ~15 lines.
+
+### Measurements (compiled `.pyx` only)
+
+| Extractor scenario | Phase 4a baseline | Phase 4b.1 | Δ |
+|---|---:|---:|---:|
+| `PathExtractor.extract` — string hit | 0.349 µs | 0.350 µs | unchanged (str path doesn't use F11) |
+| **`PathExtractor.extract` — int conversion** | 0.407 µs | **0.239 µs** | **−41%** |
+| `QueryExtractor.extract` — string hit | 0.332 µs | 0.334 µs | unchanged |
+| **`QueryExtractor.extract` — int conversion** | (~0.40 µs est.) | **0.252 µs** | **~−37%** |
+
+F11 brings the int/float fast path back; string path is unchanged (as it
+should be — `TypeConverter` was already a no-op for `str`).
+
+### FULL HANDLER
+
+| Metric | Phase 4a baseline | Phase 4b.1 | Δ |
+|---|---:|---:|---:|
+| FULL HANDLER cycle (10-run median) | 0.95 µs | 0.94 µs | within noise |
+
+FULL HANDLER is unchanged because `parameters.cpython-*.so` still doesn't
+use the new extractors — Phase 4b.2 is where it starts to matter.
+
+### Verification
+
+- 366/367 framework tests pass with compiled `.so` loaded.
+- Pure-Python users with the new `.py` extractors still take the
+  `TypeConverter` path (the F11 helpers are Cython-only — they live in
+  `.pyx`, not `.py`).  No `.py` divergence introduced.
+
+### Next: Phase 4b.2
+
+Rewrite `parameters.pyx` to:
+1. Hold the cdef extractor instances as typed fields on `ParameterProcessor`.
+2. Delegate each `_KIND_*` branch to `self._<kind>_extractor.extract(p, source)`.
+3. Drop the inline `_fast_int` / `_fast_float` (now lives in the extractors).
+
+Measurement gate: FULL HANDLER ≤ 0.97 µs median (= ≤ +2% vs Phase 4a's 0.95).
+If it regresses, fall back to Shape B.
+
+---
+
 ## [1.2.94] — 2026-05-22
 
 **v1.2.9 Cython sprint — Phase 4a/7: easy extractors compiled (cdef class).**
