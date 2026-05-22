@@ -47,24 +47,42 @@ if __name__ == "__main__":
     )
 '''
 
+    ENV_EXAMPLE = """# Application
+APP_NAME=Tachyon API
+VERSION=0.1.0
+DEBUG=true
+
+# Server
+HOST=0.0.0.0
+PORT=8000
+
+# Database (uncomment and configure when ready)
+# DATABASE_URL=postgresql://user:password@localhost:5432/dbname
+"""
+
     CONFIG = '''"""
-Application configuration.
+Application configuration — reads from environment / .env file.
 """
 
 import os
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass  # python-dotenv optional; set env vars directly in production
 
 
 class Settings:
     """Application settings loaded from environment variables."""
-    
+
     APP_NAME: str = os.getenv("APP_NAME", "Tachyon API")
-    VERSION: str = os.getenv("VERSION", "0.1.0")
-    DEBUG: bool = os.getenv("DEBUG", "true").lower() == "true"
-    
+    VERSION:  str = os.getenv("VERSION",  "0.1.0")
+    DEBUG:    bool = os.getenv("DEBUG", "true").lower() == "true"
+
     # Server
     HOST: str = os.getenv("HOST", "0.0.0.0")
     PORT: int = int(os.getenv("PORT", "8000"))
-    
+
     # Database (example)
     # DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite:///./app.db")
 
@@ -73,15 +91,18 @@ settings = Settings()
 '''
 
     REQUIREMENTS = """# Tachyon API Framework
-tachyon-api>=0.6.0
+tachyon-api>=1.2.0
 
 # Server
-uvicorn[standard]>=0.30.0
+uvicorn[standard]>=0.35.0
+
+# Configuration
+python-dotenv>=1.0.0
 
 # Development
 pytest>=8.0.0
-pytest-asyncio>=0.23.0
-httpx>=0.27.0
+pytest-asyncio>=1.0.0
+httpx>=0.28.0
 ruff>=0.4.0
 """
 

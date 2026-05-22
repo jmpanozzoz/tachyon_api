@@ -12,8 +12,7 @@ from unittest.mock import MagicMock, AsyncMock
 
 async def make_mock_request(path: str, method: str = "GET",
                              body: bytes = b"", query: str = ""):
-    from starlette.requests import Request
-    from starlette.datastructures import QueryParams, Headers
+    from tachyon_api.processing.scope import TachyonScope
     scope = {
         "type": "http",
         "method": method,
@@ -27,10 +26,10 @@ async def make_mock_request(path: str, method: str = "GET",
         "app": None,
     }
     receive = AsyncMock(return_value={"type": "http.request", "body": body, "more_body": False})
-    req = Request(scope, receive)
-    # Pre-read body into cache
+    req = TachyonScope(scope, receive, None)
+    # Pre-warm the body cache so profiling measures processing not I/O
     if body:
-        req._body = body
+        await req.body()
     return req
 
 
@@ -73,7 +72,7 @@ async def main():
     proc   = ParameterProcessor(app)
     req_hello  = await make_mock_request("/hello")
     req_item   = await make_mock_request("/items/42", query="q=test")
-    req_item.scope["path_params"] = {"item_id": "42"}
+    req_item._scope["path_params"] = {"item_id": "42"}
     req_body   = await make_mock_request("/items", "POST", b'{"name":"Widget","price":9.99}')
 
     print("\n" + "═"*65)
@@ -111,10 +110,10 @@ async def main():
     timed("process_parameters — body POST", N, time.perf_counter() - t0)
 
     # ── 5. call_endpoint (sync) ──
-    kwargs_hello = {}
+    args_hello = []   # F7: list instead of dict
     t0 = time.perf_counter()
     for _ in range(N):
-        payload = await ResponseProcessor.call_endpoint(compiled_hello, kwargs_hello)
+        payload = await ResponseProcessor.call_endpoint(compiled_hello, args_hello)
     timed("call_endpoint — sync", N, time.perf_counter() - t0)
 
     # ── 6. process_response — dict ──
@@ -164,8 +163,8 @@ async def main():
     t0 = time.perf_counter()
     dep_cache = {}
     for _ in range(N):
-        kwargs, err, bg = await proc.process_parameters(compiled_hello, req_hello, dep_cache)
-        payload = await ResponseProcessor.call_endpoint(compiled_hello, kwargs)
+        args, err, bg = await proc.process_parameters(compiled_hello, req_hello, dep_cache)
+        payload = await ResponseProcessor.call_endpoint(compiled_hello, args)
         resp = await ResponseProcessor.process_response(payload, None, bg)
     timed("FULL HANDLER (no network, no routing)", N, time.perf_counter() - t0)
 

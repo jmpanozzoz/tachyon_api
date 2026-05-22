@@ -27,7 +27,7 @@ __all__ = ["router", "{class_name}Service", "{class_name}Repository"]
 """
 
 from typing import List
-from tachyon_api import Router, Depends, Query
+from tachyon_api import Router, Depends, Query, Body
 from .{snake_name}_service import {class_name}Service
 from .{snake_name}_dto import (
     {class_name}Response,
@@ -59,7 +59,7 @@ def get_{snake_name}(
 
 @router.post("/", response_model={class_name}Response)
 def create_{snake_name}(
-    data: {class_name}Create,
+    data: {class_name}Create = Body(),
     service: {class_name}Service = Depends(),
 ):
     """Create a new {snake_name}."""
@@ -69,7 +69,7 @@ def create_{snake_name}(
 @router.put("/{{id}}", response_model={class_name}Response)
 def update_{snake_name}(
     id: str,
-    data: {class_name}Update,
+    data: {class_name}Update = Body(),
     service: {class_name}Service = Depends(),
 ):
     """Update a {snake_name}."""
@@ -146,7 +146,7 @@ class {class_name}Service:
 
     def update(self, id: str, data: {class_name}Update) -> dict:
         """Update a {snake_name}."""
-        existing = self.find_by_id(id)
+        self.find_by_id(id)  # raises 404 if not found
         return self.repository.update(id, data)
 
     def delete(self, id: str) -> None:
@@ -187,7 +187,9 @@ class {class_name}Service:
 {class_name} Repository - Data access layer.
 """
 
+import uuid
 from typing import List, Optional
+import msgspec
 from tachyon_api import injectable
 
 
@@ -195,12 +197,12 @@ from tachyon_api import injectable
 class {class_name}Repository:
     """
     {class_name} data access.
-    
+
     Handles database operations. Replace with actual DB implementation.
     """
 
     def __init__(self):
-        # TODO: Replace with actual database connection
+        # Replace with your actual database connection/ORM session
         self._data: dict = {{}}
 
     def find_all(self, skip: int = 0, limit: int = 100) -> List[dict]:
@@ -214,16 +216,15 @@ class {class_name}Repository:
 
     def create(self, data) -> dict:
         """Create a new {snake_name}."""
-        import uuid
-        id = str(uuid.uuid4())
-        item = {{"id": id, **data.__dict__}}
-        self._data[id] = item
+        item_id = str(uuid.uuid4())
+        item = {{"id": item_id, **msgspec.structs.asdict(data)}}
+        self._data[item_id] = item
         return item
 
     def update(self, id: str, data) -> dict:
         """Update a {snake_name}."""
         item = self._data.get(id, {{}})
-        for key, value in data.__dict__.items():
+        for key, value in msgspec.structs.asdict(data).items():
             if value is not None:
                 item[key] = value
         self._data[id] = item
@@ -251,12 +252,11 @@ class {class_name}Repository:
     """
 
     def __init__(self):
-        # TODO: Replace with actual database connection
+        # Replace with your actual database connection/ORM session
         pass
 
     def find_all(self) -> List[dict]:
         """Get all {snake_name}s."""
-        # TODO: Implement database query
         return []
 '''
 
@@ -318,13 +318,64 @@ class Test{class_name}Service:
     """Unit tests for {class_name}Service."""
 
     def test_placeholder(self):
-        """Placeholder test - implement your tests here."""
-        # TODO: Implement actual tests
+        """Placeholder - replace with real tests for {class_name}Service."""
         # from modules.{snake_name} import {class_name}Service, {class_name}Repository
-        # 
+        #
         # repository = {class_name}Repository()
         # service = {class_name}Service(repository)
         # result = service.get_all()
         # assert result is not None
-        assert True
+        pass
+'''
+
+    @staticmethod
+    def middleware(snake_name: str, class_name: str) -> str:
+        return f'''"""
+{class_name}Middleware — ASGI middleware skeleton.
+
+Register in app.py:
+    app.add_middleware({class_name}Middleware)
+"""
+
+from starlette.types import ASGIApp, Receive, Scope, Send
+from starlette.requests import Request
+from starlette.responses import Response
+
+
+class {class_name}Middleware:
+    """
+    {class_name} ASGI middleware.
+
+    Wraps every HTTP request. Override the process() method with your logic.
+    """
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        request = Request(scope, receive)
+        response = await self.process(request)
+        if response is not None:
+            # Short-circuit: return early (e.g. auth rejection)
+            await response(scope, receive, send)
+            return
+
+        await self.app(scope, receive, send)
+
+    async def process(self, request: Request) -> Response | None:
+        """
+        Inspect / modify the request before it reaches the endpoint.
+
+        Return a Response to short-circuit (e.g. 401), or None to continue.
+        """
+        # Implement your middleware logic here.
+        # Return a Response to short-circuit (e.g. reject), or None to continue.
+        # Example:
+        # if not request.headers.get("authorization"):
+        #     return Response("Unauthorized", status_code=401)
+        return None
 '''

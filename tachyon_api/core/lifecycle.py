@@ -1,8 +1,11 @@
 """Startup/shutdown lifecycle management."""
 
 import asyncio
+import logging
 from contextlib import asynccontextmanager
 from typing import Callable, List, Optional
+
+logger = logging.getLogger(__name__)
 
 
 class LifecycleManager:
@@ -18,10 +21,15 @@ class LifecycleManager:
         @asynccontextmanager
         async def combined_lifespan(app):
             for handler in lifecycle_manager._startup_handlers:
-                if asyncio.iscoroutinefunction(handler):
-                    await handler()
-                else:
-                    handler()
+                try:
+                    if asyncio.iscoroutinefunction(handler):
+                        await handler()
+                    else:
+                        handler()
+                except Exception as exc:
+                    raise RuntimeError(
+                        f"Startup handler {handler.__name__!r} raised: {exc}"
+                    ) from exc
 
             if lifecycle_manager._user_lifespan is not None:
                 async with lifecycle_manager._user_lifespan(app):
@@ -30,10 +38,13 @@ class LifecycleManager:
                 yield
 
             for handler in lifecycle_manager._shutdown_handlers:
-                if asyncio.iscoroutinefunction(handler):
-                    await handler()
-                else:
-                    handler()
+                try:
+                    if asyncio.iscoroutinefunction(handler):
+                        await handler()
+                    else:
+                        handler()
+                except Exception as exc:
+                    logger.warning("Shutdown handler %r failed: %s", handler.__name__, exc, exc_info=True)
 
         return combined_lifespan
 

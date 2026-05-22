@@ -1,7 +1,10 @@
 """Tasks queued to run after the response is sent."""
 
 import asyncio
+import logging
 from typing import Any, Callable, List, Tuple
+
+logger = logging.getLogger(__name__)
 
 
 class BackgroundTasks:
@@ -23,8 +26,8 @@ class BackgroundTasks:
                     await func(*args, **kwargs)
                 else:
                     func(*args, **kwargs)
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.warning("Background task %s failed: %s", func.__name__, exc, exc_info=True)
 
     def __len__(self) -> int:
         return len(self._tasks)

@@ -7,6 +7,208 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.2.0] — 2026-05-22
+
+This release completes the **F6–F12 Python/Cython optimisation roadmap** and delivers
+a full security + functional audit: path traversal fixes, CORS opt-in, DI scopes,
+WebSocket DI, OpenAPI List[Struct], and more.
+
+| Metric | v1.1.0 | v1.2.0 | Δ |
+|---|---:|---:|---:|
+| Full handler cycle | 1.16 µs | **1.05 µs** | **−9%** |
+| `process_parameters` path+query | 0.82 µs | **0.56 µs** | **−32%** |
+| `process_parameters` body POST | 1.28 µs | **0.79 µs** | **−38%** |
+| Total throughput (100 conns) | 335,626 req/s | **345,046 req/s** | **+2.8%** |
+| Speedup vs FastAPI | 5.61x | **5.50x** | (FastAPI also improved) |
+
+### Added
+
+- **`di.py`** — `@injectable` accepts optional `scope` keyword: `"singleton"` *(default, unchanged)*, `"request"` *(one instance per HTTP request)*, `"transient"` *(new instance on every injection)*. Backward-compatible; bare `@injectable` still means singleton. Exports `SCOPE_SINGLETON`, `SCOPE_REQUEST`, `SCOPE_TRANSIENT`.
+- **`core/websocket.py`** — WebSocket handlers now support: typed path params (converted via `TypeConverter`; type mismatch closes with code 1008), `@injectable` class deps, and `Depends(callable)` per-connection factories. Param descriptors pre-computed at route registration — zero `inspect` overhead per connection.
+- **`openapi.py`** — `generate_route` generates correct schemas for: `response_model=List[Struct]` (array with `$ref`), `Body` with `List[Struct]`, `Form`/`File` params (`multipart/form-data` requestBody with `required` and `format: binary`).
+- **`middlewares/security_headers.py`** — New `SecurityHeadersMiddleware`: opt-in, injects `x-content-type-options`, `x-frame-options`, `referrer-policy`, `x-permitted-cross-domain-policies`. HSTS/CSP via constructor params.
+- **`testing.py`** — `create_client(app, ...)` promoted to framework public API (was only in `tests/helpers.py`). Accepts httpx kwargs: headers, cookies, auth, follow_redirects, timeout. `AsyncTachyonTestClient` gains the same kwargs.
+
+### Security
+
+- **`files.py`** — `UploadFile` sanitizes `filename` at construction: strips null bytes and directory components to prevent path traversal.
+- **`responses.py`** — `response_validation_error_response` no longer echoes internal error details in the HTTP response body; logged at WARNING only.
+- **`middlewares/cors.py`** — Defaults changed to `allow_origins=()`, `allow_headers=()`, explicit `allow_methods`. CORS is now opt-in.
+- **`security.py`** — `APIKeyQuery` docstring warns tokens in query params appear in logs/history/Referer.
+- **`processing/parameters.py`** — Path params containing `\x00` (null bytes) rejected with 422.
+
+### Fixed
+
+- **`background.py`** — `BackgroundTasks.run_tasks()` logs failures at WARNING with traceback instead of silently swallowing them.
+- **`core/lifecycle.py`** — Startup handlers raise `RuntimeError` on failure; shutdown handlers log and continue remaining handlers.
+- **`cache.py`** — `RedisCacheBackend.clear()` calls `flushdb()` instead of no-op; falls back to `flushall()`.
+- **`security.py`** — `_APIKeyBase._get_raw()` is a proper `@abstractmethod` via `ABC`.
+- **`openapi.py`** — `build_param_schema` generates correct schemas for `datetime`, `date`, `uuid.UUID`, and `Enum` subclasses.
+- **`cli/templates/service.py`** — `assert True` replaced with `pass` in generated test placeholder; `# TODO:` markers replaced with descriptive comments.
+
+### Performance
+
+- **`processing/response_processor.py`** — Skips `msgspec.convert()` when `type(payload) is response_model`.
+- **`processing/dependencies.py`** — `_SIG_CACHE` eliminates `inspect.signature()` per-request for `Depends(callable)` and class deps.
+- **`app.py`** — `isinstance(handler, _ASGIHandler)` → `type(handler) is _ASGIHandler` in trie dispatch.
+
+### Changed
+
+- **`app.py` / `processing/parameters.py`** — Default `max_body_size` reduced 10 MB → 2 MB. Override via `Tachyon(max_body_size=...)`.
+
+### Refactor
+
+- **`cli/utils.py`** (new) — `validate_name(name, kind)` extracted from duplicated code in `generate.py` and `new.py`.
+- **`processing/parameters.py`** — `_missing_param(p, kind, name)` consolidates 6 repeated default/error patterns.
+
+### Performance (F12b/F12)
+
+**F12b (Cython) — default-headers cache + compiled direct write** (`feature/server-binding-cython`)
+
+- New `tachyon_api/_server_fast.pyx`: Cython-compiled `tachyon_direct_write` with a
+  module-level `default_headers` bytes cache. The Date header changes ≤ once per second;
+  at 50k+ req/s the cache eliminates the per-request `for name,value in default_headers`
+  loop + `b"".join()` — replaced by a single bytes comparison and a pointer return.
+- `server.py`: tries `from ._server_fast import tachyon_direct_write` at import time;
+  falls back to the pure-Python implementation when `[fast]` extensions are not compiled.
+- `setup.py` + `pyproject.toml`: `_server_fast.pyx` added to Cython build.
+- **Measured gains (Hello World, uvicorn + uvloop)**:
+  - 1 connection: **+5.7%**
+  - 4 connections: **+8.5%**
+  - 10 connections: **+6.3%**
+  - 50 connections: **+5.4%**
+  - 100 connections: +1.6% (asyncio amortises awaits at high concurrency)
+- At the standard wrk benchmark (c=100) the gain is within noise; at realistic production
+  concurrency (c=4–50) it is consistently +5–8%.
+
+**F12 — Server binding: direct transport write** (`feature/server-binding`)
+
+- New `tachyon_api/server.py`: `TachyonHTTPProtocol` — drop-in uvicorn HTTP/1.1 protocol
+  subclass that injects `_tachyon_cycle` into the ASGI scope. `TachyonDispatcher` and
+  `_fast_asgi` detect the key and call `tachyon_direct_write()` instead of 2× `await send()`.
+- `tachyon_direct_write(cycle, response)`: module-level function that builds the full
+  HTTP/1.1 response bytes (status + default_headers + content-length + content-type + body)
+  and issues two synchronous `transport.write()` calls, then updates the uvicorn cycle state
+  (response_started, response_complete, keep_alive, on_response callback).
+- `tachyon_api.server.run(app, **kwargs)`: convenience launcher that passes
+  `http=TachyonHTTPProtocol` to `uvicorn.run()`.
+- **F12a** (always active): `response.__call__` coroutine eliminated — sends issued inline
+  in `TachyonDispatcher.__call__` and `_fast_asgi`, saving one Python coroutine frame.
+- **F12b** (TachyonServer required): infrastructure in place. In pure Python, `b"".join()`
+  overhead and Python function call cost neutralize the 2× await savings (asyncio amortizes
+  awaits across concurrent connections). True F12b gains require Cython compilation of
+  `tachyon_direct_write` to eliminate Python object overhead — filed as a v2.x task.
+- `responses.py`: `_HTTP_STATUS_LINES` cache, `_HTTP_CL_PREFIX`, `_HTTP_CT_JSON_CRLF2`
+  constants for use in `tachyon_direct_write`.
+
+**F11 — C stdlib fast path: memchr + strtol/strtod** (`feature/nogil-sections`)
+
+- `routing/trie.pyx`: `PyUnicode_AsUTF8AndSize` called once per `match()` — returns
+  a C pointer to the path bytes in O(1) for ASCII (CPython caches UTF-8 repr in compact
+  Unicode objects). `memchr` replaces `path.find("/", pos)` Python method call in the
+  inner segment loop — C-level byte scan (~3ns) vs Python method call (~71ns),
+  saving **~68ns per path segment**.
+- `processing/parameters.pyx`: `strtol`/`strtod` module-level `cdef` helpers
+  (`_fast_int`, `_fast_float`) replace `TypeConverter.convert_value_bare()` for `int`
+  and `float` params. Uses `PyUnicode_AsUTF8AndSize` + C stdlib functions directly —
+  no Python function call boundary, no exception handling overhead.
+  Saving: **~40ns per int param**, **~85ns per float param**.
+- `_process_query` and `_process_path` in `parameters.pyx` updated to call
+  `_fast_int`/`_fast_float` before falling through to `TypeConverter` for other types.
+- Pure Python `.py` files unchanged — these optimizations are Cython-only (pure Python
+  `int()` is already optimal at ~69ns and ctypes overhead exceeds the gain).
+- Measured gains per request (Cython compiled, typical parameterised endpoint):
+  - 2 path segments: **~136ns saved** from memchr
+  - 1 int path param: **~40ns saved** from strtol
+  - Total per request with path + int param: **~176ns**
+
+**F10 — Pre-built header tuples — pooled response headers** (`feature/pooled-responses`)
+
+- `responses.py`: added `_CT_TUPLE = (_CT_NAME, _CT_JSON)` — singleton content-type
+  header tuple; previously re-created on every response (~20ns per response).
+- `responses.py`: added `_CL_TUPLE_CACHE: dict` — 65536 pre-built `(b"content-length", b"N")`
+  tuples for body sizes 0–65535 bytes (~4MB startup cost). Inline dict lookup
+  `_CL_TUPLE_CACHE[n] if n < 65536 else ...` avoids one tuple allocation and one
+  `_cl_bytes()` call per response.
+- `TachyonJSONResponse.__init__`, `TachyonBytesResponse.__init__`,
+  `_InternalErrorResponse` headers: updated to use inline lookup.
+- The headers *list* is still created fresh per response — shared lists are unsafe
+  because CORS and other middlewares may mutate `message["headers"]` in place.
+- Micro-benchmark delta: headers list creation **138ns → 59ns (−79ns, −57%)**.
+
+**F9 — `_trie_dispatch` to Cython cdef class** (`feature/cython-dispatch`)
+
+- New `processing/dispatch.py` + `processing/dispatch.pyx`: `TachyonDispatcher` —
+  `cdef class` that replaces the pure-Python `_trie_dispatch` method as the innermost
+  ASGI callable in `_build_http_app`.
+- Cython gains: `cdef int status` (no Python int boxing), `cdef object handler/path_params`
+  (direct C pointer locals, no Python name-lookup overhead), C-level struct field reads
+  for all `self.*` constants (`_trie`, `_404_start`, etc.).
+- `type(handler) is self._asgi_handler_class` — C type-pointer comparison in Cython,
+  faster than `isinstance` for exact-type checks.
+- `app.py`: `__init__` instantiates `self._dispatcher = TachyonDispatcher(...)` once at
+  startup. `_build_http_app` and `_make_http_dispatch` both use `self._dispatcher`
+  instead of the Python `_trie_dispatch` bound method.
+- `setup.py`: `dispatch.pyx` added to Cython extension build.
+- Savings: neutral in pure Python; Cython path: ~80ns saved from removing Python int
+  boxing + C-level struct reads on every HTTP request.
+
+**F8 — Eliminate Request object from hot path** (`feature/no-request`)
+
+- New `processing/scope.py` + `processing/scope.pyx`: `TachyonScope` — thin ASGI scope
+  wrapper with `__slots__`, direct C-field None checks (Cython `cdef class`), and no
+  Starlette class hierarchy. Implements the exact subset of the Request API that
+  `process_parameters` uses: `path_params`, `query_params`, `headers`, `cookies`,
+  `body()`, `form()`.
+- `app.py`: `_trie_dispatch` creates `TachyonScope(scope, receive, send)` instead of
+  `Request(scope, receive, send)` for parameterised endpoints.
+- `KIND_REQUEST` params: `as_request()` materialises the full Starlette `Request`
+  lazily — only when the endpoint explicitly declares `request: Request`.
+- Exception handlers: `request.as_request()` called on error paths only — no overhead
+  on the happy path.
+- `processing/dependencies.py`: `resolve_callable_dependency` calls `as_request()` when
+  injecting `Request` into callable dependencies.
+- `setup.py`: `scope.pyx` added to the Cython extension build.
+- Micro-benchmark delta: `TachyonScope()` **221ns** vs `Request()` **398ns** → **−176ns/req**
+  on all parameterised endpoints. Exceeds the F8 roadmap target of −100ns.
+
+**F7 — Direct dispatch — list args, no kwargs dict** (`feature/direct-dispatch`)
+
+- `processing/parameters.py` + `parameters.pyx`: `process_parameters` now returns a
+  `list` (pre-allocated `[None] * compiled.param_count`) instead of a `dict`.
+  Each param writes `args[i] = value` — C array index write in Cython vs
+  `PyDict_SetItem` with string hashing.
+- `processing/response_processor.py` + `response_processor.pyx`: `call_endpoint`
+  accepts `list args` and calls `func(*args)` instead of `func(**kwargs)`.
+  Positional call eliminates the per-arg key lookup Python does during `**dict` unpacking.
+- All `_process_*` helper methods refactored to return `(value, error)` tuples instead
+  of writing to the dict — cleaner separation and enables further Cython optimization.
+- `processing/compiler.py`: `CompiledEndpoint` gains `param_count` field
+  (pre-computed `len(params)`) — avoids `len()` call per request in the processor.
+- `app.py`: fast-paths updated to pass `[]` instead of `{}` to `call_endpoint`.
+- Micro-benchmark delta (pure Python): `func(**kwargs)` **140ns → 68ns (-51%)** for
+  the call itself; net saving per request ~72ns on the call overhead.
+  Larger gains expected in Cython path where list index writes become `PyList_SET_ITEM`.
+
+**F6 — Zero-allocation routing** (`feature/zero-alloc-routing`)
+
+- `routing/trie.py` + `routing/trie.pyx`: `match()` now inlines segment traversal
+  directly — no `_segments()` list allocation, no generator. The path string is
+  scanned with `str.find('/')` in a tight loop, extracting slices in place.
+- `path_params` dict is lazily allocated: starts as `None`, upgraded to `{}` only
+  when the first param segment is actually encountered. Static routes (`/health`,
+  `/docs`, etc.) produce zero dict allocations during matching.
+- `_EMPTY_PARAMS = MappingProxyType({})` — module-level immutable sentinel returned
+  for routes with no path parameters and for not-found / method-not-allowed responses.
+  One allocation at module load; replaces a fresh `{}` per request.
+- `processing/compiler.py`: `CompiledEndpoint` gains `has_path_params` flag
+  (pre-computed at registration) — available for F7/F8 to skip path-param extraction
+  without re-iterating `params`.
+- Micro-benchmark delta (pure Python): static route match **~0.21µs**;
+  1-param route **~0.23µs**; 2-param route **~0.27µs**.
+
+---
+
 ## [1.1.0] - 2026-05-20
 
 ### ⚠️ Breaking Changes (internal APIs only)

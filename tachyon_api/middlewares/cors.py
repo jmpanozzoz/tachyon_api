@@ -22,9 +22,9 @@ class CORSMiddleware:
     def __init__(
         self,
         app,
-        allow_origins: Iterable[str] = ("*",),
-        allow_methods: Iterable[str] = ("*",),
-        allow_headers: Iterable[str] = ("*",),
+        allow_origins: Iterable[str] = (),
+        allow_methods: Iterable[str] = ("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"),
+        allow_headers: Iterable[str] = (),
         allow_credentials: bool = False,
         expose_headers: Iterable[str] = (),
         max_age: int = 600,

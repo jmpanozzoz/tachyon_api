@@ -1,3 +1,4 @@
+from enum import Enum
 from typing import Dict, Any, Optional, List, Type, Callable
 from dataclasses import dataclass, field
 import datetime
@@ -8,6 +9,13 @@ import json
 
 from .models import Struct
 from .utils import TypeUtils, OPENAPI_TYPE_MAP
+
+# Types that map to a specific OpenAPI string format
+_OPENAPI_FORMAT_MAP: Dict[Type, tuple] = {
+    datetime.datetime: ("string", "date-time"),
+    datetime.date:     ("string", "date"),
+    uuid.UUID:         ("string", "uuid"),
+}
 
 
 def _safe_json(value: Any) -> str:
@@ -307,7 +315,7 @@ class OpenAPIGenerator:
 
     def generate_route(self, path: str, method: str, endpoint_func: Callable, **kwargs: Any) -> None:
         """Introspect endpoint_func and register its OpenAPI operation."""
-        from .params import Body, Query, Path, Header, Cookie
+        from .params import Body, Query, Path, Header, Cookie, Form, File
         from .di import Depends, _registry
 
         sig = inspect.signature(endpoint_func)
@@ -330,21 +338,17 @@ class OpenAPIGenerator:
             },
         }
 
+        # Response model: Struct, List[Struct], or any annotated type
         response_model = kwargs.get("response_model")
-        try:
-            is_struct = (
-                response_model is not None
-                and isinstance(response_model, type)
-                and issubclass(response_model, Struct)
-            )
-        except TypeError:
-            is_struct = False
-        if is_struct:
-            for name, schema in build_components_for_struct(response_model).items():
-                self.add_schema(name, schema)
-            operation["responses"]["200"]["content"]["application/json"]["schema"] = {
-                "$ref": f"#/components/schemas/{response_model.__name__}"
-            }
+        if response_model is not None:
+            _resp_comps: Dict[str, Any] = {}
+            try:
+                resp_schema = _schema_for_python_type(response_model, _resp_comps, set())
+                for comp_name, comp_schema in _resp_comps.items():
+                    self.add_schema(comp_name, comp_schema)
+                operation["responses"]["200"]["content"]["application/json"]["schema"] = resp_schema
+            except Exception:
+                pass
 
         if "tags" in kwargs:
             operation["tags"] = kwargs["tags"]
@@ -352,6 +356,8 @@ class OpenAPIGenerator:
         _PARAM_IN = {Query: "query", Header: "header", Cookie: "cookie"}
         parameters: List[Dict[str, Any]] = []
         request_body_schema = None
+        form_properties: Dict[str, Any] = {}
+        form_required: List[str] = []
 
         for param in sig.parameters.values():
             if isinstance(param.default, Depends) or (
@@ -378,17 +384,35 @@ class OpenAPIGenerator:
                         "schema": build_param_schema(param.annotation),
                         "description": getattr(param.default, "description", "") if isinstance(param.default, Path) else "",
                     })
-                elif (
-                    isinstance(param.default, Body)
-                    and isinstance(param.annotation, type)
-                    and issubclass(param.annotation, Struct)
-                ):
-                    for name, schema in build_components_for_struct(param.annotation).items():
-                        self.add_schema(name, schema)
-                    request_body_schema = {
-                        "content": {"application/json": {"schema": {"$ref": f"#/components/schemas/{param.annotation.__name__}"}}},
-                        "required": True,
-                    }
+                elif isinstance(param.default, File):
+                    form_properties[param.name] = {"type": "string", "format": "binary"}
+                    if param.default.default is ...:
+                        form_required.append(param.name)
+                elif isinstance(param.default, Form):
+                    form_properties[param.name] = build_param_schema(param.annotation)
+                    if param.default.default is ...:
+                        form_required.append(param.name)
+                elif isinstance(param.default, Body):
+                    _body_comps: Dict[str, Any] = {}
+                    try:
+                        body_schema = _schema_for_python_type(param.annotation, _body_comps, set())
+                        for comp_name, comp_schema in _body_comps.items():
+                            self.add_schema(comp_name, comp_schema)
+                        request_body_schema = {
+                            "content": {"application/json": {"schema": body_schema}},
+                            "required": True,
+                        }
+                    except Exception:
+                        pass
+
+        if form_properties:
+            form_schema: Dict[str, Any] = {"type": "object", "properties": form_properties}
+            if form_required:
+                form_schema["required"] = form_required
+            request_body_schema = {
+                "content": {"multipart/form-data": {"schema": form_schema}},
+                "required": True,
+            }
 
         if parameters:
             operation["parameters"] = parameters
@@ -398,20 +422,29 @@ class OpenAPIGenerator:
         self.add_path(path, method, operation)
 
 
+def _scalar_schema(t: Type) -> Dict[str, Any]:
+    fmt = _OPENAPI_FORMAT_MAP.get(t)
+    if fmt:
+        return {"type": fmt[0], "format": fmt[1]}
+    if isinstance(t, type) and issubclass(t, Enum):
+        members = [e.value for e in t]
+        val_type = "integer" if members and all(isinstance(v, int) for v in members) else "string"
+        return {"type": val_type, "enum": members}
+    return {"type": TypeUtils.get_openapi_type(t)}
+
+
 def build_param_schema(python_type: Type) -> Dict[str, Any]:
-    """Build an OpenAPI schema for a simple parameter type (scalar, list, optional)."""
+    """Build an OpenAPI schema for a scalar, list, optional, enum, or formatted type."""
     inner_type, nullable = TypeUtils.unwrap_optional(python_type)
     is_list, item_type = TypeUtils.is_list_type(inner_type)
     if is_list:
         base_item_type, item_nullable = TypeUtils.unwrap_optional(item_type)
-        schema: Dict[str, Any] = {
-            "type": "array",
-            "items": {"type": TypeUtils.get_openapi_type(base_item_type)},
-        }
+        item_schema = _scalar_schema(base_item_type)
         if item_nullable:
-            schema["items"]["nullable"] = True
+            item_schema["nullable"] = True
+        schema: Dict[str, Any] = {"type": "array", "items": item_schema}
     else:
-        schema = {"type": TypeUtils.get_openapi_type(inner_type)}
+        schema = _scalar_schema(inner_type)
     if nullable:
         schema["nullable"] = True
     return schema

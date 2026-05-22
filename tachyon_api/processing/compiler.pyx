@@ -103,13 +103,17 @@ cdef class CompiledEndpoint:
     cdef public list   params
     cdef public bint   has_params
     cdef public bint   has_callable_deps
+    cdef public bint   has_path_params
+    cdef public int    param_count
 
     def __init__(self, func, bint is_async, list params):
         self.func             = func
         self.is_async         = is_async
         self.params           = params
         self.has_params       = bool(params)
+        self.param_count      = len(params)
         self.has_callable_deps = any((<ParamDescriptor>p).kind == KIND_DEP_CALLABLE for p in params)
+        self.has_path_params  = any((<ParamDescriptor>p).kind in (KIND_PATH, KIND_PATH_IMPLICIT) for p in params)
 
 
 def compile_endpoint(func, str path):

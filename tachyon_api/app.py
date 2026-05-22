@@ -28,9 +28,13 @@ from .responses import (
 from .core.lifecycle import LifecycleManager
 from .core.websocket import WebSocketManager
 from .processing.compiler import compile_endpoint
+from .processing.dispatch import TachyonDispatcher
 from .processing.parameters import ParameterProcessor
 from .processing.dependencies import DependencyResolver
 from .processing.response_processor import ResponseProcessor
+from .processing.scope import TachyonScope
+from .responses import TachyonBytesResponse, TachyonJSONResponse
+from .server import tachyon_direct_write as _tachyon_direct_write
 from .routing.trie import RadixTrie, _NOT_FOUND, _METHOD_NOT_ALLOWED, _FOUND
 
 try:
@@ -69,7 +73,7 @@ class Tachyon:
         openapi_config: Optional[OpenAPIConfig] = None,
         cache_config: Optional[Any] = None,
         lifespan: Optional[Callable] = None,
-        max_body_size: int = 10 * 1024 * 1024,
+        max_body_size: int = 2 * 1024 * 1024,
     ):
         self.max_body_size = max_body_size
         self._lifecycle_manager = LifecycleManager(lifespan)
@@ -81,6 +85,19 @@ class Tachyon:
         # We replace it with our dispatch *before* the first request so that
         # Starlette.build_middleware_stack() (lazy) wraps our dispatcher instead.
         self._trie = RadixTrie()
+
+        # F9: TachyonDispatcher — Cython cdef class replacing the Python _trie_dispatch method.
+        # Constructed once; per-request path reads C-level struct fields, no Python attribute lookups.
+        self._dispatcher = TachyonDispatcher(
+            trie=self._trie,
+            _404_start=_404_START,
+            _404_body=_404_BODY_MSG,
+            _405_body=_405_BODY,
+            _405_ct=_405_PLAIN_CT,
+            _405_cl=_CL_405,
+            asgi_handler_class=_ASGIHandler,
+        )
+
         _original_router_app = self._router.router.app  # kept for WS + lifespan
         self._router.router.middleware_stack = self._make_http_dispatch(_original_router_app)
 
@@ -176,13 +193,12 @@ class Tachyon:
     # ── Trie dispatch ────────────────────────────────────────────────────────
 
     def _make_http_dispatch(self, original_router_app: Callable) -> Callable:
-        """Return an ASGI callable: HTTP → trie, everything else → Starlette."""
-        trie = self._trie
-        _dispatch = self._trie_dispatch
+        """Return an ASGI callable: HTTP → TachyonDispatcher, everything else → Starlette."""
+        _dispatcher = self._dispatcher
 
         async def dispatch(scope, receive, send):
             if scope["type"] == "http":
-                await _dispatch(scope, receive, send)
+                await _dispatcher(scope, receive, send)
             else:
                 # WebSocket routing and lifespan stay in Starlette's Router
                 await original_router_app(scope, receive, send)
@@ -215,11 +231,13 @@ class Tachyon:
         # _FOUND — two code paths based on handler type
         scope["path_params"] = path_params
 
-        if isinstance(handler, _ASGIHandler):
+        if type(handler) is _ASGIHandler:
             # Phase 5b fast-path: no-param endpoints skip Request() creation
             await handler.fn(scope, receive, send)
         else:
-            request = Request(scope, receive, send)
+            # F8: TachyonScope instead of Request — no Starlette __init__ overhead.
+            # as_request() materialises a full Request lazily if the endpoint needs it.
+            request = TachyonScope(scope, receive, send)
             response = await handler(request)
             await response(scope, receive, send)
 
@@ -256,7 +274,7 @@ class Tachyon:
                         return error_response
                 else:
                     # 2c: fast-path — no params means no extraction needed
-                    kwargs_to_inject = {}
+                    kwargs_to_inject = []
                     _background_tasks = None
 
                 payload = await ResponseProcessor.call_endpoint(compiled, kwargs_to_inject)
@@ -268,10 +286,12 @@ class Tachyon:
             except HTTPException as exc:
                 exc_handler = self._exception_handlers.get(HTTPException)
                 if exc_handler is not None:
+                    # Exception handlers expect a Request — materialise lazily
+                    _req = request.as_request()
                     if asyncio.iscoroutinefunction(exc_handler):
-                        return await exc_handler(request, exc)
+                        return await exc_handler(_req, exc)
                     else:
-                        return exc_handler(request, exc)
+                        return exc_handler(_req, exc)
                 response = JSONResponse(
                     {"detail": exc.detail}, status_code=exc.status_code
                 )
@@ -283,10 +303,11 @@ class Tachyon:
             except Exception as exc:
                 for exc_class, exc_handler in self._exception_handlers.items():
                     if isinstance(exc, exc_class):
+                        _req = request.as_request()
                         if asyncio.iscoroutinefunction(exc_handler):
-                            return await exc_handler(request, exc)
+                            return await exc_handler(_req, exc)
                         else:
-                            return exc_handler(request, exc)
+                            return exc_handler(_req, exc)
                 return internal_server_error_response()
 
         # Phase 5b: wrap no-param, no-dep endpoints as ASGI handlers (skip Request creation)
@@ -296,11 +317,20 @@ class Tachyon:
 
             async def _fast_asgi(scope, receive, send):
                 try:
-                    payload = await ResponseProcessor.call_endpoint(_compiled_local, {})
+                    payload = await ResponseProcessor.call_endpoint(_compiled_local, [])
                     resp = await ResponseProcessor.process_response(
                         payload, _response_model_local, None
                     )
-                    await resp(scope, receive, send)
+                    # F12a: bypass resp.__call__ coroutine for built-in response types
+                    if type(resp) is TachyonBytesResponse or type(resp) is TachyonJSONResponse:
+                        # F12b: single transport.write() under TachyonServer
+                        cycle = scope.get("_tachyon_cycle")
+                        if cycle is not None and _tachyon_direct_write(cycle, resp):
+                            return
+                        await send(resp._send_start)
+                        await send(resp._send_body)
+                    else:
+                        await resp(scope, receive, send)
                 except HTTPException as exc:
                     exc_handler = self._exception_handlers.get(HTTPException)
                     if exc_handler is not None:
@@ -417,13 +447,13 @@ class Tachyon:
             )
 
     def _build_http_app(self) -> Callable:
-        """Build HTTP ASGI app: only user middlewares wrap our trie dispatch.
+        """Build HTTP ASGI app: only user middlewares wrap TachyonDispatcher.
 
         Starlette's ServerErrorMiddleware and ExceptionMiddleware are skipped for
         HTTP requests — their job is already done by the try/except in each handler
         closure. This eliminates ~1.5µs per request from two extra coroutine calls.
         """
-        app: Callable = self._trie_dispatch  # bound method → ASGI-compatible
+        app: Callable = self._dispatcher  # Cython cdef class — ASGI-compatible callable
         for mw in reversed(self.middleware_stack):
             app = mw["func"](app=app, **mw["options"])
         return app
