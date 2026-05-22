@@ -1,0 +1,77 @@
+name: CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+
+jobs:
+  parity:
+    name: .py ↔ .pyx parity check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - name: Run parity script
+        run: python scripts/check_py_pyx_parity.py
+
+  test-pure-python:
+    name: Tests (pure-Python fallback)
+    runs-on: ubuntu-latest
+    needs: parity
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - name: Install package (no Cython compilation)
+        run: |
+          pip install --upgrade pip
+          pip install -e .
+          pip install pytest pytest-asyncio httpx
+      - name: Verify no .so files present
+        run: |
+          if find tachyon_api -name "*.so" | grep -q .; then
+            echo "::error::Unexpected .so files in pure-Python job — fallback mode is invalid"
+            find tachyon_api -name "*.so"
+            exit 1
+          fi
+      - name: Run test suite
+        run: pytest tests/ -v
+
+  test-compiled:
+    name: Tests (Cython-compiled .so)
+    runs-on: ubuntu-latest
+    needs: parity
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - name: Install build deps + package
+        run: |
+          pip install --upgrade pip
+          pip install Cython
+          pip install -e .
+          pip install pytest pytest-asyncio httpx
+      - name: Compile Cython extensions
+        run: python setup.py build_ext --inplace
+      - name: Verify compiled artefacts exist
+        run: |
+          missing=0
+          for mod in parameters compiler response_processor scope dispatch; do
+            if ! ls tachyon_api/processing/${mod}*.so >/dev/null 2>&1; then
+              echo "::error::Missing compiled artefact: tachyon_api/processing/${mod}*.so"
+              missing=1
+            fi
+          done
+          if ! ls tachyon_api/routing/trie*.so >/dev/null 2>&1; then
+            echo "::error::Missing compiled artefact: tachyon_api/routing/trie*.so"
+            missing=1
+          fi
+          exit $missing
+      - name: Run test suite
+        run: pytest tests/ -v

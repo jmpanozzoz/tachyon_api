@@ -7,6 +7,97 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.2.992] — 2026-05-22
+
+**v1.2.9 Cython sprint — Phase 7/7 (CLOSER): CI matrix + `.py` ↔ `.pyx` parity check.**
+
+Closes the sprint with the two pieces of infrastructure that prevent the
+class of bug we lived through at v1.2.85: a security fix that shipped in
+`parameters.py` but not in `parameters.pyx`, so compiled-mode users were
+silently exposed.
+
+Going forward every PR runs the test suite **in both modes** (pure-Python
+and Cython-compiled), and a structural parity script blocks merges if a
+`.py` exposes a public function/class/method that its `.pyx` sibling
+doesn't (or vice-versa).  Logic divergence still requires the test suite —
+the script only catches API drift — but API drift is what enabled the
+v1.2.85 incident in the first place.
+
+### Added
+
+- `.github/workflows/ci.yml` — three CI jobs:
+  - `parity` — runs `scripts/check_py_pyx_parity.py` (gate).
+  - `test-pure-python` — installs without compilation, verifies no `.so`
+    is present, runs `pytest tests/`.
+  - `test-compiled` — installs Cython, compiles all extensions, verifies
+    the critical `.so` artefacts exist, runs `pytest tests/`.
+- `scripts/check_py_pyx_parity.py` — structural diff between `.py` and
+  `.pyx` siblings:
+  - Public top-level functions match.
+  - Public top-level classes match.
+  - For each shared class, public method set matches.
+  - `_server_fast.pyx` is whitelisted as `.pyx`-only (low-level perf
+    module without a Python equivalent).
+
+### Fixed (caught by the new CI itself)
+
+- `httptools` was a missing declared dependency.  `app/_fast_asgi_factory.py`
+  top-level-imports `tachyon_api.server`, which imports
+  `uvicorn.protocols.http.httptools_impl`.  Locally we always had
+  `httptools` from some transitive install, so the gap went unnoticed.
+  The clean Ubuntu CI runner blew up with `ModuleNotFoundError: httptools`
+  on the very first run — exactly the kind of platform-divergence bug the
+  no-`.so` job was added to catch.  Added `httptools >= 0.6.0` to
+  `[tool.poetry.dependencies]`.
+
+### Local result
+
+```
+$ python scripts/check_py_pyx_parity.py
+✓ .py ↔ .pyx parity check passed (26 pair(s), 27 .pyx total)
+
+$ pytest tests/
+367 passed in ~25 s
+```
+
+### Sprint v1.2.9 — final summary
+
+Closed in 7 phases between v1.2.91 and v1.2.992:
+
+| Phase | Version | Delivered |
+|---|---|---|
+| 1 | 1.2.91 | Response classes as compiled `.pyx` |
+| 2 | 1.2.92 | DI resolver pipeline as cdef classes |
+| 3 | 1.2.93 | `ExceptionTable` as cdef class |
+| 4a | 1.2.94 | Easy extractors as cdef class (used by pure-Python fallback) |
+| 4b.1 | 1.2.95 | F11 fast-int / fast-float migrated into query/path extractors |
+| 4b.2 | 1.2.96 | `parameters.pyx` rewritten to delegate to cdef extractors |
+| 4b.3 | 1.2.97 | `.pxd` + `cimport` — typed cdef-class slot dispatch |
+| 4c | 1.2.98 | Remaining four extractors as cdef; `parameters.pyx` = pure orchestrator |
+| 5 | 1.2.99 | `parse_bearer_header` compiled (1.61× on the call) |
+| 6 | 1.2.991 | Fix stale CLI test (suite back to 367/367) |
+| 7 | 1.2.992 | CI matrix + parity check |
+
+Hot-path measurements (10-run median, compiled mode):
+
+| | v1.2.83 baseline | v1.2.992 (sprint close) | Δ |
+|---|---:|---:|---:|
+| FULL HANDLER cycle | 1.05 µs | **0.94 µs** | **−10.5%** |
+| `process_parameters` — path+query | 0.57 µs | 0.58 µs | +1.8% |
+| `process_parameters` — body POST | — | 0.77 µs | — |
+| `process_parameters` — no params | 0.16 µs | 0.16 µs | unchanged |
+| `parse_bearer_header` per call | 0.268 µs | **0.166 µs** | **1.61×** |
+| Tests | 366/367 | **367/367** | clean |
+| Compiled modules | 7 | **27** | +20 |
+| `parameters.pyx` LOC | 460 (monolith) | **175 (orchestrator)** | −62% |
+
+The conservative target of ≤ 0.95 µs FULL HANDLER median is met.  More
+importantly, the SRP refactor (eight atomic extractors in their own
+`.pyx`/`.pxd` pairs) is now visible in production compiled mode, not just
+in the pure-Python fallback.
+
+---
+
 ## [1.2.991] — 2026-05-22
 
 **v1.2.9 Cython sprint — Phase 6/7: fix stale CLI test (suite now 367/367).**
