@@ -7,6 +7,75 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.2.94] — 2026-05-22
+
+**v1.2.9 Cython sprint — Phase 4a/7: easy extractors compiled (cdef class).**
+Five trivially-easy extractors get `.pyx` siblings.  **Important caveat:**
+in compiled mode, `parameters.cpython-*.so` still contains the inline
+v1.2.0 logic and doesn't import these — they're dead code in compiled mode
+until Phase 4b rewrites the orchestrator.  Pure-Python fallback users get
+the speedup today.
+
+### Added (5 new compiled modules)
+
+- **`processing/_extractors/_missing.pyx`** — default-vs-error helper.
+- **`processing/_extractors/header.pyx`** — `cdef class HeaderExtractor`.
+- **`processing/_extractors/cookie.pyx`** — `cdef class CookieExtractor`.
+- **`processing/_extractors/query.pyx`** — `cdef class QueryExtractor` (scalar).
+- **`processing/_extractors/path.pyx`** — `cdef class PathExtractor`
+  (incl. null-byte rejection).
+
+Deferred to Phase 4c: `body`, `body_limit`, `query_list`, `form`, `file`.
+
+### Changed
+
+- **`setup.py`** — five new `Extension` entries.  Total `.so` count: 16 → 21.
+
+### Added (benchmark)
+
+- **`benchmark/profile_extractors.py`** — direct micro-bench of the 5 easy extractors.
+
+### Measurements
+
+**`benchmark/profile_extractors.py`, compiled vs pure-Python fallback:**
+
+| Extractor | Pure Python `.py` | Compiled `.pyx` | Δ |
+|---|---:|---:|---:|
+| `HeaderExtractor.extract` — hit | 0.319 µs | 0.334 µs | +5% (noise — operation too short) |
+| `CookieExtractor.extract` — hit | 0.314 µs | **0.260 µs** | **−17%** |
+| `QueryExtractor.extract` — string hit | 0.414 µs | **0.332 µs** | **−20%** |
+| `PathExtractor.extract` — string hit | 0.452 µs | **0.349 µs** | **−23%** |
+| `PathExtractor.extract` — int conversion | 0.504 µs | **0.407 µs** | **−19%** |
+
+Average: ~15% gain across the 5.  Pure-Python fallback users get this
+directly; compiled-mode users will benefit once Phase 4b lands.
+
+**`benchmark/profile_hotpath.py` (FULL HANDLER, 10-run median):**
+
+| Metric | v1.2.93 baseline | v1.2.94 | Δ |
+|---|---:|---:|---:|
+| FULL HANDLER cycle | 0.94 µs | 0.95 µs | within noise |
+
+Phase 4a gate ("compile + measure only, no FULL HANDLER regression") **PASSED**.
+
+### Verification
+
+- 366/367 framework tests pass with compiled `.so` loaded.
+- Compiled extractors load from `.so` (verified via `__file__`).
+- `isinstance(HeaderExtractor(), HeaderExtractor)` works — cdef class is a proper Python type.
+
+### Phase 4b preview
+
+Phase 4b will rewrite `parameters.pyx`'s body to import these cdef
+extractors and delegate to them instead of inlining the extraction logic.
+This is the load-bearing decision flagged in `docs/cython-plan-v1.2.9.md`
+(Shape A vs Shape B).  Phase 4b will measure FULL HANDLER on a
+param-heavy endpoint with the rewritten `parameters.pyx`; if the
+cross-module cdef-class call overhead wipes the gain, the plan falls
+back to Shape B (inline cdef classes inside a single `parameters.pyx`).
+
+---
+
 ## [1.2.93] — 2026-05-22
 
 **v1.2.9 Cython sprint — Phase 3/7: ExceptionTable compiled (cdef class).**
