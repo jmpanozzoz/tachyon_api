@@ -101,6 +101,12 @@ try:
             sources=["tachyon_api/processing/dependencies/_resolver.pyx"],
             extra_compile_args=extra_compile_args,
         ),
+        # v1.2.93 — Phase 3: ExceptionTable as cdef class.
+        Extension(
+            "tachyon_api.app._exception_table",
+            sources=["tachyon_api/app/_exception_table.pyx"],
+            extra_compile_args=extra_compile_args,
+        ),
     ]
 
     setup(
