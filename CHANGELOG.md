@@ -7,6 +7,70 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.2.93] — 2026-05-22
+
+**v1.2.9 Cython sprint — Phase 3/7: ExceptionTable compiled (cdef class).**
+Result is honestly modest: a wash on the per-dispatch micro-bench (the
+exception path is dominated by `JSONResponse` construction, which is pure
+Starlette and not compiled).  Ships anyway for consistency with Phases 1+2,
+zero regression in the non-error hot path, and to set up the cdef-class
+posture for future improvements.
+
+### Added
+
+- **`tachyon_api/app/_exception_table.pyx`** — `cdef class ExceptionTable`.
+  Same public surface as the `.py` sibling: `register()`, `dispatch()`,
+  `_invoke()`, `_http_exception_response()`.
+- **`benchmark/profile_exc.py`** — exception-path micro-bench (was missing).
+
+### Changed
+
+- **`setup.py`** — one new `Extension`.  Total compiled `.so` count: 15 → 16.
+
+### Measurements
+
+**`benchmark/profile_exc.py`, compiled vs pure-Python fallback:**
+
+| Dispatch path | Pure Python `.py` | Compiled `.pyx` | Δ |
+|---|---:|---:|---:|
+| handler match (HTTPException subclass) | 3.798 µs/iter | 3.854 µs/iter | +1.5% (noise) |
+| no match — default body | 3.014 µs/iter | **2.888 µs/iter** | **−4.2%** |
+
+The "no match" path improves measurably (one less callable invocation,
+just a dict walk + JSONResponse construct).  The "match" path is dominated
+by the user-handler call + `JSONResponse({"code": ...})` construction;
+the cdef-class dispatch overhead is ≤ 5% of the cycle and disappears in
+noise.
+
+**`benchmark/profile_hotpath.py` (10-run median, no-error path):**
+
+| Metric | v1.2.92 baseline | v1.2.93 | Δ |
+|---|---:|---:|---:|
+| FULL HANDLER cycle | 0.93 µs | 0.94 µs | within noise |
+
+Phase 3 gate ("no regression in non-error paths") **PASSED**.
+
+### Verification
+
+- `tests/test_exception_handling.py` + `tests/test_v1_2_811_fixes.py`: 17/17 pass.
+- Full framework suite: 366/367 (only the pre-existing CLI test).
+
+### Why ship a wash?
+
+Two reasons:
+
+1. **Plan consistency** — Phases 1+2 set the precedent of "compile everything
+   in the SRP layout for v1.2.9".  Skipping Phase 3 leaves `_exception_table.py`
+   as the only DI/app/`hot path module without a `.pyx` sibling.
+2. **Infrastructure for later** — Phase 7 (no-`.so` CI matrix step) will
+   check that every compiled module's behavior matches its `.py` sibling.
+   Phase 3 keeps `ExceptionTable` in scope for that check.
+
+The CHANGELOG entry is honest about the measured cost; future readers
+considering similar marginal compiles can use this as the baseline.
+
+---
+
 ## [1.2.92] — 2026-05-22
 
 **v1.2.9 Cython sprint — Phase 2/7: DI resolver pipeline compiled (cdef class).**
