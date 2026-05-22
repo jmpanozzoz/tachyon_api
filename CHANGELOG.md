@@ -7,6 +7,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.2.99] — 2026-05-22
+
+**v1.2.9 Cython sprint — Phase 5/7: Bearer header parser compiled.**
+
+`parse_bearer_header` is called by `HTTPBearer` and `OAuth2PasswordBearer`
+on every authenticated request — lukewarm path.  Compiling it to a cdef
+module yields a clean 1.6× speedup on the parser call itself, saving
+~100 ns per authenticated request.
+
+The v1.2.9 plan tagged Phase 5 as `nogil` + `memchr` (optional).  Hand-
+rolled whitespace scanning would diverge from `str.split()` on
+multi-whitespace / non-space whitespace inputs, so this commit ships the
+compile-only version.  A strict RFC 7235 token parser with `memchr` +
+`nogil` is left for v1.3.x.
+
+### Added
+
+- `security/_bearer_parser.pyx` — `cpdef parse_bearer_header` with typed
+  locals (`cdef list parts`, `cdef str scheme`).
+
+### Changed
+
+- `setup.py`: one new `Extension` (`tachyon_api.security._bearer_parser`).
+  Total compiled modules: 27.
+
+### Measurements
+
+`parse_bearer_header('Bearer <jwt-like-string>')` × 1 M iterations:
+
+| Variant | µs/call | call/s | Δ |
+|---|---:|---:|---:|
+| Pure-Python `.py` | 0.268 | 3.7 M | (baseline) |
+| Compiled `.pyx` | **0.166** | **6.0 M** | **1.61×** |
+
+FULL HANDLER cycle: 5-run median 0.95 µs — same band as Phase 4c, no
+regression (bearer is not on the FULL HANDLER bench path).
+
+### Verification
+
+- 366/367 tests pass with `.so` loaded.
+- 366/367 tests pass without `.so`.
+- Edge cases verified equivalent to pure-Python version: empty / None
+  input, single-part input, scheme ≠ "bearer", multi-whitespace
+  separators, tab separator, surrounding whitespace, 3-part input.
+
+---
+
 ## [1.2.98] — 2026-05-22
 
 **v1.2.9 Cython sprint — Phase 4c/7: remaining four extractors migrated to
