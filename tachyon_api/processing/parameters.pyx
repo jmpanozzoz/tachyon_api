@@ -86,7 +86,7 @@ cdef int _KIND_PATH_IMPLICIT = KIND_PATH_IMPLICIT
 cdef int _KIND_DEP_CALLABLE  = KIND_DEP_CALLABLE
 cdef int _KIND_DEP_CLASS     = KIND_DEP_CLASS
 
-cdef int _DEFAULT_MAX_BODY_SIZE = 10 * 1024 * 1024
+cdef int _DEFAULT_MAX_BODY_SIZE = 2 * 1024 * 1024  # 2 MB — matches parameters.py (v1.2.0 audit)
 
 
 cdef class ParameterProcessor:
@@ -326,6 +326,9 @@ cdef class ParameterProcessor:
             return None, None
 
         value_str = path_params[name]
+        # v1.2.0 audit: reject null bytes in path params (path-traversal hardening)
+        if "\x00" in value_str:
+            return None, validation_error_response(f"Invalid path parameter: {name}")
 
         if is_list:
             parts = value_str.split(",") if value_str else []
