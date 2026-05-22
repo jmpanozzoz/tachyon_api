@@ -12,6 +12,7 @@ include = [
     { path = "tachyon_api/processing/compiler.pyx",         format = ["sdist"] },
     { path = "tachyon_api/processing/parameters.pyx",       format = ["sdist"] },
     { path = "tachyon_api/processing/response_processor.pyx", format = ["sdist"] },
+    { path = "tachyon_api/_server_fast.pyx",                  format = ["sdist"] },
 ]
 
 [tool.poetry.dependencies]

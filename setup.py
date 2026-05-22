@@ -52,6 +52,11 @@ try:
             sources=["tachyon_api/processing/dispatch.pyx"],
             extra_compile_args=extra_compile_args,
         ),
+        Extension(
+            "tachyon_api._server_fast",
+            sources=["tachyon_api/_server_fast.pyx"],
+            extra_compile_args=extra_compile_args,
+        ),
     ]
 
     setup(

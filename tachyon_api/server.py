@@ -33,38 +33,35 @@ from .responses import (
 _TACHYON_CYCLE_KEY = "_tachyon_cycle"
 
 
-# ── Direct-write — module-level function (no closure overhead per request) ───
+# ── Direct-write — prefer Cython (.so), fall back to Python ──────────────────
+# _server_fast.pyx compiles the hot path to C: default-headers cache eliminates
+# the per-request loop+join for uvicorn's server/date headers (~once per second).
 
-def tachyon_direct_write(cycle, response) -> bool:
-    """
-    Write pre-built HTTP response + complete the cycle, bypassing 2× ASGI send().
+try:
+    from ._server_fast import tachyon_direct_write  # Cython compiled
+except ImportError:
+    def tachyon_direct_write(cycle, response) -> bool:
+        """Pure-Python fallback — used when [fast] extensions are not compiled."""
+        if cycle.flow.write_paused or cycle.disconnected:
+            return False
 
-    STATUS_LINE + default_headers + content-length + content-type + body
-    written as two synchronous transport.write() calls (header bytes + body).
-    Returns False when flow-controlled — caller falls back to normal send().
-    """
-    if cycle.flow.write_paused or cycle.disconnected:
-        return False
+        parts = [_http_status_line(response.status_code)]
+        for name, value in cycle.default_headers:
+            parts.extend([name, b": ", value, b"\r\n"])
+        parts.extend([
+            _HTTP_CL_PREFIX, _cl_bytes(len(response.body)),
+            _HTTP_CRLF, _HTTP_CT_JSON_CRLF2,
+        ])
+        cycle.transport.write(b"".join(parts))
+        cycle.transport.write(response.body)
 
-    # Build header bytes: status + uvicorn defaults + content-length + content-type
-    parts = [_http_status_line(response.status_code)]
-    for name, value in cycle.default_headers:
-        parts.extend([name, b": ", value, b"\r\n"])
-    parts.extend([
-        _HTTP_CL_PREFIX, _cl_bytes(len(response.body)), _HTTP_CRLF, _HTTP_CT_JSON_CRLF2,
-    ])
-    # Two writes: header block + body (avoids copying body bytes into join)
-    cycle.transport.write(b"".join(parts))
-    cycle.transport.write(response.body)
-
-    # Mirror uvicorn's state update
-    cycle.response_started = True
-    cycle.response_complete = True
-    cycle.message_event.set()
-    if not cycle.keep_alive:
-        cycle.transport.close()
-    cycle.on_response()
-    return True
+        cycle.response_started = True
+        cycle.response_complete = True
+        cycle.message_event.set()
+        if not cycle.keep_alive:
+            cycle.transport.close()
+        cycle.on_response()
+        return True
 
 
 # ── Custom protocol ───────────────────────────────────────────────────────────
