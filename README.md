@@ -75,7 +75,33 @@ python setup.py build_ext --inplace    # compile extensions (required step)
 > **Note:** `pip install tachyon-api[fast]` installs the `cython` package but does **not**
 > auto-compile the extensions. Run `python setup.py build_ext --inplace` manually after install.
 > Falls back to pure Python automatically when `.so` is not present — no code changes needed.
-> Numbers above reflect the compiled version (~11% faster Python hot path).
+> Numbers above reflect the compiled version.
+
+#### What `[fast]` actually buys you (compiled vs pure-Python)
+
+Same code, same workload — the only difference is whether the 27 Cython `.so`
+extensions are loaded.  Measured on the same FastAPI benchmark scenarios:
+
+| Scenario | Compiled | Pure-Python | Δ |
+|---|---:|---:|---:|
+| Hello World | 49,972 req/s | 48,188 req/s | +3.7% |
+| Path + query params | 37,282 req/s | 32,244 req/s | **+15.6%** |
+| Body — simple Struct | 40,671 req/s | 35,987 req/s | **+13.0%** |
+| Body — nested Struct | 40,225 req/s | 34,853 req/s | **+15.4%** |
+| Response model | 47,314 req/s | 40,212 req/s | **+17.7%** |
+| Header param + auth | 45,426 req/s | 39,901 req/s | **+13.8%** |
+| **Dependency injection** | 46,249 req/s | 38,685 req/s | **+19.6%** |
+| Multiple query params | 33,832 req/s | 29,924 req/s | **+13.1%** |
+| **TOTAL** | **340,971 req/s** | **299,994 req/s** | **+13.7%** |
+
+The biggest wins concentrate on endpoints that do real framework work — DI
+resolution (+19.6%), response model serialization (+17.7%), and parameter
+validation (+13–15%).  Hello-world barely moves (+3.7%) because the framework
+is already a tiny slice of that request — there's no overhead left to compress.
+
+If you're shipping APIs with DI, validation, and response models, the `[fast]`
+extra is worth the extra `build_ext` step.  If you're running a thin proxy or
+your bottleneck is downstream I/O, the pure-Python fallback is fine.
 
 ### Why is Tachyon faster?
 
