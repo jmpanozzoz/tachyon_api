@@ -7,6 +7,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.2.85] — 2026-05-22
+
+**Fix the `parameters.pyx` ↔ `parameters.py` security divergence.**
+Two v1.2.0 audit fixes were applied to `parameters.py` but never propagated
+to `parameters.pyx` — production users running compiled Cython
+(`pip install tachyon-api[fast]`) silently retained the pre-v1.2.0 unsafe
+behavior.  Discovered while preparing the v1.2.9 sprint plan (v1.2.84) and
+fixed before starting Phase 1.
+
+### Security fixes (compiled-Cython users only)
+
+- **`_DEFAULT_MAX_BODY_SIZE`** in `parameters.pyx`: `10 * 1024 * 1024` → `2 * 1024 * 1024`
+  (10 MB → 2 MB).  Matches `parameters.py` set in v1.2.0 audit (PR #28).
+  Compiled-mode users had 5× the body-size limit of pure-Python-mode users.
+- **Null-byte rejection** in `_process_path` of `parameters.pyx`: added
+  `if "\x00" in value_str: return None, validation_error_response(...)`
+  before any type conversion.  Matches `parameters.py` set in v1.2.0
+  security audit (PR #27 — path-traversal hardening).  Compiled-mode users
+  could submit `\x00` in path params and reach the application handler.
+
+Cython recompiled (`python setup.py build_ext --inplace`).
+
+### Why v1.2.83 audit missed this
+
+The audit measured each implementation in isolation; it did not diff `.py`
+vs `.pyx` line-by-line.  The diff would have surfaced both at once.
+**Action for v1.2.9 Phase 7**: the no-`.so` CI matrix step gains a
+complementary check — run the security-audit tests in both modes; if
+behavior diverges, fail the matrix.
+
+### Verification
+
+- 366/367 framework tests pass (with `.so` loaded).
+- Compiled-mode smoke:
+  - `GET /p/foo%00bar` → 422 `{"code": "VALIDATION_ERROR", "error": "Invalid path parameter: x"}` (was: routed to handler with embedded null byte).
+  - `Tachyon(max_body_size=...)` still accepted; default lowered as expected.
+- FULL HANDLER cycle 1.04 – 1.06 µs across 3 runs — within v1.2.84 noise
+  (the extra `"\x00" in str` check is sub-nanosecond).
+
+---
+
 ## [1.2.84] — 2026-05-22
 
 **v1.2.8x project audit / Cython prep — sub-version 4/4: Cython impact analysis.**
