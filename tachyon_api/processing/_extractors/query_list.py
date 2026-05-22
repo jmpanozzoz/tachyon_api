@@ -4,8 +4,13 @@
 from starlette.responses import JSONResponse
 
 from ..compiler import ParamDescriptor
+from ...responses import validation_error_response
 from ...utils import TypeConverter
 from ._missing import missing
+
+# DoS guard — caps the final list size after CSV expansion. v1.3.0 audit:
+# ?ids=1,2,...,1000000 would otherwise allocate a million-element list.
+MAX_QUERY_LIST_SIZE = 1000
 
 
 class QueryListExtractor:
@@ -27,6 +32,11 @@ class QueryListExtractor:
                 values.extend(v.split(","))
             else:
                 values.append(v)
+            if len(values) > MAX_QUERY_LIST_SIZE:
+                return (None, validation_error_response(
+                    f"Query parameter '{name}' exceeds maximum list size "
+                    f"({MAX_QUERY_LIST_SIZE} items)"
+                ))
 
         if not values:
             return missing(descriptor, "query parameter", name)
