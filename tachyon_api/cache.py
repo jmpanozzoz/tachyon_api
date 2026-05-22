@@ -230,8 +230,15 @@ class RedisCacheBackend(BaseCacheBackend):
             pass
 
     def clear(self) -> None:
-        # Not standardized; no-op by default
-        pass
+        # flushdb() clears the current Redis database only (not all databases).
+        # Use with care in shared Redis instances.
+        try:
+            self.client.flushdb()
+        except Exception:
+            try:
+                self.client.flushall()
+            except Exception:
+                pass
 
 
 class MemcachedCacheBackend(BaseCacheBackend):

@@ -26,7 +26,7 @@ class ResponseProcessor:
         if isinstance(payload, Response):
             return payload
 
-        if response_model is not None:
+        if response_model is not None and type(payload) is not response_model:
             try:
                 payload = msgspec.convert(payload, response_model)
             except Exception as e:
