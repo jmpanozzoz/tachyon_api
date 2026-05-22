@@ -172,8 +172,9 @@ class TestMethodHandling:
         assert handler is second
 
     def test_no_params_returns_empty_dict_for_static_route(self):
+        from collections.abc import Mapping
         t = RadixTrie()
         t.add("/static", "GET", _h)
         _, _, params, _ = t.match("/static", "GET")
         assert params == {}
-        assert isinstance(params, dict)
+        assert isinstance(params, Mapping)  # MappingProxyType or dict, both are Mappings

@@ -45,21 +45,21 @@ uvicorn app:app --reload
 
 ## ⚡ Performance
 
-Benchmarked against **FastAPI 0.136.1 (Pydantic v2)** · 1 worker · 100 concurrent connections · uvloop + httptools
+Benchmarked against **FastAPI 0.136.1 (Pydantic v2)** · 1 worker · 100 concurrent connections · uvloop + httptools · Cython extensions compiled
 
 | Scenario | FastAPI | Tachyon | Speedup |
 |---|---:|---:|---:|
-| Hello World | 10,159 req/s | **52,321 req/s** | **5.15x** |
-| Path + query params | 6,930 req/s | **37,384 req/s** | **5.39x** |
-| Body validation (Struct) | 8,189 req/s | **36,593 req/s** | **4.47x** |
-| Nested body (complex Struct) | 7,888 req/s | **38,522 req/s** | **4.88x** |
-| Response model serialization | 6,370 req/s | **44,557 req/s** | **6.99x** |
-| Header param + auth | 7,894 req/s | **45,727 req/s** | **5.79x** |
-| Dependency injection | 6,284 req/s | **46,592 req/s** | **7.41x** |
-| Multiple query params | 6,161 req/s | **33,930 req/s** | **5.51x** |
-| **Total throughput** | **59,875 req/s** | **335,626 req/s** | **5.61x** |
+| Hello World | 10,225 req/s | **49,946 req/s** | **4.88x** |
+| Path + query params | 7,127 req/s | **37,943 req/s** | **5.32x** |
+| Body validation (Struct) | 8,257 req/s | **41,286 req/s** | **5.00x** |
+| Nested body (complex Struct) | 7,949 req/s | **40,304 req/s** | **5.07x** |
+| Response model serialization | 6,749 req/s | **47,202 req/s** | **6.99x** |
+| Header param + auth | 8,648 req/s | **45,531 req/s** | **5.26x** |
+| Dependency injection | 6,337 req/s | **46,168 req/s** | **7.28x** |
+| Multiple query params | 6,279 req/s | **34,414 req/s** | **5.48x** |
+| **Total throughput** | **61,571 req/s** | **342,794 req/s** | **5.57x** |
 
-**Latency:** ~2.1ms (Tachyon) vs ~14ms (FastAPI) on average.
+**Latency:** ~2.4ms (Tachyon) vs ~14ms (FastAPI) on average.
 
 > Benchmark code in [`benchmark/`](./benchmark/). Run with `bash benchmark/run_benchmark.sh`.
 

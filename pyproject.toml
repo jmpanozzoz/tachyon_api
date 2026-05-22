@@ -34,6 +34,8 @@ pytest-asyncio = "^1.1.0"
 httpx = "^0.28.1"
 ruff = "0.14.9"
 cython = ">=3.0"
+fastapi = "^0.136.1"
+pydantic = "^2.13.4"
 
 [tool.poetry.scripts]
 tachyon = "tachyon_api.cli:app"
