@@ -57,6 +57,22 @@ try:
             sources=["tachyon_api/_server_fast.pyx"],
             extra_compile_args=extra_compile_args,
         ),
+        # v1.2.91 — Phase 1: response classes as cdef class
+        Extension(
+            "tachyon_api.responses._json_response",
+            sources=["tachyon_api/responses/_json_response.pyx"],
+            extra_compile_args=extra_compile_args,
+        ),
+        Extension(
+            "tachyon_api.responses._bytes_response",
+            sources=["tachyon_api/responses/_bytes_response.pyx"],
+            extra_compile_args=extra_compile_args,
+        ),
+        Extension(
+            "tachyon_api.responses._internal_error",
+            sources=["tachyon_api/responses/_internal_error.pyx"],
+            extra_compile_args=extra_compile_args,
+        ),
     ]
 
     setup(
