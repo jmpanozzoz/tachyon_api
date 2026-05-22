@@ -11,6 +11,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Performance
 
+**F12b (Cython) — default-headers cache + compiled direct write** (`feature/server-binding-cython`)
+
+- New `tachyon_api/_server_fast.pyx`: Cython-compiled `tachyon_direct_write` with a
+  module-level `default_headers` bytes cache. The Date header changes ≤ once per second;
+  at 50k+ req/s the cache eliminates the per-request `for name,value in default_headers`
+  loop + `b"".join()` — replaced by a single bytes comparison and a pointer return.
+- `server.py`: tries `from ._server_fast import tachyon_direct_write` at import time;
+  falls back to the pure-Python implementation when `[fast]` extensions are not compiled.
+- `setup.py` + `pyproject.toml`: `_server_fast.pyx` added to Cython build.
+- **Measured gains (Hello World, uvicorn + uvloop)**:
+  - 1 connection: **+5.7%**
+  - 4 connections: **+8.5%**
+  - 10 connections: **+6.3%**
+  - 50 connections: **+5.4%**
+  - 100 connections: +1.6% (asyncio amortises awaits at high concurrency)
+- At the standard wrk benchmark (c=100) the gain is within noise; at realistic production
+  concurrency (c=4–50) it is consistently +5–8%.
+
 **F12 — Server binding: direct transport write** (`feature/server-binding`)
 
 - New `tachyon_api/server.py`: `TachyonHTTPProtocol` — drop-in uvicorn HTTP/1.1 protocol
