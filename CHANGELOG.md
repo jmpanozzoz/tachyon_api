@@ -7,6 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.2.6] — 2026-05-22
+
+**Refactor pass v1.2.6 of the SRP / Cython-readiness roadmap.** No behavior changes,
+no API breaks. `security.py` (169-line monolith with 4 auth schemes + 2 credential
+types + a helper parser) is decomposed into 11 atomic modules — one per scheme,
+one per credential class, plus the shared bearer parser.
+
+### Refactor
+
+- **`security.py` → `security/` package** with one file per auth concept:
+
+  | Module | Responsibility |
+  |---|---|
+  | `_bearer_credentials.py` | `HTTPAuthorizationCredentials` value object |
+  | `_basic_credentials.py` | `HTTPBasicCredentials` value object |
+  | `_bearer_parser.py` | `parse_bearer_header()` — pure function (cdef + nogil candidate) |
+  | `_http_bearer.py` | `HTTPBearer` scheme |
+  | `_http_basic.py` | `HTTPBasic` scheme (base64 decoding + WWW-Authenticate) |
+  | `_api_key_base.py` | `_APIKeyBase` ABC |
+  | `_api_key_header.py` | `APIKeyHeader` |
+  | `_api_key_query.py` | `APIKeyQuery` (with security warning docstring) |
+  | `_api_key_cookie.py` | `APIKeyCookie` |
+  | `_oauth2_bearer.py` | `OAuth2PasswordBearer` |
+  | `__init__.py` | Re-exports the 8 public symbols |
+
+  Public API unchanged: every symbol previously importable from
+  `tachyon_api.security` remains importable from the same path.
+
+### Notes for v1.3.x
+
+- Security is **lukewarm path** (runs only when an endpoint declares auth).
+- `parse_bearer_header()` (pure string-parsing function) is the only direct
+  Cython candidate — small, stateless, memchr-friendly with `nogil`.
+- Auth scheme classes stay pure Python; the bottleneck in their `__call__` is
+  `request.headers.get(...)` which is already C-level in Starlette.
+
+---
+
 ## [1.2.5] — 2026-05-22
 
 **Refactor pass v1.2.5 of the SRP / Cython-readiness roadmap.** No behavior changes,
