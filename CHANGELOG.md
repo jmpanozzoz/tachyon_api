@@ -7,6 +7,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.2.1] — 2026-05-22
+
+**Refactor pass for Cython migration readiness.** No behavior changes, no API breaks,
+no perf regressions (FULL HANDLER cycle: 1.04 µs vs 1.05 µs in v1.2.0 — within
+measurement noise).
+
+### Refactor
+
+- **`app.py` → `app/` package** (477 lines → 13 atomic modules of ≤ 80 lines each).
+  The `Tachyon` god-class is decomposed into single-responsibility collaborators
+  per the SRP roadmap (v1.2.x). Each collaborator answers one question, has
+  `__slots__` declared, and is a direct Cython migration candidate for v1.3.x.
+
+  New atomic modules under `tachyon_api/app/`:
+  - `_asgi_handler.py` — `_ASGIHandler` marker class (fast-path tag)
+  - `_404.py`, `_405.py` — pre-built ASGI response constants
+  - `_registry.py` — `RouteRegistry` ("what routes are registered?")
+  - `_exception_table.py` — `ExceptionTable` (register + dispatch + default response)
+  - `_handler_factory.py` — `HandlerFactory` (builds request handler closure)
+  - `_fast_asgi_factory.py` — `FastASGIFactory` (builds no-param ASGI closure)
+  - `_route_installer.py` — `RouteInstaller` (orchestrates trie + registry + openapi)
+  - `_docs_routes.py` — `DocsRoutes` (registers /docs /redoc /swagger /openapi.json)
+  - `_docs_schemas.py` — `CommonSchemas` (registers default error schemas)
+  - `_mw_stack.py` — `MiddlewareStack` (stores user middlewares + builds wrapped app)
+  - `_http_dispatch.py` — `HTTPDispatcher` (routes HTTP to trie, WS/lifespan to Starlette)
+  - `_asgi_entry.py` — `ASGIEntry` (lazy HTTP-app build + ASGI delegation)
+  - `__init__.py` — `Tachyon` facade composing the collaborators
+
+  Public API unchanged: `from tachyon_api import Tachyon` and all decorators
+  (`@app.get`, `@app.exception_handler`, etc.) work identically.
+
+### Fixed
+
+- **`tests/test_error_format.py`**, **`tests/test_response_model.py`** — assertions
+  updated to match the secured response from the v1.2.0 audit (`response_validation_error_response`
+  no longer leaks internal error details). These tests had been silently failing
+  on `dev` since v1.2.0 but were hidden because the test suite ran with `-x`.
+
+---
+
 ## [1.2.0] — 2026-05-22
 
 This release completes the **F6–F12 Python/Cython optimisation roadmap** and delivers
