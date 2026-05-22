@@ -1,26 +1,30 @@
 # cython: language_level=3, boundscheck=False, wraparound=False
 """
-Cython-compiled parameter processor.
+Cython-compiled parameter processor — Phase 4b.2 of v1.2.9.
 
-F7: process_parameters returns a list (positional args) instead of a dict.
-    - Pre-allocated [None] * param_count avoids dict creation overhead.
-    - list[i] = value is a C array write vs dict __setitem__.
-    - call_endpoint uses func(*args) instead of func(**kwargs).
-    - _process_* helpers return (value, error) tuples — no dict writes.
+Orchestrator that delegates to the cdef-class extractors compiled in Phase 4a:
+  HeaderExtractor · CookieExtractor · QueryExtractor (scalar) · PathExtractor.
+
+Extractors still inlined here (Phase 4c targets):
+  _process_body / _process_form / _process_file / _process_query (list path).
+
+F11 fast-int / fast-float has moved into `query.pyx` and `path.pyx`
+(Phase 4b.1).  This file no longer carries the inline strtol/strtod helpers.
 """
 
 import cython
 import msgspec
 import typing
 
-from libc.stdlib cimport strtol, strtod
-from cpython.unicode cimport PyUnicode_AsUTF8AndSize as _utf8ptr
-
 from starlette.responses import JSONResponse
 
 from ..responses import validation_error_response
 from ..utils import TypeConverter, TypeUtils
 from ..background import BackgroundTasks
+from ._extractors.header import HeaderExtractor
+from ._extractors.cookie import CookieExtractor
+from ._extractors.query import QueryExtractor
+from ._extractors.path import PathExtractor
 from .compiler import (
     KIND_REQUEST, KIND_BG, KIND_BODY, KIND_QUERY,
     KIND_HEADER, KIND_COOKIE, KIND_FORM, KIND_FILE,
@@ -28,49 +32,6 @@ from .compiler import (
 )
 from .scope import TachyonScope
 
-
-# ── F11: C stdlib fast converters ────────────────────────────────────────────
-# Replaces TypeConverter.convert_value_bare() Python boundary crossing for the
-# two most common param types.  Called as cdef — zero Python dispatch overhead.
-
-cdef object _fast_int(str s, bint is_path_param):
-    """strtol-based int parse — C stdlib, zero Python function-call overhead."""
-    cdef Py_ssize_t n
-    cdef char* p = <char*>_utf8ptr(s, &n)
-    cdef char* ep = NULL
-    cdef long v
-
-    if n == 0 or p == NULL:
-        if is_path_param:
-            return JSONResponse({"detail": "Not Found"}, status_code=404)
-        return validation_error_response("Invalid value for integer conversion")
-
-    v = strtol(p, &ep, 10)
-    if ep == NULL or ep - p != n:
-        if is_path_param:
-            return JSONResponse({"detail": "Not Found"}, status_code=404)
-        return validation_error_response("Invalid value for integer conversion")
-    return v
-
-
-cdef object _fast_float(str s, bint is_path_param):
-    """strtod-based float parse — C stdlib, zero Python function-call overhead."""
-    cdef Py_ssize_t n
-    cdef char* p = <char*>_utf8ptr(s, &n)
-    cdef char* ep = NULL
-    cdef double v
-
-    if n == 0 or p == NULL:
-        if is_path_param:
-            return JSONResponse({"detail": "Not Found"}, status_code=404)
-        return validation_error_response("Invalid value for float conversion")
-
-    v = strtod(p, &ep)
-    if ep == NULL or ep - p != n:
-        if is_path_param:
-            return JSONResponse({"detail": "Not Found"}, status_code=404)
-        return validation_error_response("Invalid value for float conversion")
-    return v
 
 # C-level integer constants — avoids Python object lookup on each comparison
 cdef int _KIND_REQUEST       = KIND_REQUEST
@@ -90,16 +51,23 @@ cdef int _DEFAULT_MAX_BODY_SIZE = 2 * 1024 * 1024  # 2 MB — matches parameters
 
 
 cdef class ParameterProcessor:
-    """Parameter extractor — returns positional args list, zero dict overhead."""
+    """Parameter extractor — orchestrator that delegates to cdef extractors."""
 
     cdef object app
+    cdef object _header_extractor
+    cdef object _cookie_extractor
+    cdef object _query_extractor
+    cdef object _path_extractor
 
     def __init__(self, app_instance):
         self.app = app_instance
+        self._header_extractor = HeaderExtractor()
+        self._cookie_extractor = CookieExtractor()
+        self._query_extractor = QueryExtractor()
+        self._path_extractor = PathExtractor()
 
     async def process_parameters(self, compiled, request, dependency_cache):
         # Pre-allocate exact-size list — C array under the hood in CPython.
-        # Index write (args[i] = v) is ~2× faster than dict write (kwargs[k] = v).
         cdef list args = [None] * compiled.param_count
         cdef object _bg = None
         cdef object _form_data = None
@@ -129,25 +97,31 @@ cdef class ParameterProcessor:
                 args[i] = self.app._dependency_resolver.resolve_dependency(p.annotation)
 
             elif kind == _KIND_BODY:
+                # Phase 4c — still inline
                 val, err = await self._process_body(p, request)
                 if err is not None:
                     return args, err, _bg
                 args[i] = val
 
             elif kind == _KIND_QUERY:
-                val, err = self._process_query(p, request.query_params)
+                # Delegate scalar to QueryExtractor (cdef class with F11).
+                # List path stays inline until Phase 4c brings query_list.pyx in.
+                if p.is_list:
+                    val, err = self._process_query_list(p, request.query_params)
+                else:
+                    val, err = self._query_extractor.extract(p, request.query_params)
                 if err is not None:
                     return args, err, _bg
                 args[i] = val
 
             elif kind == _KIND_HEADER:
-                val, err = self._process_header(p, request)
+                val, err = self._header_extractor.extract(p, request)
                 if err is not None:
                     return args, err, _bg
                 args[i] = val
 
             elif kind == _KIND_COOKIE:
-                val, err = self._process_cookie(p, request)
+                val, err = self._cookie_extractor.extract(p, request)
                 if err is not None:
                     return args, err, _bg
                 args[i] = val
@@ -175,7 +149,9 @@ cdef class ParameterProcessor:
                 args[i] = val
 
             elif kind == _KIND_PATH or kind == _KIND_PATH_IMPLICIT:
-                val, err = self._process_path(p, request.path_params)
+                # Delegate to PathExtractor — handles scalar (F11 fast int/float)
+                # and list (TypeConverter), plus the null-byte security check.
+                val, err = self._path_extractor.extract(p, request.path_params)
                 if err is not None:
                     return args, err, _bg
                 args[i] = val
@@ -184,7 +160,7 @@ cdef class ParameterProcessor:
 
         return args, None, _bg
 
-    # ── cdef helpers — return (value, error), compiled as C functions ─────────
+    # ── still-inline helpers (Phase 4c migrates these out) ────────────────────
 
     async def _process_body(self, p, request):
         cdef int max_body_size = getattr(self.app, "max_body_size", _DEFAULT_MAX_BODY_SIZE)
@@ -226,69 +202,27 @@ cdef class ParameterProcessor:
             return None, validation_error_response(str(e), errors=field_errors)
 
     @cython.cfunc
-    def _process_query(self, p, query_params):
+    def _process_query_list(self, p, query_params):
         cdef str name = p.name
-        cdef bint is_list = p.is_list
-        cdef object base_type
-        cdef str raw_val
-
-        if is_list:
-            raw_values = query_params.getlist(name)
-            if not raw_values and name in query_params:
-                raw_values = [query_params[name]]
-            values = []
-            for v in raw_values:
-                if isinstance(v, str) and "," in v:
-                    values.extend(v.split(","))
-                else:
-                    values.append(v)
-            if not values:
-                if p.default is not ...:
-                    return p.default, None
-                return None, validation_error_response(f"Missing required query parameter: {name}")
-            converted = TypeConverter.convert_list_values_bare(
-                values, p.item_type, p.item_is_optional, name, is_path_param=False
-            )
-            if isinstance(converted, JSONResponse):
-                return None, converted
-            return converted, None
-
-        if name in query_params:
-            base_type = p.base_type
-            raw_val = query_params[name]
-            # F11: fast path for the two most common scalar types
-            if base_type is int:
-                converted = _fast_int(raw_val, False)
-            elif base_type is float:
-                converted = _fast_float(raw_val, False)
+        raw_values = query_params.getlist(name)
+        if not raw_values and name in query_params:
+            raw_values = [query_params[name]]
+        values = []
+        for v in raw_values:
+            if isinstance(v, str) and "," in v:
+                values.extend(v.split(","))
             else:
-                converted = TypeConverter.convert_value_bare(
-                    raw_val, base_type, name, is_path_param=False
-                )
-            if isinstance(converted, JSONResponse):
-                return None, converted
-            return converted, None
-        elif p.default is not ...:
-            return p.default, None
-        return None, validation_error_response(f"Missing required query parameter: {name}")
-
-    @cython.cfunc
-    def _process_header(self, p, request):
-        cdef object value = request.headers.get(p.effective_name)
-        if value is not None:
-            return value, None
-        elif p.default is not ...:
-            return p.default, None
-        return None, validation_error_response(f"Missing required header: {p.effective_name}")
-
-    @cython.cfunc
-    def _process_cookie(self, p, request):
-        cdef object value = request.cookies.get(p.effective_name)
-        if value is not None:
-            return value, None
-        elif p.default is not ...:
-            return p.default, None
-        return None, validation_error_response(f"Missing required cookie: {p.effective_name}")
+                values.append(v)
+        if not values:
+            if p.default is not ...:
+                return p.default, None
+            return None, validation_error_response(f"Missing required query parameter: {name}")
+        converted = TypeConverter.convert_list_values_bare(
+            values, p.item_type, p.item_is_optional, name, is_path_param=False
+        )
+        if isinstance(converted, JSONResponse):
+            return None, converted
+        return converted, None
 
     @cython.cfunc
     def _process_form(self, p, form_data):
@@ -312,43 +246,3 @@ cdef class ParameterProcessor:
         elif p.default is not ...:
             return p.default, None
         return None, validation_error_response(f"Missing required file: {name}")
-
-    @cython.cfunc
-    def _process_path(self, p, path_params):
-        cdef str name = p.name
-        cdef str value_str
-        cdef bint is_list = p.is_list
-        cdef object pt
-
-        if name not in path_params:
-            if p.kind == _KIND_PATH:
-                return None, JSONResponse({"detail": "Not Found"}, status_code=404)
-            return None, None
-
-        value_str = path_params[name]
-        # v1.2.0 audit: reject null bytes in path params (path-traversal hardening)
-        if "\x00" in value_str:
-            return None, validation_error_response(f"Invalid path parameter: {name}")
-
-        if is_list:
-            parts = value_str.split(",") if value_str else []
-            converted = TypeConverter.convert_list_values_bare(
-                parts, p.item_type, p.item_is_optional, name, is_path_param=True
-            )
-            if isinstance(converted, JSONResponse):
-                return None, converted
-            return converted, None
-
-        # F11: fast path for the two most common path param types
-        pt = p.base_type
-        if pt is int:
-            converted = _fast_int(value_str, True)
-        elif pt is float:
-            converted = _fast_float(value_str, True)
-        else:
-            converted = TypeConverter.convert_value_bare(
-                value_str, pt, name, is_path_param=True
-            )
-        if isinstance(converted, JSONResponse):
-            return None, converted
-        return converted, None

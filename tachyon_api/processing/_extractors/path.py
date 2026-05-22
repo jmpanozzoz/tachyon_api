@@ -6,7 +6,6 @@ from starlette.responses import JSONResponse
 from ..compiler import ParamDescriptor, KIND_PATH
 from ...responses import validation_error_response
 from ...utils import TypeConverter
-from ._base import ExtractorResult
 
 
 class PathExtractor:
@@ -14,20 +13,17 @@ class PathExtractor:
 
     __slots__ = ()
 
-    def extract(self, descriptor: ParamDescriptor, path_params) -> ExtractorResult:
+    def extract(self, descriptor: ParamDescriptor, path_params):
+        """Returns `(value, error)` plain tuple."""
         name = descriptor.name
         if name not in path_params:
             if descriptor.kind == KIND_PATH:
-                return ExtractorResult(
-                    None, JSONResponse({"detail": "Not Found"}, status_code=404)
-                )
-            return ExtractorResult(None, None)
+                return (None, JSONResponse({"detail": "Not Found"}, status_code=404))
+            return (None, None)
 
         value_str = path_params[name]
         if "\x00" in value_str:
-            return ExtractorResult(
-                None, validation_error_response(f"Invalid path parameter: {name}")
-            )
+            return (None, validation_error_response(f"Invalid path parameter: {name}"))
 
         if descriptor.is_list:
             parts = value_str.split(",") if value_str else []
@@ -40,5 +36,5 @@ class PathExtractor:
             )
 
         if isinstance(converted, JSONResponse):
-            return ExtractorResult(None, converted)
-        return ExtractorResult(converted, None)
+            return (None, converted)
+        return (converted, None)

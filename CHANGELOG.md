@@ -7,6 +7,100 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.2.96] — 2026-05-22
+
+**v1.2.9 Cython sprint — Phase 4b.2/7: `parameters.pyx` delegates to cdef
+extractors (Shape A active).**  The load-bearing pivot of the sprint.  In
+compiled mode, the 5 cdef extractors built in Phase 4a are no longer dead
+code — `parameters.cpython-*.so` now imports and uses them.
+
+**Honest measurement:** FULL HANDLER gate passes within margin (+1.6%);
+path+query micro-bench has a +11% regression from cross-module cdef dispatch
+overhead.  A `.pxd`-based fix is documented as a follow-up.
+
+### Changed
+
+- **`processing/parameters.pyx`** — `ParameterProcessor` now holds the four
+  migrated cdef extractor instances as `cdef object` fields (header, cookie,
+  query, path), instantiated once in `__init__`.  Each `_KIND_*` branch in
+  `process_parameters` delegates instead of running inline logic.
+
+  Still inlined (Phase 4c targets): `_process_body`, `_process_form`,
+  `_process_file`, `_process_query_list`.
+
+  Removed: the `_fast_int` / `_fast_float` cdef helpers — they now live in
+  `query.pyx` / `path.pyx` (Phase 4b.1).
+
+  `_DEFAULT_MAX_BODY_SIZE` stays at `2 * 1024 * 1024` (v1.2.85 fix preserved).
+
+### Changed (extractors — drop NamedTuple)
+
+All extractors (`.py` and `.pyx`) now return a **plain 2-tuple `(value, error)`**
+instead of an `ExtractorResult` NamedTuple.  Discovery: an initial Shape A
+implementation with NamedTuple regressed `path+query` from 0.57 µs → 0.90 µs
+(+58%).  Plain tuples halved the overhead.
+
+Updated extractors: `_missing` · `header` · `cookie` · `query` · `path` (both
+`.py` and `.pyx`) · `body` · `form` · `file` · `query_list` (`.py` only).
+
+Updated orchestrators: `processing/parameters.py` and `processing/parameters.pyx`
+use tuple unpacking `val, err = self._x.extract(...)` instead of attribute
+access.
+
+`ExtractorResult` NamedTuple in `_base.py` retained as a documentation artifact
+(no longer constructed at runtime).
+
+### Measurements
+
+**`benchmark/profile_hotpath.py` (10-run median, compiled mode):**
+
+| Metric | v1.2.83 baseline | v1.2.95 (Phase 4b.1) | v1.2.96 | Δ vs 4b.1 |
+|---|---:|---:|---:|---:|
+| **FULL HANDLER cycle** | 1.07 µs | 0.94 µs | **0.965 µs** | +1.6% |
+| `process_parameters` — path+query | 0.57 µs | 0.57 µs | **0.635 µs** | **+11.4%** |
+| `process_parameters` — no params | 0.16 µs | 0.16 µs | 0.16 µs | unchanged |
+| `process_parameters` — body POST | 0.80 µs | 0.80 µs | 0.80 µs | unchanged |
+
+**Phase 4b.2 gate (FULL HANDLER ≤ 0.97 µs median): PASSED with 0.005 µs of margin.**
+
+### The path+query regression — analysis
+
+The 11% regression on `path+query` is the **cost of cross-module cdef class
+dispatch**.  When `parameters.pyx` calls `self._path_extractor.extract(...)`,
+Cython treats `self._path_extractor` as `cdef object` (untyped reference) —
+the call goes through Python's method dispatch (~30–60 ns) instead of a
+direct cdef class slot call.  With 2 typed params per request that's ~60–120 ns
+of added overhead, which matches the measured 0.06 µs regression.
+
+**What recovers this**: a `.pxd` declaration file for each extractor + `cimport`
+in `parameters.pyx`.  Deferred to a follow-up if the regression matters in
+real-world endpoints (the FULL HANDLER gate passing suggests it's swallowed
+by the rest of the request cycle).
+
+### Verification
+
+- 366/367 framework tests pass with `.so` loaded.
+- 366/367 framework tests pass without `.so` (pure-Python fallback) — both
+  modes agree.
+- `_extractors/*.cpython-*.so` are no longer dead code in compiled mode.
+- F11 fast-int/fast-float (PR #54) preserved end-to-end.
+
+### Architectural impact
+
+This is the first phase that makes the v1.2.x SRP refactor **visible in
+production**.  Before this, compiled users got the monolithic
+`parameters.so` and the SRP layout only existed in `.py` fallback.  After
+this, both modes use the same modular layout — preventing future `.py`/`.pyx`
+divergences of the kind v1.2.85 had to fix.
+
+### Phase 4c preview
+
+Remaining inlined extractors: `body`, `form`, `file`, `query_list`.  These
+are lower-traffic paths.  Phase 4c moves them to compiled `.pyx` and updates
+the orchestrator to delegate.
+
+---
+
 ## [1.2.95] — 2026-05-22
 
 **v1.2.9 Cython sprint — Phase 4b.1/7: migrate F11 fast-int/fast-float into the

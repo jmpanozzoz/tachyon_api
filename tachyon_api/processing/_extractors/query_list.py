@@ -5,7 +5,6 @@ from starlette.responses import JSONResponse
 
 from ..compiler import ParamDescriptor
 from ...utils import TypeConverter
-from ._base import ExtractorResult
 from ._missing import missing
 
 
@@ -14,7 +13,8 @@ class QueryListExtractor:
 
     __slots__ = ()
 
-    def extract(self, descriptor: ParamDescriptor, query_params) -> ExtractorResult:
+    def extract(self, descriptor: ParamDescriptor, query_params):
+        """Returns `(value, error)` plain tuple."""
         name = descriptor.name
 
         raw_values = query_params.getlist(name)
@@ -39,5 +39,5 @@ class QueryListExtractor:
             is_path_param=False,
         )
         if isinstance(converted, JSONResponse):
-            return ExtractorResult(None, converted)
-        return ExtractorResult(converted, None)
+            return (None, converted)
+        return (converted, None)

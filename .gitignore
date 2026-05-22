@@ -217,5 +217,9 @@ HOTFIXES.md
 *.so
 *.pyd
 tachyon_api/processing/*.c
+tachyon_api/processing/_extractors/*.c
+tachyon_api/processing/dependencies/*.c
+tachyon_api/app/*.c
+tachyon_api/responses/*.c
 tachyon_api/routing/*.c
 build/
