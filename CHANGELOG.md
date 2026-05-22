@@ -7,6 +7,70 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.2.811] — 2026-05-22
+
+**Framework bug fixes discovered during v1.2.81 example modernization.**
+Two v1.2.0 features were documented as working but only half-implemented at
+the runtime layer — surfaced when porting the example to use them directly.
+
+### Fixed
+
+- **`Body(List[Struct])` decoding** — `processing/compiler.py` and
+  `processing/compiler.pyx` (`_build_typed_descriptor`) now attempt to build
+  a `msgspec.json.Decoder` for any `KIND_BODY` annotation, not just direct
+  Struct subclasses.  Previously, `List[Struct]`, `Optional[Struct]`,
+  `Tuple[...]`, and other msgspec-supported generics produced `decoder=None`,
+  causing the body extractor to return `"Body type must be a Struct subclass"`
+  at request time — even though the OpenAPI spec generated correctly.
+
+  Implementation: wrap the decoder construction in `try/except Exception` so
+  msgspec itself decides which types are decodable; unsupported types still
+  leave `decoder=None` and surface the same 422 at request time.
+
+  Cython recompiled (`python setup.py build_ext --inplace`).
+
+- **`@app.exception_handler` for HTTPException subclasses** —
+  `app/_exception_table.py::dispatch` now walks every registered handler in
+  registration order and returns the first `isinstance` match, falling back
+  to the default `{"detail": ...}` body only when no handler matched **and**
+  the exception is an `HTTPException`.
+
+  Previously, the dispatch short-circuited to the default response for any
+  `HTTPException` whenever no handler was registered for `HTTPException`
+  itself — so a handler registered for a subclass like
+  `MyDomainError(HTTPException)` was never invoked.  The example's
+  `@app.exception_handler(KYCException)` was a no-op for this reason.
+
+  Backward-compatible: a handler explicitly registered for `HTTPException`
+  still wins because it appears in the registration-order walk; plain
+  `HTTPException` instances with no subclass handler still get the default
+  body.
+
+### Added
+
+- **`tests/test_v1_2_811_fixes.py`** — 6 regression tests covering:
+  - `Body(List[Struct])` happy-path decoding
+  - `Body(List[Struct])` validation-error path (422)
+  - `Body(Optional[Struct])` decoding
+  - `@app.exception_handler(HTTPException-subclass)` invocation
+  - Plain `HTTPException` still uses the default body when no handler is registered
+  - Explicit `@app.exception_handler(HTTPException)` still wins over the default
+
+### Verified
+
+- 366/367 tests pass (the +6 new tests; pre-existing CLI failure unchanged).
+- Test suite passes in **both** modes: with compiled Cython `.so` loaded
+  (production) and with the `.so` files moved aside (pure-Python fallback).
+- `FULL HANDLER` cycle 1.03–1.11 µs across 3 runs, `process_parameters body POST`
+  0.79–0.82 µs — within noise of v1.2.81 baseline.
+
+### Compiled artifacts updated
+
+- `tachyon_api/processing/compiler.cpython-310-darwin.so`
+- `tachyon_api/processing/compiler.c`
+
+---
+
 ## [1.2.81] — 2026-05-22
 
 **v1.2.8x project audit / Cython prep — sub-version 1/4: modernize `example/`.**

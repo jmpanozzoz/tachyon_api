@@ -31,16 +31,24 @@ class ExceptionTable:
         self._handlers[exc_class] = func
 
     async def dispatch(self, exc: Exception, request) -> Optional[Response]:
-        """Find a handler for exc and invoke it. Returns None if no handler matched."""
-        if isinstance(exc, HTTPException):
-            http_handler = self._handlers.get(HTTPException)
-            if http_handler is not None:
-                return await self._invoke(http_handler, request, exc)
-            return self._http_exception_response(exc)
+        """Find a handler for exc and invoke it. Returns None if no handler matched.
 
+        Walks registered handlers in registration order — first `isinstance`
+        match wins.  This is what lets users register a handler for a
+        `HTTPException` *subclass* (e.g., `MyDomainError(HTTPException)`) and
+        have it invoked instead of falling through to the default
+        `{"detail": ...}` response.
+
+        If nothing matched and `exc` is an `HTTPException`, returns the
+        default body.  Other unhandled exceptions return `None` and the
+        caller emits a 500.
+        """
         for exc_class, handler in self._handlers.items():
             if isinstance(exc, exc_class):
                 return await self._invoke(handler, request, exc)
+
+        if isinstance(exc, HTTPException):
+            return self._http_exception_response(exc)
         return None
 
     @staticmethod

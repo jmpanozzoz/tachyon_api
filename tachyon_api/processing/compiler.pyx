@@ -190,8 +190,12 @@ cdef _build_typed_descriptor(str name, int kind, object ann, object marker):
         effective_name = getattr(marker, "alias", None) or name
 
     decoder = None
-    if kind == KIND_BODY and isinstance(ann, type) and issubclass(ann, Struct):
-        decoder = msgspec.json.Decoder(ann)
+    if kind == KIND_BODY:
+        # See compiler.py for rationale — try msgspec, accept any decodable type.
+        try:
+            decoder = msgspec.json.Decoder(ann)
+        except Exception:
+            decoder = None
 
     return ParamDescriptor(
         name=name, kind=kind, annotation=ann, marker=marker,
