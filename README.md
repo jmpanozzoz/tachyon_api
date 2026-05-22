@@ -49,17 +49,17 @@ Benchmarked against **FastAPI 0.136.1 (Pydantic v2)** · 1 worker · 100 concurr
 
 | Scenario | FastAPI | Tachyon | Speedup |
 |---|---:|---:|---:|
-| Hello World | 10,225 req/s | **49,946 req/s** | **4.88x** |
-| Path + query params | 7,127 req/s | **37,943 req/s** | **5.32x** |
-| Body validation (Struct) | 8,257 req/s | **41,286 req/s** | **5.00x** |
-| Nested body (complex Struct) | 7,949 req/s | **40,304 req/s** | **5.07x** |
-| Response model serialization | 6,749 req/s | **47,202 req/s** | **6.99x** |
-| Header param + auth | 8,648 req/s | **45,531 req/s** | **5.26x** |
-| Dependency injection | 6,337 req/s | **46,168 req/s** | **7.28x** |
-| Multiple query params | 6,279 req/s | **34,414 req/s** | **5.48x** |
-| **Total throughput** | **61,571 req/s** | **342,794 req/s** | **5.57x** |
+| Hello World | 10,378 req/s | **49,521 req/s** | **4.77x** |
+| Path + query params | 7,294 req/s | **37,991 req/s** | **5.21x** |
+| Body validation (Struct) | 8,533 req/s | **41,507 req/s** | **4.86x** |
+| Nested body (complex Struct) | 8,205 req/s | **40,816 req/s** | **4.97x** |
+| Response model serialization | 6,766 req/s | **47,777 req/s** | **7.06x** |
+| Header param + auth | 8,705 req/s | **46,013 req/s** | **5.29x** |
+| Dependency injection | 6,491 req/s | **46,940 req/s** | **7.23x** |
+| Multiple query params | 6,325 req/s | **34,481 req/s** | **5.45x** |
+| **Total throughput** | **62,697 req/s** | **345,046 req/s** | **5.50x** |
 
-**Latency:** ~2.4ms (Tachyon) vs ~14ms (FastAPI) on average.
+**Latency:** ~2.3ms (Tachyon) vs ~13ms (FastAPI) on average.
 
 > Benchmark code in [`benchmark/`](./benchmark/). Run with `bash benchmark/run_benchmark.sh`.
 

@@ -7,7 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [Unreleased] — v1.2.0
+## [1.2.0] - 2026-05-22
+
+This release brings **F6 through F12** — the complete Python/Cython optimisation
+roadmap targeting the theoretical ceiling before v2.x (Rust/C core).
+
+### Summary
+
+| Metric | v1.1.0 | v1.2.0 | Δ |
+|---|---:|---:|---:|
+| FULL HANDLER cycle (µs) | 1.16µs | **1.05µs** | **−9%** |
+| `process_parameters` path+query | 0.82µs | **0.56µs** | **−32%** |
+| `process_parameters` body POST | 1.28µs | **0.79µs** | **−38%** |
+| Total throughput (100 conns) | 335,626 req/s | **345,046 req/s** | **+2.8%** |
+| Overall speedup vs FastAPI | 5.61x | **5.50x** | (FastAPI also improved) |
+
+Gains are larger at realistic production concurrency (c=4–50): **+5–8%** on F12b paths.
 
 ### Performance
 
