@@ -161,6 +161,12 @@ try:
             sources=["tachyon_api/processing/_extractors/query_list.pyx"],
             extra_compile_args=extra_compile_args,
         ),
+        # v1.2.99 — Phase 5: Bearer header parser (lukewarm path).
+        Extension(
+            "tachyon_api.security._bearer_parser",
+            sources=["tachyon_api/security/_bearer_parser.pyx"],
+            extra_compile_args=extra_compile_args,
+        ),
     ]
 
     setup(
