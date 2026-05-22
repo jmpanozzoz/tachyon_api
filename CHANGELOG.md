@@ -7,6 +7,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.2.5] — 2026-05-22
+
+**Refactor pass v1.2.5 of the SRP / Cython-readiness roadmap.** No behavior changes,
+no API breaks. `openapi.py` (500-line monolith mixing 6 concerns: config dataclasses,
+HTML rendering for 3 UIs, JSON Schema builders, route operation builder, factory)
+is decomposed into a 13-module package.
+
+### Refactor
+
+- **`openapi.py` → `openapi/` package** with one responsibility per module:
+
+  | Module | Responsibility |
+  |---|---|
+  | `_info.py` | `Contact`, `License`, `Info` dataclasses |
+  | `_server.py` | `Server` dataclass |
+  | `_config.py` | `OpenAPIConfig` dataclass + `to_openapi_dict()` |
+  | `_factory.py` | `create_openapi_config()` flat-kwargs factory |
+  | `_format_map.py` | `_OPENAPI_FORMAT_MAP` (datetime/UUID format hints) |
+  | `_safe_json.py` | `_safe_json()` HTML-safe JSON encoder for `<script>` embedding |
+  | `_struct_schemas.py` | `_schema_for_python_type`, `_generate_struct_schema`, `build_components_for_struct` |
+  | `_param_schemas.py` | `_scalar_schema`, `build_param_schema` |
+  | `_route_builder.py` | `RouteOperationBuilder` — builds `operation` dict per route |
+  | `_generator.py` | `OpenAPIGenerator` — spec state + delegates to builder + renderers |
+  | `_swagger_html.py` | `SwaggerUIRenderer` |
+  | `_redoc_html.py` | `RedocRenderer` |
+  | `_scalar_html.py` | `ScalarRenderer` |
+  | `__init__.py` | Re-exports the public surface (all dataclasses + generator + schema helpers) |
+
+  Public API unchanged: every symbol previously importable from
+  `tachyon_api.openapi` remains importable from the same path.
+
+### Notes for v1.3.x
+
+- OpenAPI is **cold path** (runs only on startup + `/docs` and `/openapi.json`
+  requests). No Cython migration planned — the split is purely for SRP and
+  testability.
+- Each HTML renderer is now an independent class, making future UI swaps
+  (Swagger v6, alternative themes) a single-file change.
+
+---
+
 ## [1.2.4] — 2026-05-22
 
 **Refactor pass v1.2.4 of the SRP / Cython-readiness roadmap.** No behavior changes,
