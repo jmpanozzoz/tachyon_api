@@ -55,8 +55,21 @@ class CustomerResponse(Struct):
 
 class CustomerListResponse(Struct):
     """Paginated list of customers."""
-    
+
     customers: List[CustomerResponse]
     total: int
     page: int
     limit: int
+
+
+class BulkCreateRequest(Struct):
+    """
+    Bulk create request wrapper.
+
+    NOTE: this wrapper exists because Tachyon's Body decoder currently only
+    sets up msgspec for direct Struct subclasses — `Body(List[Struct])` works
+    in the OpenAPI spec but fails at runtime decode (v1.2.83 audit finding).
+    Wrapping the list in a Struct sidesteps the limitation.
+    """
+
+    customers: List[CustomerCreate]
