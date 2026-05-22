@@ -83,16 +83,21 @@ class ParamDescriptor:
 
 
 class CompiledEndpoint:
-    __slots__ = ("func", "is_async", "params", "has_params", "has_callable_deps", "has_path_params")
+    __slots__ = (
+        "func", "is_async", "params", "has_params", "has_callable_deps",
+        "has_path_params", "param_count",
+    )
 
     def __init__(self, func: Callable, is_async: bool, params: List[ParamDescriptor]):
         self.func = func
         self.is_async = is_async
         self.params = params
-        # Pre-computed flags used by the handler closure to skip work at request time
+        # Pre-computed flags — zero cost at request time
         self.has_params = bool(params)
         self.has_callable_deps = any(p.kind == KIND_DEP_CALLABLE for p in params)
         self.has_path_params = any(p.kind in (KIND_PATH, KIND_PATH_IMPLICIT) for p in params)
+        # Pre-computed length — used to pre-allocate the args list in process_parameters
+        self.param_count = len(params)
 
 
 # Global cache: func → CompiledEndpoint (populated once per registered endpoint)

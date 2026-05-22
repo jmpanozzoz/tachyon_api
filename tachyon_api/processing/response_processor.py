@@ -44,8 +44,12 @@ class ResponseProcessor:
         return TachyonJSONResponse(payload)
 
     @staticmethod
-    async def call_endpoint(compiled: CompiledEndpoint, kwargs: dict) -> Any:
-        """Invoke endpoint using pre-computed is_async flag — no runtime check."""
+    async def call_endpoint(compiled: CompiledEndpoint, args: list) -> Any:
+        """Invoke endpoint using pre-computed is_async flag — no runtime check.
+
+        args is a positional list built by process_parameters in signature order.
+        Calling func(*args) avoids the **kwargs dict-unpacking overhead.
+        """
         if compiled.is_async:
-            return await compiled.func(**kwargs)
-        return compiled.func(**kwargs)
+            return await compiled.func(*args)
+        return compiled.func(*args)

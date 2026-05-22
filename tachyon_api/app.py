@@ -256,7 +256,7 @@ class Tachyon:
                         return error_response
                 else:
                     # 2c: fast-path — no params means no extraction needed
-                    kwargs_to_inject = {}
+                    kwargs_to_inject = []
                     _background_tasks = None
 
                 payload = await ResponseProcessor.call_endpoint(compiled, kwargs_to_inject)
@@ -296,7 +296,7 @@ class Tachyon:
 
             async def _fast_asgi(scope, receive, send):
                 try:
-                    payload = await ResponseProcessor.call_endpoint(_compiled_local, {})
+                    payload = await ResponseProcessor.call_endpoint(_compiled_local, [])
                     resp = await ResponseProcessor.process_response(
                         payload, _response_model_local, None
                     )
