@@ -13,8 +13,8 @@ import pytest
 
 from tachyon_api.testing import create_client
 
-from ..app import app
-from ..config import settings
+from example.app import app
+from example.config import settings
 
 
 def _auth_headers() -> dict:

@@ -13,8 +13,8 @@ from datetime import datetime, timedelta
 
 from tachyon_api.testing import TachyonTestClient
 
-from ..app import app
-from ..config import settings
+from example.app import app
+from example.config import settings
 
 
 @pytest.fixture
