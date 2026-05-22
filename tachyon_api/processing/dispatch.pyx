@@ -7,8 +7,16 @@ cdef class TachyonDispatcher:
   - cdef object handler   — direct C pointer, no Python lookup
   - type(handler) is cls  — C type-pointer comparison (faster than isinstance)
   - All constant fields stored as cdef — direct C struct reads
+
+F12a: response.__call__ coroutine eliminated — sends issued directly.
+F12b: when _TACHYON_WRITE_KEY is in scope, a single transport.write() replaces 2× send().
 """
 from .scope import TachyonScope
+from ..responses import TachyonBytesResponse, TachyonJSONResponse
+from ..server import tachyon_direct_write as _tachyon_direct_write
+
+# Scope key injected by TachyonServer (F12b) — cycle reference, no closure overhead
+_TACHYON_CYCLE_KEY = "_tachyon_cycle"
 
 
 cdef class TachyonDispatcher:
@@ -77,4 +85,13 @@ cdef class TachyonDispatcher:
         else:
             ts = TachyonScope(scope, receive, send)
             response = await handler(ts)
-            await response(scope, receive, send)
+            # F12a: direct sends — skip response.__call__ coroutine (~0.05µs saved)
+            if type(response) is TachyonBytesResponse or type(response) is TachyonJSONResponse:
+                # F12b: module-level direct_write — no closure, no await
+                cycle = scope.get(_TACHYON_CYCLE_KEY)
+                if cycle is not None and _tachyon_direct_write(cycle, response):
+                    return  # done — single transport.write() succeeded
+                await send(response._send_start)
+                await send(response._send_body)
+            else:
+                await response(scope, receive, send)
