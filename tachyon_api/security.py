@@ -7,6 +7,7 @@ compatible with FastAPI's security utilities.
 
 import base64
 import binascii
+from abc import ABC, abstractmethod
 from typing import Optional
 
 from starlette.requests import Request
@@ -104,13 +105,13 @@ class HTTPBasic:
             return None
 
 
-class _APIKeyBase:
+class _APIKeyBase(ABC):
     def __init__(self, name: str, auto_error: bool = True):
         self.name = name
         self.auto_error = auto_error
 
-    def _get_raw(self, request: Request) -> Optional[str]:
-        raise NotImplementedError
+    @abstractmethod
+    def _get_raw(self, request: Request) -> Optional[str]: ...
 
     async def __call__(self, request: Request) -> Optional[str]:
         api_key = self._get_raw(request)

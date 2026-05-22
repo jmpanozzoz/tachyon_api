@@ -231,7 +231,7 @@ class Tachyon:
         # _FOUND — two code paths based on handler type
         scope["path_params"] = path_params
 
-        if isinstance(handler, _ASGIHandler):
+        if type(handler) is _ASGIHandler:
             # Phase 5b fast-path: no-param endpoints skip Request() creation
             await handler.fn(scope, receive, send)
         else:
