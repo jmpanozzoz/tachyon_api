@@ -17,36 +17,21 @@ cycle so users coming from FastAPI can map idioms 1:1.
 | **JWT Authentication** | `modules/auth/` | Login, registration, token validation |
 | **API Key Auth** | `shared/dependencies.py` | Service-to-service auth |
 | **File Uploads (multipart)** | `modules/documents/` | `Form()` + `File()` → `multipart/form-data` in OpenAPI |
-| **Bulk request body** ⭐ v1.2.0 | `customers_controller.bulk_create_customers` | Nested `List[Struct]` inside a Struct body |
+| **Bulk request body** ⭐ v1.2.0 | `customers_controller.bulk_create_customers` | `Body(List[CustomerCreate])` — direct list body |
 | **`List[Struct]` response model** ⭐ v1.2.0 | `customers_controller.list_recent_customers` | `response_model=List[CustomerResponse]` → array schema |
 | **Background Tasks** | `modules/verification/` | Async verification processing |
 | **WebSockets — DI + typed path** ⭐ v1.2.0 | `modules/admin/admin_ws.py` | `room_id: uuid.UUID` + `Depends(AdminBroadcaster)` |
 | **WebSockets — legacy plain path** | `app.py` | Original customer-notification channel kept for compat |
 | **Security headers** ⭐ v1.2.0 | `app.py` | `SecurityHeadersMiddleware` registered explicitly |
 | **CORS opt-in** ⭐ v1.2.0 | `app.py` | Explicit `allow_origins` list (no more wildcard default) |
-| **Custom exception handler** | `app.py` | `@app.exception_handler(HTTPException)` with isinstance dispatch |
+| **Custom exception handler** ⭐ v1.2.811 | `app.py` | `@app.exception_handler(KYCException)` — subclasses of `HTTPException` are dispatched correctly |
 | **Caching** | `verification_service.py` | `@cache` decorator usage |
 | **Lifecycle Events** | `app.py` | `lifespan` context manager |
 | **Custom Exceptions** | `shared/exceptions.py` | Descriptive error hierarchy |
 | **Testing — sync** | `tests/conftest.py` | `TachyonTestClient`, `dependency_overrides` |
 | **Testing — async** ⭐ v1.2.0 | `tests/test_async_client.py` | `tachyon_api.testing.create_client` with httpx kwargs |
 
-⭐ = new or revised in Tachyon v1.2.0. Click through to the source for usage.
-
-> **Known limitations (v1.2.83 audit findings):**
-> - `Body(List[Struct])` directly fails at runtime — the OpenAPI spec is
->   generated correctly but the msgspec decoder is only configured for direct
->   Struct subclasses.  Workaround used here: wrap in a Struct (see
->   `BulkCreateRequest` in `customers_dto.py`).
-> - `@app.exception_handler(KYCException)` is not invoked — Tachyon's dispatch
->   currently only consults `HTTPException` as the catch-all for HTTPException
->   subclasses.  Workaround: register for `HTTPException` and dispatch by
->   `isinstance` inside the handler (see `app.py`).
-> - `pytest example/tests/` collection fails on pytest 8.x + pytest-asyncio
->   0.23.x (`'Package' object has no attribute 'obj'`).  All tests in this
->   directory are correct in content; the collection issue is structural.
-
-Both runtime gaps will be addressed in the v1.2.9 Cython sprint.
+⭐ = new or revised in Tachyon v1.2.x. Click through to the source for usage.
 
 ## 📁 Project Structure
 
