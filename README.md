@@ -3,7 +3,7 @@
 ![Version](https://img.shields.io/badge/version-1.2.x-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.10+-brightgreen.svg)
 ![License](https://img.shields.io/badge/license-GPL--3.0-orange.svg)
-![Tests](https://img.shields.io/badge/tests-366%20passed-brightgreen.svg)
+![Tests](https://img.shields.io/badge/tests-370%20passed-brightgreen.svg)
 ![Status](https://img.shields.io/badge/status-stable-brightgreen.svg)
 
 **A lightweight, high-performance API framework for Python with the elegance of FastAPI and the speed of light.**
@@ -36,7 +36,7 @@ def search(q: str = Query(...), limit: int = Query(10)):
 
 ```bash
 pip install tachyon-api
-uvicorn app:app --reload
+tachyon run                 # uvloop + httptools + reload, served at :8000
 ```
 
 📖 **Docs:** http://localhost:8000/docs
@@ -49,15 +49,15 @@ Benchmarked against **FastAPI 0.136.1 (Pydantic v2)** · 1 worker · 100 concurr
 
 | Scenario | FastAPI | Tachyon | Speedup |
 |---|---:|---:|---:|
-| Hello World | 10,378 req/s | **49,521 req/s** | **4.77x** |
-| Path + query params | 7,294 req/s | **37,991 req/s** | **5.21x** |
-| Body validation (Struct) | 8,533 req/s | **41,507 req/s** | **4.86x** |
-| Nested body (complex Struct) | 8,205 req/s | **40,816 req/s** | **4.97x** |
-| Response model serialization | 6,766 req/s | **47,777 req/s** | **7.06x** |
-| Header param + auth | 8,705 req/s | **46,013 req/s** | **5.29x** |
-| Dependency injection | 6,491 req/s | **46,940 req/s** | **7.23x** |
-| Multiple query params | 6,325 req/s | **34,481 req/s** | **5.45x** |
-| **Total throughput** | **62,697 req/s** | **345,046 req/s** | **5.50x** |
+| Hello World | 10,314 req/s | **49,755 req/s** | **4.82x** |
+| Path + query params | 7,166 req/s | **37,598 req/s** | **5.25x** |
+| Body validation (Struct) | 8,371 req/s | **40,916 req/s** | **4.89x** |
+| Nested body (complex Struct) | 8,027 req/s | **39,994 req/s** | **4.98x** |
+| Response model serialization | 6,343 req/s | **47,561 req/s** | **7.50x** |
+| Header param + auth | 8,701 req/s | **45,415 req/s** | **5.22x** |
+| Dependency injection | 6,449 req/s | **45,610 req/s** | **7.07x** |
+| Multiple query params | 6,264 req/s | **34,111 req/s** | **5.45x** |
+| **Total throughput** | **61,635 req/s** | **340,960 req/s** | **5.53x** |
 
 **Latency:** ~2.3ms (Tachyon) vs ~13ms (FastAPI) on average.
 
@@ -84,20 +84,21 @@ extensions are loaded.  Measured on the same FastAPI benchmark scenarios:
 
 | Scenario | Compiled | Pure-Python | Δ |
 |---|---:|---:|---:|
-| Hello World | 49,972 req/s | 48,188 req/s | +3.7% |
-| Path + query params | 37,282 req/s | 32,244 req/s | **+15.6%** |
-| Body — simple Struct | 40,671 req/s | 35,987 req/s | **+13.0%** |
-| Body — nested Struct | 40,225 req/s | 34,853 req/s | **+15.4%** |
-| Response model | 47,314 req/s | 40,212 req/s | **+17.7%** |
-| Header param + auth | 45,426 req/s | 39,901 req/s | **+13.8%** |
-| **Dependency injection** | 46,249 req/s | 38,685 req/s | **+19.6%** |
-| Multiple query params | 33,832 req/s | 29,924 req/s | **+13.1%** |
-| **TOTAL** | **340,971 req/s** | **299,994 req/s** | **+13.7%** |
+| Hello World | 49,755 req/s | 47,899 req/s | +3.9% |
+| Path + query params | 37,598 req/s | 31,901 req/s | **+17.9%** |
+| Body — simple Struct | 40,916 req/s | 35,623 req/s | **+14.9%** |
+| Body — nested Struct | 39,994 req/s | 35,204 req/s | **+13.6%** |
+| Response model | 47,561 req/s | 40,604 req/s | **+17.1%** |
+| Header param + auth | 45,415 req/s | 39,380 req/s | **+15.3%** |
+| **Dependency injection** | 45,610 req/s | 38,552 req/s | **+18.3%** |
+| Multiple query params | 34,111 req/s | 29,803 req/s | **+14.5%** |
+| **TOTAL** | **340,960 req/s** | **298,966 req/s** | **+14.0%** |
 
 The biggest wins concentrate on endpoints that do real framework work — DI
-resolution (+19.6%), response model serialization (+17.7%), and parameter
-validation (+13–15%).  Hello-world barely moves (+3.7%) because the framework
-is already a tiny slice of that request — there's no overhead left to compress.
+resolution (+18.3%), path/query parsing (+17.9%), response model (+17.1%),
+and validation (+13–15%).  Hello-world barely moves (+3.9%) because the
+framework is already a tiny slice of that request — there's no overhead left
+to compress.
 
 If you're shipping APIs with DI, validation, and response models, the `[fast]`
 extra is worth the extra `build_ext` step.  If you're running a thin proxy or
@@ -130,7 +131,7 @@ your bottleneck is downstream I/O, the pure-Python fallback is fine.
 | **Docs** | OpenAPI 3.0 (incl. `List[Struct]` arrays + `multipart/form-data`), Scalar UI, Swagger, ReDoc (XSS-safe HTML generation) |
 | **CLI** | Project scaffolding, code generation, linting, AI-agent skill installer |
 | **Testing** | `TachyonTestClient` (sync), `create_client()` (async, full httpx kwargs), `dependency_overrides` |
-| **Architecture** | 63 atomic SRP modules across `app/`, `processing/`, `responses/`, `openapi/`, `security/` (v1.2.x refactor) |
+| **Architecture** | Atomic SRP modules across `app/`, `processing/`, `responses/`, `openapi/`, `security/` — 27 compiled to `.so` for the hot path (v1.2.x refactor + v1.2.9 Cython sprint) |
 
 ---
 
@@ -164,7 +165,7 @@ A complete example demonstrating all Tachyon features is available in [`example/
 ```bash
 cd example
 pip install -r requirements.txt
-uvicorn example.app:app --reload
+tachyon run example.app:app
 ```
 
 The KYC Demo exercises every v1.2.x feature:
@@ -216,7 +217,7 @@ client
   │           ├─→ _ASGIHandler (no-param fast path, 2 sends only)
   │           │
   │           └─→ handler closure
-  │                 ├─→ ParameterPipeline → 10 atomic extractors
+  │                 ├─→ ParameterPipeline → 8 atomic extractors
   │                 │     (body / query / query-list / header / cookie / form / file / path)
   │                 ├─→ DependencyResolver → OverrideLookup / ScopeCache /
   │                 │                        ClassFactory / CallableFactory
@@ -227,8 +228,10 @@ client
         (pre-built ASGI dicts, zero extra allocations per response)
 ```
 
-The v1.2.x SRP refactor decomposed 1,753 monolithic lines into 63 atomic modules
-with `__slots__` and full type hints — direct `cdef class` candidates.
+The v1.2.x SRP refactor decomposed the monolithic hot path into atomic modules
+with `__slots__` and full type hints — direct `cdef class` candidates.  The
+v1.2.9 Cython sprint then compiled 27 of them to `.so`, keeping every `.py`
+sibling as a transparent fallback (Python prefers `.so` automatically).
 
 👉 [Full architecture documentation](./docs/02-architecture.md)
 
@@ -395,8 +398,8 @@ pytest tests/ -v
 
 | Feature | Tachyon | FastAPI |
 |---------|---------|---------|
-| **Throughput** | ~336k req/s total | ~60k req/s total |
-| **Latency** | ~2.1ms avg | ~14ms avg |
+| **Throughput** | ~341k req/s total | ~62k req/s total |
+| **Latency** | ~2.3ms avg | ~14ms avg |
 | **Routing** | Radix trie O(k) | Regex scan O(N) |
 | **Serialization** | msgspec + orjson | Pydantic v2 |
 | **Request compilation** | Once at startup | Per request |
