@@ -31,6 +31,7 @@ from .processing.compiler import compile_endpoint
 from .processing.parameters import ParameterProcessor
 from .processing.dependencies import DependencyResolver
 from .processing.response_processor import ResponseProcessor
+from .processing.scope import TachyonScope
 from .routing.trie import RadixTrie, _NOT_FOUND, _METHOD_NOT_ALLOWED, _FOUND
 
 try:
@@ -219,7 +220,9 @@ class Tachyon:
             # Phase 5b fast-path: no-param endpoints skip Request() creation
             await handler.fn(scope, receive, send)
         else:
-            request = Request(scope, receive, send)
+            # F8: TachyonScope instead of Request — no Starlette __init__ overhead.
+            # as_request() materialises a full Request lazily if the endpoint needs it.
+            request = TachyonScope(scope, receive, send)
             response = await handler(request)
             await response(scope, receive, send)
 
@@ -268,10 +271,12 @@ class Tachyon:
             except HTTPException as exc:
                 exc_handler = self._exception_handlers.get(HTTPException)
                 if exc_handler is not None:
+                    # Exception handlers expect a Request — materialise lazily
+                    _req = request.as_request()
                     if asyncio.iscoroutinefunction(exc_handler):
-                        return await exc_handler(request, exc)
+                        return await exc_handler(_req, exc)
                     else:
-                        return exc_handler(request, exc)
+                        return exc_handler(_req, exc)
                 response = JSONResponse(
                     {"detail": exc.detail}, status_code=exc.status_code
                 )
@@ -283,10 +288,11 @@ class Tachyon:
             except Exception as exc:
                 for exc_class, exc_handler in self._exception_handlers.items():
                     if isinstance(exc, exc_class):
+                        _req = request.as_request()
                         if asyncio.iscoroutinefunction(exc_handler):
-                            return await exc_handler(request, exc)
+                            return await exc_handler(_req, exc)
                         else:
-                            return exc_handler(request, exc)
+                            return exc_handler(_req, exc)
                 return internal_server_error_response()
 
         # Phase 5b: wrap no-param, no-dep endpoints as ASGI handlers (skip Request creation)
