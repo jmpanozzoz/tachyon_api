@@ -38,6 +38,48 @@ async def test_implicit_dependency_injection():
     assert response.json()["source"] == "mock_db"
 
 
+@pytest.mark.asyncio
+async def test_request_scoped_class_di_creates_new_instance_per_request():
+    """v1.2.993 regression guard — exercises the compiler.pyx scope-check fix.
+
+    Before the fix, `has_callable_deps` on the compiled CompiledEndpoint was
+    True only for `Depends(callable)`, never for non-singleton class DI.
+    Without `has_callable_deps == True` the orchestrator skips allocating
+    `dependency_cache`, which silently makes request-scoped classes behave
+    like singletons in compiled mode (while pure-Python users were fine).
+    This test reaches into the resolver enough to fail loudly if that
+    divergence is reintroduced.
+    """
+    from tachyon_api.di import injectable, SCOPE_REQUEST
+
+    @injectable(scope=SCOPE_REQUEST)
+    class RequestScopedCounter:
+        construction_count = 0
+
+        def __init__(self):
+            RequestScopedCounter.construction_count += 1
+            self.id = RequestScopedCounter.construction_count
+
+    app = Tachyon()
+
+    @app.get("/scoped")
+    def hit(c: RequestScopedCounter):
+        return {"id": c.id}
+
+    async with create_client(app) as client:
+        r1 = await client.get("/scoped")
+        r2 = await client.get("/scoped")
+        r3 = await client.get("/scoped")
+
+    # Request-scoped MUST construct a fresh instance per request.  Singleton
+    # would return the same id for all three.
+    ids = {r1.json()["id"], r2.json()["id"], r3.json()["id"]}
+    assert len(ids) == 3, (
+        f"request-scoped DI behaved like singleton — ids={ids}. "
+        "Likely the compiler.pyx scope check has regressed (see v1.2.993)."
+    )
+
+
 def test_circular_dependency_raises_type_error():
     from tachyon_api import Tachyon
     from tachyon_api.di import injectable

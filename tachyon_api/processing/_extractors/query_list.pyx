@@ -6,8 +6,14 @@ Supports both repeated keys (?id=1&id=2) and CSV form (?id=1,2,3).
 
 from starlette.responses import JSONResponse
 
+from ...responses import validation_error_response
 from ...utils import TypeConverter
 from ._missing import missing
+
+# DoS guard — caps the final list size after CSV expansion. v1.3.0 audit:
+# ?ids=1,2,...,1000000 would otherwise allocate a million-element list.
+# Plain Python int so it's importable from both .py and .pyx.
+MAX_QUERY_LIST_SIZE = 1000
 
 
 cdef class QueryListExtractor:
@@ -27,6 +33,11 @@ cdef class QueryListExtractor:
                 values.extend((<str>v).split(","))
             else:
                 values.append(v)
+            if len(values) > MAX_QUERY_LIST_SIZE:
+                return (None, validation_error_response(
+                    f"Query parameter '{name}' exceeds maximum list size "
+                    f"({MAX_QUERY_LIST_SIZE} items)"
+                ))
 
         if not values:
             return missing(descriptor, "query parameter", name)

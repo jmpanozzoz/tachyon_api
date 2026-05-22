@@ -7,6 +7,81 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.2.993] — 2026-05-22
+
+**Pre-v1.3.0 audit fixes: silent DI scope divergence in compiled mode + query
+list DoS guard.**
+
+A pre-v1.3.0 punch-list audit surfaced two real bugs that neither the test
+suite nor the Phase 7 parity script could catch on their own.  This patch
+release fixes both before tagging v1.3.0.
+
+### Fixed
+
+#### 1. `compiler.pyx` — `has_callable_deps` missed the DI scope check
+
+`processing/compiler.pyx:115` flagged an endpoint as needing a per-request
+`dependency_cache` ONLY when it had a `Depends(callable)` parameter — it
+never checked whether class-typed dependencies were singleton-scoped vs
+request-/transient-scoped.  `processing/compiler.py` did check.
+
+Concretely, code like this:
+
+```python
+@injectable(scope=SCOPE_REQUEST)
+class Counter: ...
+
+@app.get("/x")
+def handler(c: Counter): ...
+```
+
+would correctly create a fresh `Counter` per request under the pure-Python
+fallback, but silently behave like a singleton when shipping the
+Cython-compiled `.so` — because `has_callable_deps == False` meant the
+orchestrator skipped allocating `dependency_cache`, so the class factory
+fell through to the singleton path.
+
+This is the same shape of bug as the v1.2.85 incident (security fix landed
+in `.py` only).  The Phase 7 parity script cannot detect this class of
+drift because the public API of both `CompiledEndpoint` is identical —
+only the computed value differs.
+
+**Fix**: `compiler.pyx:115` now mirrors `compiler.py:98–102` exactly,
+including the `_scopes.get(annotation, SCOPE_SINGLETON) != SCOPE_SINGLETON`
+clause for `KIND_DEP_CLASS` params.  Added
+`tests/test_dependency_injection.py::test_request_scoped_class_di_creates_new_instance_per_request`
+which fires three requests and asserts three distinct counter ids — fails
+loudly if the divergence is ever reintroduced.
+
+#### 2. `query_list` — unbounded CSV expansion was a DoS surface
+
+`_extractors/query_list.py:27` (and the `.pyx` sibling) did
+`values.extend(v.split(","))` with no cap on the final list size.  A
+single request like `GET /items?ids=1,2,3,...,1000000` would happily
+allocate a million-element Python list before hitting type conversion.
+
+**Fix**: added `MAX_QUERY_LIST_SIZE = 1000` (importable from both `.py`
+and `.pyx`).  When the extractor's running list exceeds it, returns
+HTTP 422 with `"Query parameter '<name>' exceeds maximum list size (1000
+items)"` and never grows further.  Added
+`tests/test_query_params.py::test_query_list_under_cap_succeeds` and
+`test_query_list_over_cap_rejected_with_422` — both exercise the limit
+via real HTTP requests through the test client.
+
+### Result
+
+| | Before | After |
+|---|---:|---:|
+| Tests passing | 367/367 | **370/370** |
+| Compiled-mode bugs found pre-v1.3.0 | 1 | **0** known |
+| Parity script | ✓ | ✓ |
+
+Both fixes ship in `.py` and `.pyx` simultaneously.  Compiled mode now
+correctly allocates `dependency_cache` for non-singleton class DI, and
+both modes reject query lists over 1000 items.
+
+---
+
 ## [1.2.992] — 2026-05-22
 
 **v1.2.9 Cython sprint — Phase 7/7 (CLOSER): CI matrix + `.py` ↔ `.pyx` parity check.**
