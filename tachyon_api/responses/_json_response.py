@@ -1,11 +1,12 @@
-# HOT PATH — high-throughput JSON response.
+# HOT PATH — cdef migration target for v1.3.x.
 #
 # Bypasses `Response.__init__` (which costs ~0.96µs on Starlette and builds a
 # MutableHeaders).  Sets attributes directly and pre-builds both ASGI send dicts
 # in `__init__`, so `__call__` is two cheap `await send(...)` calls.
 #
-# `__slots__` is declared in the parent (JSONResponse) so we cannot add our own
-# — but every attribute we set is one the parent already has.
+# Starlette's JSONResponse has no `__slots__`, so we can declare ours for the
+# new attributes we introduce.  The parent's `body / status_code / background /
+# raw_headers` continue to live in the inherited `__dict__`.
 
 from starlette.responses import JSONResponse
 
@@ -16,6 +17,8 @@ from ._constants import _ASGI_BODY, _ASGI_START, _CL_NAME
 
 class TachyonJSONResponse(JSONResponse):
     """High-performance JSON response — builds ASGI dicts once at construction."""
+
+    __slots__ = ("_send_start", "_send_body")  # → cdef object on migration
 
     media_type = "application/json"
 

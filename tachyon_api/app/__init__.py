@@ -43,6 +43,38 @@ logger = logging.getLogger(__name__)
 class Tachyon:
     """Tachyon application — composes the framework's collaborators."""
 
+    __slots__ = (
+        # configuration
+        "max_body_size",
+        "openapi_config",
+        "openapi_generator",
+        "cache_config",
+        # collaborators (composed)
+        "_lifecycle_manager",
+        "_router",
+        "_trie",
+        "_dispatcher",
+        "_websocket_manager",
+        "_parameter_processor",
+        "_dependency_resolver",
+        "_registry",
+        "_exc_table",
+        "_mw_stack",
+        "_handler_factory",
+        "_fast_asgi_factory",
+        "_installer",
+        "_docs_routes",
+        "_asgi_entry",
+        # DI / public state
+        "_instances_cache",
+        "state",
+        "dependency_overrides",
+        # lazy HTTP app cache
+        "_http_app",
+        # HTTP method decorators bound via setattr() in __init__
+        "get", "post", "put", "delete", "patch", "options", "head",
+    )
+
     def __init__(
         self,
         openapi_config: Optional[OpenAPIConfig] = None,
