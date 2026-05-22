@@ -39,6 +39,17 @@ v1.2.85 incident in the first place.
   - `_server_fast.pyx` is whitelisted as `.pyx`-only (low-level perf
     module without a Python equivalent).
 
+### Fixed (caught by the new CI itself)
+
+- `httptools` was a missing declared dependency.  `app/_fast_asgi_factory.py`
+  top-level-imports `tachyon_api.server`, which imports
+  `uvicorn.protocols.http.httptools_impl`.  Locally we always had
+  `httptools` from some transitive install, so the gap went unnoticed.
+  The clean Ubuntu CI runner blew up with `ModuleNotFoundError: httptools`
+  on the very first run — exactly the kind of platform-divergence bug the
+  no-`.so` job was added to catch.  Added `httptools >= 0.6.0` to
+  `[tool.poetry.dependencies]`.
+
 ### Local result
 
 ```
