@@ -7,6 +7,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.2.3] — 2026-05-22
+
+**Refactor pass v1.2.3 of the SRP / Cython-readiness roadmap.** No behavior changes,
+no API breaks, no perf regression. `responses.py` (209-line monolith mixing 4
+concerns) is decomposed into a 10-module package; the public import surface is
+preserved through `responses/__init__.py` re-exports.
+
+### Refactor
+
+- **`responses.py` → `responses/` package** with one responsibility per module:
+
+  | Module | Concern |
+  |---|---|
+  | `_constants.py` | Protocol identifiers — ASGI message type strings, header name bytes |
+  | `_caches.py` | Precomputed lookup tables (`_CL_CACHE`, `_CL_TUPLE_CACHE`, `_CT_TUPLE`) |
+  | `_wire.py` | HTTP/1.1 raw wire bytes for `TachyonServer.transport.write()` |
+  | `_json_response.py` | `TachyonJSONResponse` |
+  | `_bytes_response.py` | `TachyonBytesResponse` |
+  | `_internal_error.py` | `_InternalErrorResponse` singleton + `internal_server_error_response()` |
+  | `_success.py` | `success_response()` |
+  | `_error.py` | `error_response()`, `not_found_response()`, `conflict_response()` |
+  | `_validation.py` | `validation_error_response()`, `response_validation_error_response()` |
+  | `__init__.py` | Re-exports the full public surface (Starlette types + Tachyon types + helpers + private symbols consumed by `_server_fast.pyx`/`server.py`) |
+
+  Public API unchanged: `from tachyon_api.responses import success_response, TachyonJSONResponse, HTMLResponse, ...` works identically.
+
+### Cython compatibility
+
+- The compiled `_server_fast.cpython-*.so` imports `_HTTP_CL_PREFIX`, `_HTTP_CRLF`,
+  `_HTTP_CT_JSON_CRLF2` from `tachyon_api.responses`. The new `__init__.py`
+  re-exports these symbols at the same import path, so the compiled extension
+  loads and runs unchanged.
+
+### Notes for v1.3.x
+
+- Response classes are direct `cdef class` candidates — all attributes already
+  declared, ASGI dicts pre-built in `__init__`.
+- Helper functions stay pure Python (cold path).
+
+---
+
 ## [1.2.2] — 2026-05-22
 
 **Refactor pass v1.2.2 of the SRP / Cython-readiness roadmap.** No behavior changes,
