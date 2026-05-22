@@ -93,6 +93,33 @@ def routes(
     list_routes(app_path)
 
 
+@app.command("install-skill")
+def install_skill(
+    cursor:   bool = typer.Option(False, "--cursor",   help="Install for Cursor (.cursorrules)"),
+    claude:   bool = typer.Option(False, "--claude",   help="Install for Claude Code (CLAUDE.md)"),
+    copilot:  bool = typer.Option(False, "--copilot",  help="Install for GitHub Copilot (.github/copilot-instructions.md)"),
+    opencode: bool = typer.Option(False, "--opencode", help="Install for OpenCode (.opencode/rules.md)"),
+    agents:   bool = typer.Option(False, "--agents",   help="Install generic AGENTS.md (Codex, Aider, etc.)"),
+    all_tools: bool = typer.Option(False, "--all",     help="Install for all tools (default when no flag given)"),
+    path: Optional[Path] = typer.Option(None, "--path", "-p", help="Target directory (default: current directory)"),
+):
+    """
+    🤖 Install Tachyon AI context for your coding assistant.
+
+    Generates rules/instructions files so AI agents understand Tachyon syntax,
+    patterns, and best practices (Body() requirement, Struct vs BaseModel, DI, CLI, etc.).
+
+    Example:
+        tachyon install-skill              # installs all tools
+        tachyon install-skill --cursor     # only .cursorrules
+        tachyon install-skill --claude     # only CLAUDE.md
+        tachyon install-skill --copilot    # only .github/copilot-instructions.md
+        tachyon install-skill --all        # explicit all
+    """
+    from .commands.skill import install_skill as _install
+    _install(cursor, claude, copilot, opencode, agents, all_tools, path or Path.cwd())
+
+
 @app.command()
 def version():
     """Show Tachyon version."""
