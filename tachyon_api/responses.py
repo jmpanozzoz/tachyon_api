@@ -15,8 +15,7 @@ _ASGI_START = "http.response.start"
 _ASGI_BODY  = "http.response.body"
 
 # Content-length bytes cache — avoids str(n).encode() on every response.
-# Covers 0–65535 bytes (~64KB), catching JSON arrays and larger payloads.
-# ~512KB startup cost for the dict; negligible vs request-time savings.
+# Covers 0–65535 bytes (~64KB). ~512KB startup cost; negligible vs request-time savings.
 _CL_CACHE: dict = {i: str(i).encode() for i in range(65536)}
 
 
@@ -24,6 +23,32 @@ def _cl_bytes(n: int) -> bytes:
     """Return pre-cached bytes for content-length value n."""
     cached = _CL_CACHE.get(n)
     return cached if cached is not None else str(n).encode()
+
+
+# ── F10: pre-built header tuples ──────────────────────────────────────────────
+#
+# Each response currently allocates two header tuples per request:
+#   (_CL_NAME, <cl_bytes>)  — varies by body size
+#   (_CT_NAME, _CT_JSON)    — always identical
+#
+# _CT_TUPLE: module-level singleton, zero allocation per response.
+# _CL_TUPLE_CACHE: 65536 pre-built (content-length, value) tuples, ~4MB startup
+#   cost. Avoids one tuple allocation (~20ns) on every response whose body fits
+#   in 64KB (covers >99% of JSON API responses).
+#
+# The headers *list* is still created fresh per response because ASGI middlewares
+# (CORS, auth, etc.) may append to or replace message["headers"] in-place.
+# Sharing the list would corrupt the cache when those middlewares mutate it.
+
+_CT_TUPLE: tuple = (_CT_NAME, _CT_JSON)
+
+_CL_TUPLE_CACHE: dict = {n: (_CL_NAME, _cl_bytes(n)) for n in range(65536)}
+
+
+def _cl_tuple(n: int) -> tuple:
+    """Return cached (b'content-length', encoded_n) tuple."""
+    t = _CL_TUPLE_CACHE.get(n)
+    return t if t is not None else (_CL_NAME, str(n).encode())
 
 
 class TachyonJSONResponse(JSONResponse):
@@ -38,13 +63,12 @@ class TachyonJSONResponse(JSONResponse):
 
     def __init__(self, content, status_code: int = 200):
         body = encode_json(content)
-        headers = [(_CL_NAME, _cl_bytes(len(body))), (_CT_NAME, _CT_JSON)]
-        # Set attrs expected by Response.__call__ (kept for third-party middleware compat)
+        n = len(body)
+        headers = [_CL_TUPLE_CACHE[n] if n < 65536 else (_CL_NAME, str(n).encode()), _CT_TUPLE]
         self.body = body
         self.status_code = status_code
         self.background = None
         self.raw_headers = headers
-        # Pre-built ASGI dicts — avoid inline dict creation in __call__ hot path
         self._send_start = {"type": _ASGI_START, "status": status_code, "headers": headers}
         self._send_body  = {"type": _ASGI_BODY,  "body": body}
 
@@ -62,7 +86,8 @@ class TachyonBytesResponse(JSONResponse):
     media_type = "application/json"
 
     def __init__(self, body: bytes, status_code: int = 200):
-        headers = [(_CL_NAME, _cl_bytes(len(body))), (_CT_NAME, _CT_JSON)]
+        n = len(body)
+        headers = [_CL_TUPLE_CACHE[n] if n < 65536 else (_CL_NAME, str(n).encode()), _CT_TUPLE]
         self.body = body
         self.status_code = status_code
         self.background = None
@@ -117,10 +142,12 @@ def response_validation_error_response(error="Response validation error"):
 _INTERNAL_ERROR_BODY = encode_json(
     {"success": False, "error": "Internal Server Error", "code": "INTERNAL_SERVER_ERROR"}
 )
+_n_err = len(_INTERNAL_ERROR_BODY)
 _INTERNAL_ERROR_HEADERS = [
-    (_CL_NAME, _cl_bytes(len(_INTERNAL_ERROR_BODY))),
-    (_CT_NAME, _CT_JSON),
+    _CL_TUPLE_CACHE[_n_err] if _n_err < 65536 else (_CL_NAME, str(_n_err).encode()),
+    _CT_TUPLE,
 ]
+del _n_err
 
 
 class _InternalErrorResponse(JSONResponse):

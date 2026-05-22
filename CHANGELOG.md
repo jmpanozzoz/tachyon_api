@@ -11,6 +11,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Performance
 
+**F10 — Pre-built header tuples — pooled response headers** (`feature/pooled-responses`)
+
+- `responses.py`: added `_CT_TUPLE = (_CT_NAME, _CT_JSON)` — singleton content-type
+  header tuple; previously re-created on every response (~20ns per response).
+- `responses.py`: added `_CL_TUPLE_CACHE: dict` — 65536 pre-built `(b"content-length", b"N")`
+  tuples for body sizes 0–65535 bytes (~4MB startup cost). Inline dict lookup
+  `_CL_TUPLE_CACHE[n] if n < 65536 else ...` avoids one tuple allocation and one
+  `_cl_bytes()` call per response.
+- `TachyonJSONResponse.__init__`, `TachyonBytesResponse.__init__`,
+  `_InternalErrorResponse` headers: updated to use inline lookup.
+- The headers *list* is still created fresh per response — shared lists are unsafe
+  because CORS and other middlewares may mutate `message["headers"]` in place.
+- Micro-benchmark delta: headers list creation **138ns → 59ns (−79ns, −57%)**.
+
 **F9 — `_trie_dispatch` to Cython cdef class** (`feature/cython-dispatch`)
 
 - New `processing/dispatch.py` + `processing/dispatch.pyx`: `TachyonDispatcher` —
