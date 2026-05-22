@@ -7,6 +7,87 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.2.81] — 2026-05-22
+
+**v1.2.8x project audit / Cython prep — sub-version 1/4: modernize `example/`.**
+No framework code changes. Updates the bundled KYC demo to exercise every
+feature added through the v1.2.x cycle so users have a concrete reference for
+the modern idioms.
+
+### Added (example only)
+
+- **`example/shared/request_context.py`** — `@injectable(scope="request")`
+  `RequestContext` carrying a per-request `correlation_id` + freeform attributes.
+- **`example/shared/id_generator.py`** — `@injectable(scope="transient")`
+  `IdGenerator` with sequenced + UUID outputs. Fresh instance per injection.
+- **`example/modules/admin/`** — new module showcasing v1.2.0 WebSocket DI:
+  - `admin_ws.py` — `@router.websocket("/admin/ws/rooms/{room_id}")` with
+    `room_id: uuid.UUID` (typed path param, auto-converted; malformed UUID
+    closes connection with code 1008 before the handler runs), `Depends(AdminBroadcaster)`
+    (injectable singleton), and `Depends(get_optional_user)` (callable factory).
+- **`example/modules/customers/customers_controller.py`** — two new endpoints:
+  - `POST /customers/bulk` — bulk create using a `BulkCreateRequest` wrapper
+    struct holding `List[CustomerCreate]`, with `RequestContext` (request-scoped)
+    and `IdGenerator` (transient) injected.
+  - `GET /customers/recent` — declares `response_model=List[CustomerResponse]`
+    directly, producing an array response schema in `/openapi.json`.
+- **`example/tests/test_async_client.py`** — async integration tests using
+  `tachyon_api.testing.create_client` with httpx kwargs (`headers`,
+  follow_redirects, etc.).
+
+### Changed (example only)
+
+- **`example/app.py`**:
+  - Added `SecurityHeadersMiddleware` to the middleware stack with documented
+    opt-in defaults (HSTS and CSP left commented for site-specific setup).
+  - Switched CORS from `allow_origins=["*"]` to an explicit allow-list,
+    reflecting the v1.2.0 opt-in-by-default change.
+  - Registered `@app.exception_handler(HTTPException)` that dispatches by
+    `isinstance(exc, KYCException)` (workaround for the dispatch limitation
+    captured below).
+  - Bumped header `version` from `"1.1.0"` to `"1.2.0"`.
+  - Registers the new `admin_router`.
+- **`example/modules/customers/customers_dto.py`** — added `BulkCreateRequest`
+  wrapper struct.
+- **`example/requirements.txt`** — bumped `tachyon-api>=1.2.7` (was `>=0.7.0`).
+- **`example/README.md`** — feature matrix marks v1.2.0 additions with ⭐; new
+  "Known limitations" section documents the audit findings below.
+
+### Discovered (v1.2.83 audit findings — deferred)
+
+While modernizing the example, three issues surfaced that are out of scope for
+v1.2.8x (which is audit-only, no fixes) and will be tracked in the v1.2.83
+audit report:
+
+1. **`Body(List[Struct])` runtime failure.** `processing/compiler.py` only
+   builds a msgspec decoder when the body annotation is a direct Struct
+   subclass — generic `List[Struct]` annotations get `decoder=None`, causing
+   `_decode()` in `_extractors/body.py` to return `"Body type must be a Struct
+   subclass"`. The OpenAPI spec generation in v1.2.0 (PR #30) handles
+   `List[Struct]` correctly, so the spec promises array bodies that the runtime
+   then rejects. **Workaround in this example**: wrap in `BulkCreateRequest`.
+2. **`@app.exception_handler(HTTPException-subclass)` never fires.**
+   `app/_exception_table.py::dispatch` short-circuits to the default response
+   for any HTTPException unless a handler is registered for `HTTPException`
+   exactly — subclass handlers (e.g., `KYCException`) are never consulted.
+   **Workaround in this example**: register for `HTTPException` and dispatch by
+   `isinstance` inside the handler.
+3. **`pytest example/tests/` fails to collect.** pytest 8.x + pytest-asyncio
+   0.23.x raises `'Package' object has no attribute 'obj'` during collection
+   when the test directory is a package with `__init__.py`. Affects both the
+   pre-existing tests and the new `test_async_client.py`. Test bodies are
+   correct; only the runner is broken.
+
+### Verification
+
+- 360/361 framework tests still pass (`pytest tests/ -q`).
+- Manual end-to-end smoke through `TestClient` confirms each new endpoint
+  responds 200 and emits the expected response shape (verified in PR body).
+- `/openapi.json` renders `BulkCreateRequest` with a nested `customers: array`
+  property, and `/customers/recent` with `{"type": "array", "items": {"$ref": ...}}`.
+
+---
+
 ## [1.2.7] — 2026-05-22
 
 **Closing pass v1.2.7 of the SRP / Cython-readiness roadmap.** Final audit
