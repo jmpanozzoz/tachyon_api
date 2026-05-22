@@ -28,6 +28,7 @@
 - [13. Request Lifecycle](./13-request-lifecycle.md) - Ciclo de vida de una request
 - [14. Migration from FastAPI](./14-migration-fastapi.md) - Guía de migración
 - [15. Best Practices](./15-best-practices.md) - Buenas prácticas
+- [16. Cython Build](./16-cython-build.md) - Compilar el hot path `[fast]`
 
 ---
 
@@ -36,11 +37,13 @@
 | Feature | Tachyon | FastAPI |
 |---------|---------|---------|
 | **Serialization** | msgspec + orjson | pydantic |
-| **Performance** | ⚡ Ultra-fast | Fast |
-| **Bundle Size** | Minimal | Larger |
-| **Learning Curve** | Easy (FastAPI-like) | Easy |
-| **Type Safety** | Full | Full |
-| **OpenAPI** | Automatic | Automatic |
+| **Performance** | ⚡ ~5.5x throughput on the published benchmarks | Fast |
+| **Routing** | Radix trie O(k), Cython-compiled | Regex scan O(N) |
+| **Bundle Size** | 4 core deps | ~15 deps |
+| **DI scopes** | 3 (singleton / request / transient) | 1 |
+| **Learning Curve** | Easy (FastAPI-like decorators) | Easy |
+| **Type Safety** | Full (msgspec Struct) | Full (Pydantic) |
+| **OpenAPI** | Automatic (incl. `List[Struct]`, multipart) | Automatic |
 
 ## 📦 Installation
 
@@ -78,7 +81,7 @@ Visit: http://localhost:8000/docs
 
 ## 📖 Version
 
-Current: **0.7.0**
+Current: **1.2.x** — see [CHANGELOG](../CHANGELOG.md) for full history.
 
 ## 📄 License
 

@@ -201,7 +201,93 @@ Esto crea automáticamente:
 
 ---
 
+## 🧩 Tachyon's Internal Architecture (v1.2.x SRP refactor)
+
+Tu *application* sigue el layout de arriba.  El **framework mismo** está
+organizado por SRP — 63 módulos atómicos repartidos en paquetes con una
+responsabilidad por archivo.  Cada pieza es candidata directa a `cdef class`
+en v1.2.9.
+
+```
+tachyon_api/
+├── app/                       # ASGI surface + composed collaborators
+│   ├── __init__.py            # Tachyon facade (composes the rest)
+│   ├── _asgi_entry.py         # __call__ — lazy HTTP-app build
+│   ├── _http_dispatch.py      # HTTPDispatcher (HTTP vs WS/lifespan)
+│   ├── _mw_stack.py           # MiddlewareStack
+│   ├── _registry.py           # RouteRegistry
+│   ├── _exception_table.py    # ExceptionTable (walks subclass handlers)
+│   ├── _handler_factory.py    # closure for endpoints with params
+│   ├── _fast_asgi_factory.py  # closure for no-param endpoints
+│   ├── _route_installer.py    # trie + registry + openapi orchestration
+│   ├── _docs_routes.py        # registers /docs /redoc /swagger /openapi.json
+│   ├── _docs_schemas.py       # CommonSchemas (default error schemas)
+│   ├── _asgi_handler.py       # _ASGIHandler marker (fast-path tag)
+│   └── _404.py, _405.py       # pre-built ASGI constants
+│
+├── processing/                # request hot path
+│   ├── compiler.py + .pyx     # endpoint pre-compilation
+│   ├── parameters.py + .pyx   # ParameterPipeline orchestrator
+│   ├── _extractors/           # 10 single-responsibility extractors
+│   │   ├── body.py, body_limit.py, query.py, query_list.py,
+│   │   ├── header.py, cookie.py, form.py, file.py, path.py,
+│   │   ├── _base.py (ExtractorResult), _missing.py
+│   ├── dependencies/          # DI pipeline (7 atomic pieces)
+│   │   ├── _resolver.py, _override_lookup.py, _scope_cache.py,
+│   │   ├── _circular_detector.py, _class_factory.py,
+│   │   ├── _callable_factory.py, _sig_cache.py
+│   ├── response_processor.py + .pyx
+│   ├── scope.py + .pyx        # TachyonScope (lazy Starlette Request)
+│   └── dispatch.py + .pyx     # TachyonDispatcher (cdef class)
+│
+├── responses/                 # response classes + caches + wire constants
+│   ├── _json_response.py      # TachyonJSONResponse
+│   ├── _bytes_response.py     # TachyonBytesResponse
+│   ├── _internal_error.py     # _InternalErrorResponse singleton
+│   ├── _caches.py             # _CL_CACHE, _CT_TUPLE precomputed
+│   ├── _wire.py               # HTTP/1.1 wire bytes (TachyonServer path)
+│   ├── _success.py, _error.py, _validation.py
+│   └── _constants.py          # ASGI message-type strings, header bytes
+│
+├── openapi/                   # OpenAPI spec + 3 HTML renderers
+│   ├── _generator.py, _route_builder.py
+│   ├── _struct_schemas.py, _param_schemas.py
+│   ├── _config.py, _factory.py, _info.py, _server.py
+│   ├── _format_map.py, _safe_json.py
+│   └── _swagger_html.py, _redoc_html.py, _scalar_html.py
+│
+├── security/                  # 4 auth schemes + value objects
+│   ├── _http_bearer.py, _http_basic.py
+│   ├── _api_key_header.py, _api_key_query.py, _api_key_cookie.py
+│   ├── _oauth2_bearer.py
+│   ├── _bearer_credentials.py, _basic_credentials.py
+│   └── _bearer_parser.py, _api_key_base.py
+│
+├── routing/trie.py + .pyx     # radix trie router (Cython cdef)
+├── core/lifecycle.py + websocket.py
+├── middlewares/ (CORS, Logger, SecurityHeaders)
+├── di.py                      # Depends + injectable + scope registries
+├── models.py, params.py, exceptions.py, files.py, cache.py, background.py
+├── _server_fast.pyx           # direct transport.write() fast path
+└── cli/                       # commands + templates
+```
+
+**Hot path** = touched per HTTP request:
+`Tachyon.__call__` → `ASGIEntry` → `HTTPDispatcher` → `TachyonDispatcher` (Cython) →
+`ParameterPipeline` → `DependencyResolver` → `ResponseProcessor` →
+`TachyonJSONResponse` / `TachyonBytesResponse`.
+
+**Cold path** = touched at startup only:
+`RouteInstaller`, `DocsRoutes`, `OpenAPIGenerator`, every class in `openapi/` and
+`security/`, CLI.
+
+Every hot-path class declares `__slots__` and every method has full type hints —
+no import from the cold path into the hot path (verified in v1.2.7).
+
+---
+
 ## 🔗 Próximos Pasos
 
 - [Dependency Injection](./03-dependency-injection.md) - Cómo funciona `@injectable`
 - [Parameters](./04-parameters.md) - Tipos de parámetros
+- [Cython Build](./16-cython-build.md) - Compilar el hot path

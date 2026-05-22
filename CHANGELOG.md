@@ -7,6 +7,73 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.2.82] — 2026-05-22
+
+**v1.2.8x project audit / Cython prep — sub-version 2/4: refresh README + docs/.**
+No framework code changes.  Brings the public documentation in line with everything
+that landed during v1.2.x, including the SRP refactor and the v1.2.811 fixes.
+
+### Documentation (docs only)
+
+- **`README.md`**:
+  - Version badge `1.1.0` → `1.2.x`; tests badge `233` → `366 passed`.
+  - Feature matrix expanded with DI scopes, WebSocket DI + typed paths,
+    `Body(List[Struct])`, `SecurityHeadersMiddleware`, async `create_client`,
+    and a new "Architecture" row pointing at the 63-module SRP layout.
+  - New top-level **Architecture** section with an ASCII flow diagram of the
+    request hot path (`Tachyon.__call__ → ASGIEntry → HTTPDispatcher →
+    TachyonDispatcher → handler closure → response`).
+  - DI snippet shows all three scopes (`singleton`, `request`, `transient`).
+  - WebSocket snippet uses typed `room_id: uuid.UUID` and an injected
+    `RoomBroadcaster`.
+  - Testing snippet shows the modern `create_client` async pattern.
+  - KYC demo summary updated (17 tests, async tests, exception handler).
+  - Docs table adds a link to the new `16-cython-build.md`.
+
+- **`docs/README.md`** (index): version `0.7.0` → `1.2.x`, "Why Tachyon?" table
+  expanded with routing, DI scopes, OpenAPI capabilities. New entry for
+  `16-cython-build.md`.
+
+- **`docs/02-architecture.md`**: appended a *Tachyon's Internal Architecture*
+  section enumerating the 63 SRP modules across `app/`, `processing/`,
+  `responses/`, `openapi/`, `security/`, and which paths are hot vs cold.
+
+- **`docs/03-dependency-injection.md`**: new section on **scopes** with the
+  decision matrix (singleton / request / transient); explicit notes on async
+  `Depends` and the v1.2.811 `exception_handler` subclass dispatch fix;
+  summary table updated.
+
+- **`docs/10-websockets.md`**: new sections **Typed Path Params** (UUID
+  auto-conversion + 1008 on mismatch) and **DI in WebSocket handlers** (covers
+  `@injectable` and `Depends(callable)` per-connection).
+
+- **`docs/11-testing.md`**: `create_client()` documented as the canonical
+  async helper with the full set of httpx kwargs (`headers`, `cookies`,
+  `auth`, `follow_redirects`, `timeout`); `AsyncTachyonTestClient` kept as the
+  class-based equivalent.
+
+- **`docs/14-migration-fastapi.md`**: new **v1.2.x Gotchas** section
+  covering CORS opt-in, `max_body_size` default 2 MB, `SecurityHeadersMiddleware`
+  opt-in, sanitized `UploadFile.filename`, and the v1.2.811 exception-handler
+  subclass dispatch. `@injectable` paragraph mentions the three scopes;
+  async-test example now uses `create_client`.
+
+### Added (docs only)
+
+- **`docs/16-cython-build.md`** (new): when and how to compile `[fast]`.
+  Covers `pip install tachyon-api[fast]` + `python setup.py build_ext --inplace`,
+  the list of compiled extensions, fallback behavior, expected perf delta,
+  compiler-flag overrides, troubleshooting, and forward reference to the
+  v1.2.9 Cython sprint roadmap.
+
+### Verification
+
+- 366/367 framework tests pass (unchanged, no code touched).
+- 16/17 example tests pass (unchanged).
+- Documentation links validated by direct file existence (`docs/16-cython-build.md`).
+
+---
+
 ## [1.2.813] — 2026-05-22
 
 **Remove example workarounds now that v1.2.811 fixed the underlying framework
