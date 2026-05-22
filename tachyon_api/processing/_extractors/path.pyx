@@ -55,7 +55,7 @@ cdef object _fast_float_path(str s):
 cdef class PathExtractor:
     """Extracts a path parameter, with null-byte rejection and type conversion."""
 
-    def extract(self, descriptor, path_params):
+    cpdef extract(self, object descriptor, object path_params):
         cdef str name = descriptor.name
         cdef str value_str
         cdef object base_type
