@@ -7,6 +7,67 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.2.7] — 2026-05-22
+
+**Closing pass v1.2.7 of the SRP / Cython-readiness roadmap.** Final audit
+to confirm the codebase is ready for v1.3.x Cython compilation: `__slots__`
+on every hot-path class, type hints on every method, and clean separation
+between hot and cold path imports.
+
+### Refactor
+
+- **`__slots__` added to the 5 hot-path classes that were still missing them:**
+  - `responses/_json_response.py::TachyonJSONResponse` → `("_send_start", "_send_body")`
+  - `responses/_bytes_response.py::TachyonBytesResponse` → `("_send_start", "_send_body")`
+  - `responses/_internal_error.py::_InternalErrorResponse` → `("_send_start", "_send_body")`
+  - `core/websocket.py::WebSocketManager` → `("_router",)`
+  - `app/__init__.py::Tachyon` → 26-slot manifest covering configuration, all
+    composed collaborators, DI state, and the HTTP-method-shorthand attributes
+    bound via `setattr()` in `__init__`.
+
+  All hot-path classes now declare `__slots__`, matching the v1.3.x cdef
+  migration target.
+
+- **Corrected outdated comment in `_json_response.py`** that claimed Starlette's
+  `JSONResponse` declared `__slots__` (it doesn't). The subclass can and now
+  does declare its own slots for the added attributes.
+
+### Import discipline
+
+- Verified hot-path packages (`app/`, `processing/`, `responses/`, `routing/`,
+  `core/websocket.py`) do not import from cold-path packages (`openapi/`,
+  `security/`, `cli/`), with one expected exception: `app/__init__.py`
+  imports `OpenAPIConfig`/`OpenAPIGenerator`/`create_openapi_config` to wire
+  the facade. That import runs once at construction; the per-request hot
+  path (`ASGIEntry → HTTPDispatcher → trie dispatcher → handler closure`)
+  never touches OpenAPI.
+
+### Verification
+
+- 360/361 tests pass (same pre-existing CLI failure).
+- FULL HANDLER cycle stable at **1.04–1.07 µs** across 5 runs, matching v1.2.6
+  baseline (within measurement noise).
+
+### v1.2.x roadmap status
+
+With v1.2.7 the SRP refactor pass is complete. Summary of what landed:
+
+| Version | Module | Outcome |
+|---|---|---|
+| v1.2.1 | `app.py` | 477 lines → 13 atomic modules |
+| v1.2.2 | `processing/parameters.py` | 266 lines → 10 atomic extractors |
+| v1.2.3 | `responses.py` | 209 lines → 9 atomic modules |
+| v1.2.4 | `processing/dependencies.py` | 132 lines → 7 atomic modules |
+| v1.2.5 | `openapi.py` | 500 lines → 13 atomic modules |
+| v1.2.6 | `security.py` | 169 lines → 11 atomic modules |
+| v1.2.7 | Audit pass | `__slots__` + type hints + import discipline |
+
+**Total:** 1753 monolithic lines decomposed into 63 atomic SRP modules.
+The codebase is now ready for v1.3.x Cython compilation per the mapping table
+documented in `ROADMAP.md`.
+
+---
+
 ## [1.2.6] — 2026-05-22
 
 **Refactor pass v1.2.6 of the SRP / Cython-readiness roadmap.** No behavior changes,

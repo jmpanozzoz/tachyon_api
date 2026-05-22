@@ -24,6 +24,8 @@ del _n_err
 class _InternalErrorResponse(JSONResponse):
     """Pre-rendered 500 response — body, headers, and ASGI dicts built once."""
 
+    __slots__ = ("_send_start", "_send_body")  # → cdef object on migration
+
     def __init__(self):
         self.body = _INTERNAL_ERROR_BODY
         self.status_code = 500
