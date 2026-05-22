@@ -27,6 +27,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Performance
 
 - **`processing/response_processor.py`** — `msgspec.convert()` is skipped when `type(payload) is response_model`, avoiding a C-level conversion call for endpoints that already return the correct type.
+- **`processing/dependencies.py`** — Module-level `_SIG_CACHE` eliminates repeated `inspect.signature()` calls for `Depends(callable)` deps: O(1) dict lookup after the first resolution of each callable.
+
+### Changed
+
+- **`app.py` / `processing/parameters.py`** — Default `max_body_size` reduced from 10 MB to 2 MB. Override via `Tachyon(max_body_size=...)`.
+
+### Refactor
+
+- **`cli/utils.py`** (new): `validate_name(name, kind)` extracted from the duplicated implementations in `cli/commands/generate.py` and `cli/commands/new.py`.
+- **`processing/parameters.py`** — `_missing_param(p, kind, name)` helper consolidates 6 identical default/error-return patterns across `_process_query`, `_process_header`, `_process_cookie`, `_process_form`, `_process_file`, and `_process_path`.
 
 ### Performance
 

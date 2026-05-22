@@ -73,7 +73,7 @@ class Tachyon:
         openapi_config: Optional[OpenAPIConfig] = None,
         cache_config: Optional[Any] = None,
         lifespan: Optional[Callable] = None,
-        max_body_size: int = 10 * 1024 * 1024,
+        max_body_size: int = 2 * 1024 * 1024,
     ):
         self.max_body_size = max_body_size
         self._lifecycle_manager = LifecycleManager(lifespan)

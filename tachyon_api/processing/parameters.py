@@ -22,7 +22,13 @@ from .compiler import (
 )
 from .scope import TachyonScope
 
-_DEFAULT_MAX_BODY_SIZE = 10 * 1024 * 1024  # 10 MB
+_DEFAULT_MAX_BODY_SIZE = 2 * 1024 * 1024  # 2 MB — override via Tachyon(max_body_size=...)
+
+
+def _missing_param(p: "ParamDescriptor", kind: str, name: str) -> "Tuple[Any, Optional[JSONResponse]]":
+    if p.default is not ...:
+        return p.default, None
+    return None, validation_error_response(f"Missing required {kind}: {name}")
 
 
 class ParameterProcessor:
@@ -176,9 +182,7 @@ class ParameterProcessor:
                 else:
                     values.append(v)
             if not values:
-                if p.default is not ...:
-                    return p.default, None
-                return None, validation_error_response(f"Missing required query parameter: {name}")
+                return _missing_param(p, "query parameter", name)
             converted = TypeConverter.convert_list_values_bare(
                 values, p.item_type, p.item_is_optional, name, is_path_param=False
             )
@@ -193,9 +197,7 @@ class ParameterProcessor:
             if isinstance(converted, JSONResponse):
                 return None, converted
             return converted, None
-        elif p.default is not ...:
-            return p.default, None
-        return None, validation_error_response(f"Missing required query parameter: {name}")
+        return _missing_param(p, "query parameter", name)
 
     def _process_header(
         self, p: ParamDescriptor, request: TachyonScope
@@ -203,9 +205,7 @@ class ParameterProcessor:
         value = request.headers.get(p.effective_name)
         if value is not None:
             return value, None
-        elif p.default is not ...:
-            return p.default, None
-        return None, validation_error_response(f"Missing required header: {p.effective_name}")
+        return _missing_param(p, "header", p.effective_name)
 
     def _process_cookie(
         self, p: ParamDescriptor, request: TachyonScope
@@ -213,9 +213,7 @@ class ParameterProcessor:
         value = request.cookies.get(p.effective_name)
         if value is not None:
             return value, None
-        elif p.default is not ...:
-            return p.default, None
-        return None, validation_error_response(f"Missing required cookie: {p.effective_name}")
+        return _missing_param(p, "cookie", p.effective_name)
 
     def _process_form(
         self, p: ParamDescriptor, form_data
@@ -223,9 +221,7 @@ class ParameterProcessor:
         name = p.effective_name
         if name in form_data:
             return form_data[name], None
-        elif p.default is not ...:
-            return p.default, None
-        return None, validation_error_response(f"Missing required form field: {name}")
+        return _missing_param(p, "form field", name)
 
     def _process_file(
         self, p: ParamDescriptor, form_data
@@ -235,12 +231,10 @@ class ParameterProcessor:
             uploaded = form_data[name]
             if hasattr(uploaded, "filename"):
                 return uploaded, None
-            elif p.default is not ...:
+            if p.default is not ...:
                 return p.default, None
             return None, validation_error_response(f"Invalid file upload for: {name}")
-        elif p.default is not ...:
-            return p.default, None
-        return None, validation_error_response(f"Missing required file: {name}")
+        return _missing_param(p, "file", name)
 
     def _process_path(
         self, p: ParamDescriptor, path_params
