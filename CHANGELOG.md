@@ -7,6 +7,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.2.83] — 2026-05-22
+
+**v1.2.8x project audit / Cython prep — sub-version 3/4: project-level audit.**
+No framework code changes.  Produces `docs/audit-v1.2.83.md` consolidating the
+state of the codebase on six axes (coverage, API surface, deps, compatibility,
+tech debt, performance baseline) — feeds v1.2.84's Cython impact analysis.
+
+### Added
+
+- **`docs/audit-v1.2.83.md`** — single-file audit report with sections:
+  1. **Test coverage** — 76% overall; per-module breakdown; note on Cython
+     shadowing 12 hot-path modules at 0% (measurement artifact, not gap).
+  2. **Public API surface map** — every importable symbol per sub-package;
+     identifies 4 modules (`background`, `di`, `files`, `testing`) that leak
+     typing-import helpers because they don't declare `__all__`.
+  3. **Dependencies status** (`poetry show --outdated`) — splits into risky
+     (`starlette 1.0`, `pytest 9`, `typer 0.25`), safe minor (`msgspec`, `orjson`,
+     `uvicorn`, `pytest-asyncio`, `python-multipart`, `ruff`), and trivial transitive.
+  4. **Compatibility matrix** — declared Python `^3.10`, only `3.10.0` actually
+     tested; no CI matrix.
+  5. **Tech debt inventory** — `grep TODO/FIXME/XXX/HACK` returns zero matches
+     (cleaned in v1.2.7); 2 known-failing tests root-caused:
+     * `tests/test_cli.py::TestNewCommand::test_new_creates_project_structure` —
+       the test hard-codes `my-api` but the CLI normalises to `my_api`. 1-line
+       test fix.
+     * `example/tests/test_verification.py::test_start_enhanced_verification` —
+       cross-test state leak through the example's process-wide verification
+       store. Example-only fix via `autouse` reset fixture.
+  6. **Benchmark baseline** — 5-run median across the key hot-path metrics
+     (FULL HANDLER **1.07 µs**, body POST 0.80 µs, response dict 0.72 µs);
+     trend across v1.1.0 → v1.2.82 confirms no regression.
+
+### Findings flagged for v1.2.84 / v1.2.9
+
+- The 4 `__all__`-missing modules: trivial fix, defer if v1.2.9 prioritises.
+- Add a "no-`.so`" CI step to measure pure-Python fallback coverage of the
+  hot path (the Cython-shadowed 0% rows in §1).
+- `middlewares/security_headers.py` at 17% — add unit tests.
+- The 2 broken tests fixed in v1.2.9.
+
+### Verification
+
+- 360/361 framework tests still pass.  16/17 example tests still pass.
+- Audit report rendered correctly (markdown).
+- `pyproject.toml` bumped to `1.2.83`.
+
+---
+
 ## [1.2.82] — 2026-05-22
 
 **v1.2.8x project audit / Cython prep — sub-version 2/4: refresh README + docs/.**
