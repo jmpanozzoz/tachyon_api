@@ -34,29 +34,29 @@ from .scope import TachyonScope
 # two most common param types.  Called as cdef — zero Python dispatch overhead.
 
 cdef object _fast_int(str s, bint is_path_param):
-    """strtol-based int parse — ~40ns faster than int(s) in Cython per call."""
+    """strtol-based int parse — C stdlib, zero Python function-call overhead."""
     cdef Py_ssize_t n
-    cdef const char* p = _utf8ptr(s, &n)
+    cdef char* p = <char*>_utf8ptr(s, &n)
     cdef char* ep = NULL
     cdef long v
 
     if n == 0 or p == NULL:
         if is_path_param:
             return JSONResponse({"detail": "Not Found"}, status_code=404)
-        return validation_error_response("Invalid value for int conversion")
+        return validation_error_response("Invalid value for integer conversion")
 
     v = strtol(p, &ep, 10)
-    if <Py_ssize_t>(ep - p) != n:
+    if ep == NULL or ep - p != n:
         if is_path_param:
             return JSONResponse({"detail": "Not Found"}, status_code=404)
-        return validation_error_response("Invalid value for int conversion")
+        return validation_error_response("Invalid value for integer conversion")
     return v
 
 
 cdef object _fast_float(str s, bint is_path_param):
-    """strtod-based float parse — ~85ns faster than float(s) in Cython per call."""
+    """strtod-based float parse — C stdlib, zero Python function-call overhead."""
     cdef Py_ssize_t n
-    cdef const char* p = _utf8ptr(s, &n)
+    cdef char* p = <char*>_utf8ptr(s, &n)
     cdef char* ep = NULL
     cdef double v
 
@@ -66,7 +66,7 @@ cdef object _fast_float(str s, bint is_path_param):
         return validation_error_response("Invalid value for float conversion")
 
     v = strtod(p, &ep)
-    if <Py_ssize_t>(ep - p) != n:
+    if ep == NULL or ep - p != n:
         if is_path_param:
             return JSONResponse({"detail": "Not Found"}, status_code=404)
         return validation_error_response("Invalid value for float conversion")
@@ -229,6 +229,8 @@ cdef class ParameterProcessor:
     def _process_query(self, p, query_params):
         cdef str name = p.name
         cdef bint is_list = p.is_list
+        cdef object base_type
+        cdef str raw_val
 
         if is_list:
             raw_values = query_params.getlist(name)
@@ -252,8 +254,8 @@ cdef class ParameterProcessor:
             return converted, None
 
         if name in query_params:
-            cdef object base_type = p.base_type
-            cdef str raw_val = query_params[name]
+            base_type = p.base_type
+            raw_val = query_params[name]
             # F11: fast path for the two most common scalar types
             if base_type is int:
                 converted = _fast_int(raw_val, False)
@@ -316,6 +318,7 @@ cdef class ParameterProcessor:
         cdef str name = p.name
         cdef str value_str
         cdef bint is_list = p.is_list
+        cdef object pt
 
         if name not in path_params:
             if p.kind == _KIND_PATH:
@@ -334,7 +337,7 @@ cdef class ParameterProcessor:
             return converted, None
 
         # F11: fast path for the two most common path param types
-        cdef object pt = p.base_type
+        pt = p.base_type
         if pt is int:
             converted = _fast_int(value_str, True)
         elif pt is float:
