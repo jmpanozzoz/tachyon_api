@@ -27,7 +27,7 @@ __all__ = ["router", "{class_name}Service", "{class_name}Repository"]
 """
 
 from typing import List
-from tachyon_api import Router, Depends, Query
+from tachyon_api import Router, Depends, Query, Body
 from .{snake_name}_service import {class_name}Service
 from .{snake_name}_dto import (
     {class_name}Response,
@@ -59,7 +59,7 @@ def get_{snake_name}(
 
 @router.post("/", response_model={class_name}Response)
 def create_{snake_name}(
-    data: {class_name}Create,
+    data: {class_name}Create = Body(),
     service: {class_name}Service = Depends(),
 ):
     """Create a new {snake_name}."""
@@ -69,7 +69,7 @@ def create_{snake_name}(
 @router.put("/{{id}}", response_model={class_name}Response)
 def update_{snake_name}(
     id: str,
-    data: {class_name}Update,
+    data: {class_name}Update = Body(),
     service: {class_name}Service = Depends(),
 ):
     """Update a {snake_name}."""
@@ -146,7 +146,7 @@ class {class_name}Service:
 
     def update(self, id: str, data: {class_name}Update) -> dict:
         """Update a {snake_name}."""
-        existing = self.find_by_id(id)
+        self.find_by_id(id)  # raises 404 if not found
         return self.repository.update(id, data)
 
     def delete(self, id: str) -> None:
@@ -187,7 +187,9 @@ class {class_name}Service:
 {class_name} Repository - Data access layer.
 """
 
+import uuid
 from typing import List, Optional
+import msgspec
 from tachyon_api import injectable
 
 
@@ -195,7 +197,7 @@ from tachyon_api import injectable
 class {class_name}Repository:
     """
     {class_name} data access.
-    
+
     Handles database operations. Replace with actual DB implementation.
     """
 
@@ -214,16 +216,15 @@ class {class_name}Repository:
 
     def create(self, data) -> dict:
         """Create a new {snake_name}."""
-        import uuid
-        id = str(uuid.uuid4())
-        item = {{"id": id, **data.__dict__}}
-        self._data[id] = item
+        item_id = str(uuid.uuid4())
+        item = {{"id": item_id, **msgspec.structs.asdict(data)}}
+        self._data[item_id] = item
         return item
 
     def update(self, id: str, data) -> dict:
         """Update a {snake_name}."""
         item = self._data.get(id, {{}})
-        for key, value in data.__dict__.items():
+        for key, value in msgspec.structs.asdict(data).items():
             if value is not None:
                 item[key] = value
         self._data[id] = item
