@@ -252,6 +252,8 @@ class ParameterProcessor:
             return None, None
 
         value_str = path_params[name]
+        if "\x00" in value_str:
+            return None, validation_error_response(f"Invalid path parameter: {name}")
 
         if p.is_list:
             parts = value_str.split(",") if value_str else []

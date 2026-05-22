@@ -15,11 +15,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`responses.py`** — `response_validation_error_response` no longer echoes internal error details in the HTTP response body; details are logged at WARNING level only.
 - **`middlewares/cors.py`** — `CORSMiddleware` defaults changed to `allow_origins=()` and `allow_headers=()`; `allow_methods` defaults to explicit safe verbs instead of `"*"`. CORS is now opt-in — callers must list origins explicitly.
 - **`security.py`** — `APIKeyQuery` docstring warns that query-parameter tokens appear in server logs, browser history, and Referer headers.
+- **`middlewares/security_headers.py`** — New `SecurityHeadersMiddleware`: opt-in middleware that injects `x-content-type-options`, `x-frame-options`, `referrer-policy`, and `x-permitted-cross-domain-policies` on every HTTP response. HSTS and CSP available via constructor params.
+- **`processing/parameters.py`** — Path parameters containing null bytes (`\x00`) are rejected with 422 before type conversion.
 
 ### Fixed
 
 - **`background.py`** — `BackgroundTasks.run_tasks()` no longer swallows task exceptions silently; failures are logged at WARNING with full traceback (`exc_info=True`).
 - **`core/lifecycle.py`** — Startup handlers now raise `RuntimeError` on failure (with the original exception as cause), preventing the app from booting in a broken state. Shutdown handlers log failures at WARNING and continue processing remaining handlers.
+- **`cache.py`** — `RedisCacheBackend.clear()` now calls `flushdb()` (current DB only) instead of silently no-oping. Falls back to `flushall()` if `flushdb()` is unavailable.
+
+### Performance
+
+- **`processing/response_processor.py`** — `msgspec.convert()` is skipped when `type(payload) is response_model`, avoiding a C-level conversion call for endpoints that already return the correct type.
 
 ### Performance
 
