@@ -7,6 +7,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.2.813] — 2026-05-22
+
+**Remove example workarounds now that v1.2.811 fixed the underlying framework
+bugs.** The example now showcases the v1.2.0 features *directly* — no
+wrappers, no internal dispatch tricks.
+
+### Reverted (example only)
+
+- **`modules/customers/customers_controller.py::bulk_create_customers`** —
+  parameter restored to `customers: List[CustomerCreate] = Body(...)`.
+  This was using a `BulkCreateRequest` wrapper as a workaround for the
+  decoder bug fixed in v1.2.811.
+
+- **`modules/customers/customers_dto.py`** — `BulkCreateRequest` Struct
+  removed. It existed only to sidestep the broken `Body(List[Struct])`
+  decoder and has no remaining use.
+
+- **`app.py::kyc_exception_handler`** — registered for `KYCException`
+  again (was registered for `HTTPException` as a workaround for the
+  dispatch bug fixed in v1.2.811). The handler body shrinks from a
+  two-branch `isinstance` dispatch to a single formatter for the
+  KYC hierarchy. `HTTPException` import removed.
+
+- **`README.md`** — "Known limitations" callout removed; the workaround
+  notes in the feature matrix are replaced with the direct-usage
+  descriptions. `⭐ = new or revised in Tachyon v1.2.x` (was v1.2.0,
+  now spans v1.2.811 too).
+
+### Verified
+
+- 366/367 framework tests pass (`pytest tests/`).
+- 16/17 example tests pass (`pytest example/tests/`). The single failure
+  is the pre-existing `test_start_enhanced_verification` cross-test
+  state issue tracked in v1.2.83 audit, unrelated to this PR.
+- End-to-end smoke (`TestClient`):
+  - `GET /customers/me` (no auth) → 401, body `{"code": "UNAUTHORIZED"}`
+    via the now-direct `@app.exception_handler(KYCException)`.
+  - `POST /customers/bulk` with a JSON array → 200, returns the array
+    via direct `Body(List[CustomerCreate])` decoding.
+  - OpenAPI: `/customers/bulk` requestBody schema =
+    `{"type": "array", "items": {"$ref": "#/components/schemas/CustomerCreate"}}`
+    (no wrapper Struct).
+
+---
+
 ## [1.2.812] — 2026-05-22
 
 **Fix the example test runner.**  Companion to v1.2.811: brings `pytest example/tests/`

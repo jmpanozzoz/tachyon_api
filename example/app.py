@@ -22,7 +22,7 @@ from contextlib import asynccontextmanager
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
-from tachyon_api import HTTPException, Tachyon
+from tachyon_api import Tachyon
 from tachyon_api.middlewares import (
     CORSMiddleware,
     LoggerMiddleware,
@@ -113,34 +113,24 @@ app.add_middleware(LoggerMiddleware)
 
 
 # ── Custom exception handler ──────────────────────────────────────────────────
-# NOTE: Tachyon's ExceptionTable.dispatch currently short-circuits to the
-# default response for any HTTPException unless a handler is registered for
-# `HTTPException` directly — handlers registered for HTTPException *subclasses*
-# (like our `KYCException`) are never invoked.  Tracked as a v1.2.83 audit
-# finding; the workaround below registers for `HTTPException` and dispatches
-# internally by isinstance.
 
-@app.exception_handler(HTTPException)
-async def http_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:
+@app.exception_handler(KYCException)
+async def kyc_exception_handler(request: Request, exc: KYCException) -> JSONResponse:
     """
-    Catches every HTTPException raised by the app and formats it consistently.
+    Single handler for the whole KYCException hierarchy.
 
-    For our domain exceptions (KYCException subclasses), we emit the
-    `error_code` so clients can branch on a stable identifier.  Generic
-    HTTPExceptions get a plain `detail` body.
+    Translates the domain-specific `error_code` into the response body while
+    preserving the HTTP status code declared by the exception.  Other HTTPException
+    types raised by the framework fall through to Tachyon's default
+    `{"detail": ...}` response.
     """
-    if isinstance(exc, KYCException):
-        return JSONResponse(
-            status_code=exc.status_code,
-            content={
-                "success": False,
-                "error": exc.detail,
-                "code": getattr(exc, "error_code", "KYC_ERROR"),
-            },
-        )
     return JSONResponse(
         status_code=exc.status_code,
-        content={"success": False, "error": exc.detail, "code": "HTTP_ERROR"},
+        content={
+            "success": False,
+            "error": exc.detail,
+            "code": getattr(exc, "error_code", "KYC_ERROR"),
+        },
     )
 
 

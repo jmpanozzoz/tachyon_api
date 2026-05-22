@@ -21,7 +21,6 @@ from ...shared.id_generator import IdGenerator
 from ...shared.request_context import RequestContext
 from .customers_service import CustomersService
 from .customers_dto import (
-    BulkCreateRequest,
     CustomerCreate,
     CustomerUpdate,
     CustomerResponse,
@@ -147,7 +146,7 @@ def delete_customer(
 
 @router.post("/bulk", response_model=List[CustomerResponse])
 def bulk_create_customers(
-    payload: BulkCreateRequest = Body(...),
+    customers: List[CustomerCreate] = Body(...),
     user: dict = Depends(get_current_user),
     service: CustomersService = Depends(),
     ctx: RequestContext = Depends(),     # request-scoped — same instance for whole request
@@ -157,16 +156,16 @@ def bulk_create_customers(
     Bulk-create multiple customer profiles in a single request.
 
     Showcases:
-    - Nested `List[CustomerCreate]` inside a Struct body → array property in OpenAPI
+    - `Body(List[CustomerCreate])` → `array` request body in OpenAPI + runtime decode
     - `response_model=List[CustomerResponse]` → array response schema
     - `@injectable(scope="request")` RequestContext for correlation tracking
     - `@injectable(scope="transient")` IdGenerator (a fresh sequence per call)
     """
     ctx.set("operation", "bulk_create")
-    ctx.set("count", len(payload.customers))
+    ctx.set("count", len(customers))
 
     results: List[CustomerResponse] = []
-    for data in payload.customers:
+    for data in customers:
         batch_id = id_gen.next_id()
         created = service.create_customer(user["user_id"], data)
         created.customer_id = f"{batch_id}-{created.customer_id}"
