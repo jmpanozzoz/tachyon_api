@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] — v1.2.0
 
+### Security
+
+- **`files.py`** — `UploadFile` now subclasses Starlette's version and sanitizes `filename` at construction time: strips null bytes and directory components to prevent path traversal attacks.
+- **`responses.py`** — `response_validation_error_response` no longer echoes internal error details in the HTTP response body; details are logged at WARNING level only.
+- **`middlewares/cors.py`** — `CORSMiddleware` defaults changed to `allow_origins=()` and `allow_headers=()`; `allow_methods` defaults to explicit safe verbs instead of `"*"`. CORS is now opt-in — callers must list origins explicitly.
+- **`security.py`** — `APIKeyQuery` docstring warns that query-parameter tokens appear in server logs, browser history, and Referer headers.
+
+### Fixed
+
+- **`background.py`** — `BackgroundTasks.run_tasks()` no longer swallows task exceptions silently; failures are logged at WARNING with full traceback (`exc_info=True`).
+- **`core/lifecycle.py`** — Startup handlers now raise `RuntimeError` on failure (with the original exception as cause), preventing the app from booting in a broken state. Shutdown handlers log failures at WARNING and continue processing remaining handlers.
+
 ### Performance
 
 **F12b (Cython) — default-headers cache + compiled direct write** (`feature/server-binding-cython`)

@@ -1,8 +1,12 @@
 """Response helpers and a high-performance JSON response class."""
 
+import logging
+
 from starlette.responses import Response, JSONResponse, HTMLResponse  # noqa: F401
 
 import orjson
+
+logger = logging.getLogger(__name__)
 from .models import encode_json
 
 # Pre-computed constant header bytes
@@ -164,11 +168,9 @@ def validation_error_response(error="Validation failed", errors=None):
 
 
 def response_validation_error_response(error="Response validation error"):
-    msg = str(error)
-    if not msg.lower().startswith("response validation error"):
-        msg = f"Response validation error: {msg}"
+    logger.warning("Response validation error: %s", error)
     return TachyonJSONResponse(
-        {"success": False, "error": msg, "detail": msg, "code": "RESPONSE_VALIDATION_ERROR"},
+        {"success": False, "error": "Internal Server Error", "code": "RESPONSE_VALIDATION_ERROR"},
         status_code=500,
     )
 
