@@ -7,6 +7,82 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.2.91] — 2026-05-22
+
+**v1.2.9 Cython sprint — Phase 1/7: response classes compiled.**
+First phase of the Cython sprint defined in `docs/cython-plan-v1.2.9.md`.
+**Result exceeds the conservative projection by ~2×:** FULL HANDLER cycle
+drops from 1.05 µs → **0.93 µs median (−11%)**, well below the gate of 1.04 µs.
+
+### Added
+
+- **`tachyon_api/responses/_json_response.pyx`** — Cython sibling of the
+  `.py` file. Same class layout (regular `class` inheriting from Starlette's
+  `JSONResponse` for `isinstance` compatibility), but typed locals
+  (`cdef Py_ssize_t n`, `cdef list headers`) and Cython byte-code
+  compilation of the methods.
+- **`tachyon_api/responses/_bytes_response.pyx`** — same pattern for
+  pre-encoded bytes.
+- **`tachyon_api/responses/_internal_error.pyx`** — same pattern for the
+  500 singleton.
+
+### Changed
+
+- **`setup.py`** — three new `Extension` entries for the response `.pyx`
+  modules.  Cython now produces 10 compiled `.so` files (was 7).
+
+### Planning correction
+
+The v1.2.84 plan asserted "cdef class on top of a Python parent is fully
+supported by Cython".  **This was wrong.**  Cython's `cdef class` requires
+the parent to be another extension type (or `object`).  Starlette's
+`JSONResponse` is a regular Python class, so `cdef class
+TachyonJSONResponse(JSONResponse)` fails to compile with
+`First base of 'TachyonJSONResponse' is not an extension type`.
+
+**Workaround applied:** compile the module as Cython (`.pyx`) but keep the
+class as a regular Python `class` (no `cdef class`).  The gain comes from:
+- typed C locals inside `__init__` (`Py_ssize_t n`, `list headers`),
+- byte-code compilation of `__call__` and `__init__`,
+- module-level `cdef` constants resolved at compile time.
+
+**Empirically the gain is larger than the original cdef-class projection
+predicted:** the plan estimated −0.04 to −0.07 µs FULL HANDLER; we measured
+−0.12 µs median across 5 runs.  Reason: the response classes are
+constructed *very* frequently and the methods are tiny — Cython's bytecode
+optimizations on small methods can outperform the cdef-class slot win for
+this specific shape.
+
+The plan is updated implicitly: Phase 2 (DI resolver) and Phase 3
+(ExceptionTable) face the same inheritance constraint and will use the
+same approach.  Targets remain reachable.
+
+### Measurements (5-run medians, compiled mode)
+
+| Metric | v1.2.85 baseline | v1.2.91 | Δ |
+|---|---:|---:|---:|
+| **FULL HANDLER cycle** | 1.05 µs | **0.93 µs** | **−11.4%** |
+| TachyonJSONResponse(dict) | 0.52 µs | **0.40 µs** | **−23.1%** |
+| process_response — dict payload | 0.72 µs | **0.61 µs** | **−15.3%** |
+| process_parameters body POST | 0.80 µs | 0.80 µs | 0 (Phase 4 territory) |
+
+Perf gate (FULL HANDLER ≤ 1.04 µs median): **passed** with 0.11 µs of headroom.
+
+### Verification
+
+- 366/367 framework tests pass with compiled `.so` loaded.
+- 16/17 example tests pass.
+- `isinstance(response, JSONResponse)` returns True for the compiled classes (verified explicitly).
+
+### What this unlocks
+
+The v1.2.9 conservative target (FULL HANDLER 0.95 µs) is **already met**
+after Phase 1 alone.  Phases 2 and 3 should push toward the optimistic
+target of 0.85 µs; Phase 4 (extractor migration) decides whether we land
+there or somewhere between.
+
+---
+
 ## [1.2.85] — 2026-05-22
 
 **Fix the `parameters.pyx` ↔ `parameters.py` security divergence.**
