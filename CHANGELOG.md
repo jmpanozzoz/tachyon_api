@@ -7,6 +7,81 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.2.98] — 2026-05-22
+
+**v1.2.9 Cython sprint — Phase 4c/7: remaining four extractors migrated to
+cdef classes; `parameters.pyx` is now pure orchestrator.**
+
+The orchestrator inlined `_process_body`, `_process_form`, `_process_file`,
+and `_process_query_list` until this phase.  Phase 4c moves all four into
+their own compiled cdef-class extractors (sibling to header/cookie/query/path
+from Phase 4b), plus the `BodySizeChecker` helper used by body — and deletes
+the inline methods from `parameters.pyx` entirely.
+
+### Added
+
+- `processing/_extractors/body.pyx` + `.pxd` — `cdef class BodyExtractor`
+  with `async def extract`; size checking delegates to a `cimport`-ed
+  `BodySizeChecker`.
+- `processing/_extractors/body_limit.pyx` + `.pxd` — `cdef class
+  BodySizeChecker` with `cpdef check_content_length` /
+  `cpdef check_body_length` and a `cdef inline _too_large_response` helper.
+- `processing/_extractors/form.pyx` + `.pxd` — `cdef class FormExtractor`
+  with `cpdef extract`.
+- `processing/_extractors/file.pyx` + `.pxd` — `cdef class FileExtractor`
+  with `cpdef extract`.
+- `processing/_extractors/query_list.pyx` + `.pxd` — `cdef class
+  QueryListExtractor` with `cpdef extract`; handles both repeated keys and
+  CSV form, then delegates to `TypeConverter.convert_list_values_bare`.
+
+### Changed
+
+- `processing/parameters.pyx`:
+  - Deleted four inline helper methods (`_process_body`, `_process_form`,
+    `_process_file`, `_process_query_list`).
+  - Added `cimport` + Python alias import for the four new extractors.
+  - `ParameterProcessor` now holds **eight** typed cdef-class extractors as
+    fields, instantiated once in `__init__` (body extractor receives
+    `max_body_size` at construction, matching the pure-Python
+    `parameters.py` semantics).
+  - The orchestrator loop is now a straight dispatch: read `kind`, call
+    the matching extractor, unpack `(value, error)`.
+- `setup.py`: five new `Extension` entries (body, body_limit, form, file,
+  query_list).  Total compiled modules: 26.
+
+### Measurements (10-run median, compiled mode)
+
+| Metric | Phase 4b.3 | Phase 4c | Δ vs 4b.3 | Δ vs v1.2.83 baseline |
+|---|---:|---:|---:|---:|
+| **FULL HANDLER cycle** | 0.95 µs | **0.94 µs** | −1.1% | **−10.5%** |
+| `process_parameters` — path+query | 0.595 µs | **0.58 µs** | −2.5% | +1.8% |
+| `process_parameters` — body POST | — | 0.77 µs | — | — |
+| `process_parameters` — no params | 0.16 µs | 0.16 µs | unchanged | unchanged |
+
+path+query is now within 1.8% of the pre-SRP baseline (0.57 µs).  The
+architectural win is bigger than the per-metric delta: `parameters.pyx`
+went from a ~265-line monolith with four inline `_process_*` methods to a
+~175-line pure dispatch loop.
+
+### Verification
+
+- 366/367 framework tests pass with `.so` loaded.
+- 366/367 tests pass without `.so` (pure-Python fallback).
+- 1 known-failing CLI test (`test_new_creates_project_structure`) is
+  pre-existing — tracked for Phase 6.
+- Body-size limit semantics preserved (v1.2.85 hardening: 2 MB default;
+  `Tachyon(max_body_size=...)` override).
+- F11 fast-int/fast-float preserved end-to-end.
+
+### Sprint status
+
+After Phase 4c, the v1.2.9 sprint sits at **0.94 µs FULL HANDLER median**
+(−10.5% vs v1.2.83 baseline) with full SRP in compiled mode.  Remaining
+phases: F5 (nogil bearer parser, optional), F6 (fix the known-failing
+test), F7 (no-`.so` CI matrix + parity check).
+
+---
+
 ## [1.2.97] — 2026-05-22
 
 **v1.2.9 Cython sprint — Phase 4b.3/7: `.pxd` declarations + `cimport` recover

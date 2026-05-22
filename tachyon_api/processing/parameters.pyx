@@ -1,43 +1,50 @@
 # cython: language_level=3, boundscheck=False, wraparound=False
 """
-Cython-compiled parameter processor — Phase 4b.2 of v1.2.9.
+Cython-compiled parameter processor — Phase 4c of v1.2.9.
 
-Orchestrator that delegates to the cdef-class extractors compiled in Phase 4a:
-  HeaderExtractor · CookieExtractor · QueryExtractor (scalar) · PathExtractor.
+Orchestrator that delegates to the eight cdef-class extractors:
+  HeaderExtractor · CookieExtractor · QueryExtractor (scalar) · PathExtractor
+  BodyExtractor · FormExtractor · FileExtractor · QueryListExtractor.
 
-Extractors still inlined here (Phase 4c targets):
-  _process_body / _process_form / _process_file / _process_query (list path).
+No more inline `_process_*` methods.  This file is now purely a dispatch loop:
+read `kind`, call the matching extractor, unpack `(value, error)`.
 
-F11 fast-int / fast-float has moved into `query.pyx` and `path.pyx`
-(Phase 4b.1).  This file no longer carries the inline strtol/strtod helpers.
+F11 fast-int / fast-float live in `query.pyx` and `path.pyx`.
+Body size limit is captured in BodyExtractor at construction time.
 """
 
 import cython
-import msgspec
-import typing
 
 from starlette.responses import JSONResponse
 
 from ..responses import validation_error_response
-from ..utils import TypeConverter, TypeUtils
 from ..background import BackgroundTasks
+
 # Python imports for instantiation
 from ._extractors.header import HeaderExtractor as _HeaderExtractor_py
 from ._extractors.cookie import CookieExtractor as _CookieExtractor_py
 from ._extractors.query import QueryExtractor as _QueryExtractor_py
 from ._extractors.path import PathExtractor as _PathExtractor_py
+from ._extractors.body import BodyExtractor as _BodyExtractor_py
+from ._extractors.form import FormExtractor as _FormExtractor_py
+from ._extractors.file import FileExtractor as _FileExtractor_py
+from ._extractors.query_list import QueryListExtractor as _QueryListExtractor_py
 
-# C-level cimport — enables direct cdef class slot dispatch (Phase 4b.3).
+# C-level cimport — direct cdef class slot dispatch (Phase 4b.3 + 4c).
 from ._extractors.header cimport HeaderExtractor
 from ._extractors.cookie cimport CookieExtractor
 from ._extractors.query cimport QueryExtractor
 from ._extractors.path cimport PathExtractor
+from ._extractors.body cimport BodyExtractor
+from ._extractors.form cimport FormExtractor
+from ._extractors.file cimport FileExtractor
+from ._extractors.query_list cimport QueryListExtractor
+
 from .compiler import (
     KIND_REQUEST, KIND_BG, KIND_BODY, KIND_QUERY,
     KIND_HEADER, KIND_COOKIE, KIND_FORM, KIND_FILE,
     KIND_PATH, KIND_PATH_IMPLICIT, KIND_DEP_CALLABLE, KIND_DEP_CLASS,
 )
-from .scope import TachyonScope
 
 
 # C-level integer constants — avoids Python object lookup on each comparison
@@ -58,30 +65,36 @@ cdef int _DEFAULT_MAX_BODY_SIZE = 2 * 1024 * 1024  # 2 MB — matches parameters
 
 
 cdef class ParameterProcessor:
-    """Parameter extractor — orchestrator that delegates to cdef extractors.
+    """Parameter orchestrator — delegates to typed cdef-class extractors.
 
-    The four migrated extractors are stored as typed cdef class references
-    (not generic `cdef object`).  Combined with the `cpdef extract(...)`
-    signature declared in each extractor's `.pxd`, this turns the dispatch
-    `self._header_extractor.extract(...)` into a direct C slot call —
-    recovers the ~60-120 ns/req of cross-module Python dispatch overhead
-    introduced in Phase 4b.2.
+    All eight extractors are stored as typed cdef-class references.  Combined
+    with `cpdef extract(...)` declared in each `.pxd` (or `async def` for the
+    body extractor), Cython emits direct C slot dispatch on every call.
     """
 
     cdef object app
-    cdef HeaderExtractor _header_extractor
-    cdef CookieExtractor _cookie_extractor
-    cdef QueryExtractor _query_extractor
-    cdef PathExtractor _path_extractor
+    cdef HeaderExtractor _header
+    cdef CookieExtractor _cookie
+    cdef QueryExtractor _query
+    cdef PathExtractor _path
+    cdef BodyExtractor _body
+    cdef FormExtractor _form
+    cdef FileExtractor _file
+    cdef QueryListExtractor _query_list
 
     def __init__(self, app_instance):
+        cdef int max_body_size = getattr(app_instance, "max_body_size", _DEFAULT_MAX_BODY_SIZE)
         self.app = app_instance
-        # Use the Python-imported aliases to instantiate (cimport names refer
-        # only to the C-level type, not callable as a constructor here).
-        self._header_extractor = _HeaderExtractor_py()
-        self._cookie_extractor = _CookieExtractor_py()
-        self._query_extractor = _QueryExtractor_py()
-        self._path_extractor = _PathExtractor_py()
+        # Use the Python-imported aliases for instantiation (cimport names
+        # refer only to the C-level type, not callable as constructor here).
+        self._header = _HeaderExtractor_py()
+        self._cookie = _CookieExtractor_py()
+        self._query = _QueryExtractor_py()
+        self._path = _PathExtractor_py()
+        self._body = _BodyExtractor_py(max_body_size)
+        self._form = _FormExtractor_py()
+        self._file = _FileExtractor_py()
+        self._query_list = _QueryListExtractor_py()
 
     async def process_parameters(self, compiled, request, dependency_cache):
         # Pre-allocate exact-size list — C array under the hood in CPython.
@@ -114,31 +127,28 @@ cdef class ParameterProcessor:
                 args[i] = self.app._dependency_resolver.resolve_dependency(p.annotation)
 
             elif kind == _KIND_BODY:
-                # Phase 4c — still inline
-                val, err = await self._process_body(p, request)
+                val, err = await self._body.extract(p, request)
                 if err is not None:
                     return args, err, _bg
                 args[i] = val
 
             elif kind == _KIND_QUERY:
-                # Delegate scalar to QueryExtractor (cdef class with F11).
-                # List path stays inline until Phase 4c brings query_list.pyx in.
                 if p.is_list:
-                    val, err = self._process_query_list(p, request.query_params)
+                    val, err = self._query_list.extract(p, request.query_params)
                 else:
-                    val, err = self._query_extractor.extract(p, request.query_params)
+                    val, err = self._query.extract(p, request.query_params)
                 if err is not None:
                     return args, err, _bg
                 args[i] = val
 
             elif kind == _KIND_HEADER:
-                val, err = self._header_extractor.extract(p, request)
+                val, err = self._header.extract(p, request)
                 if err is not None:
                     return args, err, _bg
                 args[i] = val
 
             elif kind == _KIND_COOKIE:
-                val, err = self._cookie_extractor.extract(p, request)
+                val, err = self._cookie.extract(p, request)
                 if err is not None:
                     return args, err, _bg
                 args[i] = val
@@ -149,7 +159,7 @@ cdef class ParameterProcessor:
                         _form_data = await request.form()
                     except Exception:
                         return args, validation_error_response("Failed to parse form data"), _bg
-                val, err = self._process_form(p, _form_data)
+                val, err = self._form.extract(p, _form_data)
                 if err is not None:
                     return args, err, _bg
                 args[i] = val
@@ -160,15 +170,13 @@ cdef class ParameterProcessor:
                         _form_data = await request.form()
                     except Exception:
                         return args, validation_error_response("Failed to parse form data"), _bg
-                val, err = self._process_file(p, _form_data)
+                val, err = self._file.extract(p, _form_data)
                 if err is not None:
                     return args, err, _bg
                 args[i] = val
 
             elif kind == _KIND_PATH or kind == _KIND_PATH_IMPLICIT:
-                # Delegate to PathExtractor — handles scalar (F11 fast int/float)
-                # and list (TypeConverter), plus the null-byte security check.
-                val, err = self._path_extractor.extract(p, request.path_params)
+                val, err = self._path.extract(p, request.path_params)
                 if err is not None:
                     return args, err, _bg
                 args[i] = val
@@ -176,90 +184,3 @@ cdef class ParameterProcessor:
             i += 1
 
         return args, None, _bg
-
-    # ── still-inline helpers (Phase 4c migrates these out) ────────────────────
-
-    async def _process_body(self, p, request):
-        cdef int max_body_size = getattr(self.app, "max_body_size", _DEFAULT_MAX_BODY_SIZE)
-        cdef object cl = request.headers.get("content-length")
-        if cl is not None:
-            try:
-                if int(cl) > max_body_size:
-                    return None, validation_error_response(
-                        f"Request body too large (max {max_body_size} bytes)"
-                    )
-            except ValueError:
-                pass
-        try:
-            raw_body = await request.body()
-        except Exception:
-            return None, validation_error_response("Failed to read request body")
-        if len(raw_body) > max_body_size:
-            return None, validation_error_response(
-                f"Request body too large (max {max_body_size} bytes)"
-            )
-        cdef object decoder = p.decoder
-        if decoder is None:
-            return None, validation_error_response("Body type must be a Struct subclass")
-        try:
-            return decoder.decode(raw_body), None
-        except msgspec.DecodeError as e:
-            return None, validation_error_response(f"Invalid JSON body: {e}")
-        except msgspec.ValidationError as e:
-            field_errors = None
-            try:
-                path_attr = getattr(e, "path", None)
-                if path_attr:
-                    for seg in reversed(path_attr):
-                        if isinstance(seg, str):
-                            field_errors = {seg: [str(e)]}
-                            break
-            except Exception:
-                pass
-            return None, validation_error_response(str(e), errors=field_errors)
-
-    @cython.cfunc
-    def _process_query_list(self, p, query_params):
-        cdef str name = p.name
-        raw_values = query_params.getlist(name)
-        if not raw_values and name in query_params:
-            raw_values = [query_params[name]]
-        values = []
-        for v in raw_values:
-            if isinstance(v, str) and "," in v:
-                values.extend(v.split(","))
-            else:
-                values.append(v)
-        if not values:
-            if p.default is not ...:
-                return p.default, None
-            return None, validation_error_response(f"Missing required query parameter: {name}")
-        converted = TypeConverter.convert_list_values_bare(
-            values, p.item_type, p.item_is_optional, name, is_path_param=False
-        )
-        if isinstance(converted, JSONResponse):
-            return None, converted
-        return converted, None
-
-    @cython.cfunc
-    def _process_form(self, p, form_data):
-        cdef str name = p.effective_name
-        if name in form_data:
-            return form_data[name], None
-        elif p.default is not ...:
-            return p.default, None
-        return None, validation_error_response(f"Missing required form field: {name}")
-
-    @cython.cfunc
-    def _process_file(self, p, form_data):
-        cdef str name = p.effective_name
-        if name in form_data:
-            uploaded = form_data[name]
-            if hasattr(uploaded, "filename"):
-                return uploaded, None
-            elif p.default is not ...:
-                return p.default, None
-            return None, validation_error_response(f"Invalid file upload for: {name}")
-        elif p.default is not ...:
-            return p.default, None
-        return None, validation_error_response(f"Missing required file: {name}")

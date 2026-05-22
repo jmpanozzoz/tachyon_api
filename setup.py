@@ -135,6 +135,32 @@ try:
             sources=["tachyon_api/processing/_extractors/path.pyx"],
             extra_compile_args=extra_compile_args,
         ),
+        # v1.2.98 — Phase 4c: remaining extractors as cdef class.
+        Extension(
+            "tachyon_api.processing._extractors.body_limit",
+            sources=["tachyon_api/processing/_extractors/body_limit.pyx"],
+            extra_compile_args=extra_compile_args,
+        ),
+        Extension(
+            "tachyon_api.processing._extractors.body",
+            sources=["tachyon_api/processing/_extractors/body.pyx"],
+            extra_compile_args=extra_compile_args,
+        ),
+        Extension(
+            "tachyon_api.processing._extractors.form",
+            sources=["tachyon_api/processing/_extractors/form.pyx"],
+            extra_compile_args=extra_compile_args,
+        ),
+        Extension(
+            "tachyon_api.processing._extractors.file",
+            sources=["tachyon_api/processing/_extractors/file.pyx"],
+            extra_compile_args=extra_compile_args,
+        ),
+        Extension(
+            "tachyon_api.processing._extractors.query_list",
+            sources=["tachyon_api/processing/_extractors/query_list.pyx"],
+            extra_compile_args=extra_compile_args,
+        ),
     ]
 
     setup(
