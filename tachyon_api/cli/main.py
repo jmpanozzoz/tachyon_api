@@ -57,7 +57,12 @@ def new(
 @app.command()
 def version():
     """Show Tachyon version."""
-    typer.echo("Tachyon API v1.1.0")
+    try:
+        from importlib.metadata import version as _v
+        ver = _v("tachyon-api")
+    except Exception:
+        ver = "dev"
+    typer.echo(f"Tachyon API v{ver}")
 
 
 def main():

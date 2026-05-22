@@ -73,15 +73,15 @@ settings = Settings()
 '''
 
     REQUIREMENTS = """# Tachyon API Framework
-tachyon-api>=0.6.0
+tachyon-api>=1.2.0
 
 # Server
-uvicorn[standard]>=0.30.0
+uvicorn[standard]>=0.35.0
 
 # Development
 pytest>=8.0.0
-pytest-asyncio>=0.23.0
-httpx>=0.27.0
+pytest-asyncio>=1.0.0
+httpx>=0.28.0
 ruff>=0.4.0
 """
 
