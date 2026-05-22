@@ -4,8 +4,13 @@ TachyonDispatcher — ASGI HTTP dispatch core.
 Replaces the pure-Python _trie_dispatch method as the innermost ASGI callable
 in _build_http_app.  All local state captured at construction time; per-request
 path is stateless (only reads self fields + scope args).
+
+F12a: responses are sent inline (no response.__call__ coroutine overhead).
+F12b: when running under TachyonServer, a pre-built bytes message is injected
+      into the scope and the server writes headers+body in a single transport call.
 """
 from __future__ import annotations
+from ..server import tachyon_direct_write as _tachyon_direct_write
 
 
 class TachyonDispatcher:
@@ -67,6 +72,16 @@ class TachyonDispatcher:
             await handler.fn(scope, receive, send)
         else:
             from .scope import TachyonScope
+            from ..responses import TachyonBytesResponse, TachyonJSONResponse
             ts = TachyonScope(scope, receive, send)
             response = await handler(ts)
-            await response(scope, receive, send)
+            # F12a: bypass response.__call__ coroutine (~0.05µs saved)
+            if type(response) is TachyonBytesResponse or type(response) is TachyonJSONResponse:
+                # F12b: single transport.write() when running under TachyonServer
+                cycle = scope.get("_tachyon_cycle")
+                if cycle is not None and _tachyon_direct_write(cycle, response):
+                    return  # done
+                await send(response._send_start)
+                await send(response._send_body)
+            else:
+                await response(scope, receive, send)

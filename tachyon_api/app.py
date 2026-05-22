@@ -33,6 +33,8 @@ from .processing.parameters import ParameterProcessor
 from .processing.dependencies import DependencyResolver
 from .processing.response_processor import ResponseProcessor
 from .processing.scope import TachyonScope
+from .responses import TachyonBytesResponse, TachyonJSONResponse
+from .server import tachyon_direct_write as _tachyon_direct_write
 from .routing.trie import RadixTrie, _NOT_FOUND, _METHOD_NOT_ALLOWED, _FOUND
 
 try:
@@ -319,7 +321,16 @@ class Tachyon:
                     resp = await ResponseProcessor.process_response(
                         payload, _response_model_local, None
                     )
-                    await resp(scope, receive, send)
+                    # F12a: bypass resp.__call__ coroutine for built-in response types
+                    if type(resp) is TachyonBytesResponse or type(resp) is TachyonJSONResponse:
+                        # F12b: single transport.write() under TachyonServer
+                        cycle = scope.get("_tachyon_cycle")
+                        if cycle is not None and _tachyon_direct_write(cycle, resp):
+                            return
+                        await send(resp._send_start)
+                        await send(resp._send_body)
+                    else:
+                        await resp(scope, receive, send)
                 except HTTPException as exc:
                     exc_handler = self._exception_handlers.get(HTTPException)
                     if exc_handler is not None:

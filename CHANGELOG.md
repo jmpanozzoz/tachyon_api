@@ -11,6 +11,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Performance
 
+**F12 — Server binding: direct transport write** (`feature/server-binding`)
+
+- New `tachyon_api/server.py`: `TachyonHTTPProtocol` — drop-in uvicorn HTTP/1.1 protocol
+  subclass that injects `_tachyon_cycle` into the ASGI scope. `TachyonDispatcher` and
+  `_fast_asgi` detect the key and call `tachyon_direct_write()` instead of 2× `await send()`.
+- `tachyon_direct_write(cycle, response)`: module-level function that builds the full
+  HTTP/1.1 response bytes (status + default_headers + content-length + content-type + body)
+  and issues two synchronous `transport.write()` calls, then updates the uvicorn cycle state
+  (response_started, response_complete, keep_alive, on_response callback).
+- `tachyon_api.server.run(app, **kwargs)`: convenience launcher that passes
+  `http=TachyonHTTPProtocol` to `uvicorn.run()`.
+- **F12a** (always active): `response.__call__` coroutine eliminated — sends issued inline
+  in `TachyonDispatcher.__call__` and `_fast_asgi`, saving one Python coroutine frame.
+- **F12b** (TachyonServer required): infrastructure in place. In pure Python, `b"".join()`
+  overhead and Python function call cost neutralize the 2× await savings (asyncio amortizes
+  awaits across concurrent connections). True F12b gains require Cython compilation of
+  `tachyon_direct_write` to eliminate Python object overhead — filed as a v2.x task.
+- `responses.py`: `_HTTP_STATUS_LINES` cache, `_HTTP_CL_PREFIX`, `_HTTP_CT_JSON_CRLF2`
+  constants for use in `tachyon_direct_write`.
+
 **F11 — C stdlib fast path: memchr + strtol/strtod** (`feature/nogil-sections`)
 
 - `routing/trie.pyx`: `PyUnicode_AsUTF8AndSize` called once per `match()` — returns

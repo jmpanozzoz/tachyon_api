@@ -51,6 +51,41 @@ def _cl_tuple(n: int) -> tuple:
     return t if t is not None else (_CL_NAME, str(n).encode())
 
 
+# ── F12b: pre-built HTTP/1.1 response parts for direct transport.write() ──────
+#
+# When running under TachyonServer, the ASGI send() coroutines are bypassed
+# entirely. The server calls transport.write(status_line + default_headers + our_part)
+# in a single synchronous C call — no Python coroutines, no await overhead.
+#
+# _http_status: b"HTTP/1.1 200 OK\r\n"  (pre-built per status code)
+# _http_our_part: b"content-length: N\r\ncontent-type: application/json\r\n\r\n" + body
+#
+# The server prepends default_headers (server: uvicorn, date: ...) between status
+# and our_part so the final wire bytes are: status + defaults + our_part.
+
+_HTTP_STATUS_LINES: dict = {
+    200: b"HTTP/1.1 200 OK\r\n",
+    201: b"HTTP/1.1 201 Created\r\n",
+    204: b"HTTP/1.1 204 No Content\r\n",
+    400: b"HTTP/1.1 400 Bad Request\r\n",
+    401: b"HTTP/1.1 401 Unauthorized\r\n",
+    403: b"HTTP/1.1 403 Forbidden\r\n",
+    404: b"HTTP/1.1 404 Not Found\r\n",
+    405: b"HTTP/1.1 405 Method Not Allowed\r\n",
+    422: b"HTTP/1.1 422 Unprocessable Entity\r\n",
+    500: b"HTTP/1.1 500 Internal Server Error\r\n",
+}
+
+_HTTP_CL_PREFIX = b"content-length: "
+_HTTP_CT_JSON_CRLF2 = b"content-type: application/json\r\n\r\n"  # header + end-of-headers
+_HTTP_CRLF = b"\r\n"
+
+
+def _http_status_line(code: int) -> bytes:
+    s = _HTTP_STATUS_LINES.get(code)
+    return s if s is not None else b"HTTP/1.1 " + str(code).encode() + b" \r\n"
+
+
 class TachyonJSONResponse(JSONResponse):
     """High-performance JSON response.
 
