@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.2.4] — 2026-05-22
+
+**Refactor pass v1.2.4 of the SRP / Cython-readiness roadmap.** No behavior changes,
+no API breaks, no perf regression. `processing/dependencies.py` (132-line monolith
+with 2 methods mixing 7 responsibilities) is decomposed into a 7-module pipeline
+under `processing/dependencies/`.
+
+### Refactor
+
+- **`processing/dependencies.py` → `processing/dependencies/` package**, one
+  responsibility per module:
+
+  | Module | Responsibility |
+  |---|---|
+  | `_sig_cache.py` | `_SIG_CACHE` + `get_signature()` — global `inspect.signature()` cache |
+  | `_override_lookup.py` | `OverrideLookup` — "is there a registered override for this key?" (reads `app.dependency_overrides` lazily) |
+  | `_scope_cache.py` | `ScopeCache` — singleton/request/transient lookup + store |
+  | `_circular_detector.py` | `CircularDetector` — check-and-enter / exit for cycle detection |
+  | `_class_factory.py` | `ClassFactory` — instantiates `@injectable` classes with deps resolved |
+  | `_callable_factory.py` | `CallableFactory` — invokes `Depends(callable)` async-aware |
+  | `_resolver.py` | `DependencyResolver` — orchestrator composing the pipeline |
+  | `__init__.py` | Re-exports `DependencyResolver` + `_SIG_CACHE` |
+
+  Public API unchanged: `DependencyResolver(app)` with `resolve_dependency()`
+  and `resolve_callable_dependency()` works identically.
+
+### Notes for v1.3.x
+
+- `OverrideLookup`, `ScopeCache`, `CircularDetector`, `ClassFactory` → direct
+  `cdef class` candidates (all sync, typed attributes ready).
+- `CallableFactory` stays pure Python (async = `await` interplay with Cython
+  is more limited; perf gain unclear).
+- `_SIG_CACHE` stays as a module-level dict (already C-level lookup at runtime).
+
+---
+
 ## [1.2.3] — 2026-05-22
 
 **Refactor pass v1.2.3 of the SRP / Cython-readiness roadmap.** No behavior changes,
