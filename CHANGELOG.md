@@ -7,6 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.2.2] — 2026-05-22
+
+**Refactor pass v1.2.2 of the SRP / Cython-readiness roadmap.** No behavior changes,
+no API breaks, no perf regression. Compiled Cython (`parameters.cpython-*.so`)
+is preserved unchanged — production users running the compiled extension see
+zero impact. The pure-Python fallback (`parameters.py`) is rewritten as a
+modular pipeline composed of atomic extractors.
+
+### Refactor
+
+- **`processing/parameters.py`** (266-line monolith → ~110-line orchestrator) is
+  decomposed into 10 atomic extractor modules under `processing/_extractors/`,
+  each answering ONE extraction question with a single public method.
+
+  New atomic modules:
+  - `_base.py` — `ExtractorResult` (NamedTuple: `(value, error)`) — uniform return shape
+  - `_missing.py` — `missing()` — single source of truth for default-vs-error decision
+  - `body_limit.py` — `BodySizeChecker` — content-length + post-read validation
+  - `body.py` — `BodyExtractor` — reads body and decodes with msgspec
+  - `query.py` — `QueryExtractor` — scalar query parameter
+  - `query_list.py` — `QueryListExtractor` — list-valued query (repeated keys + CSV)
+  - `header.py` — `HeaderExtractor` — canonical-name header lookup
+  - `cookie.py` — `CookieExtractor` — cookie by name
+  - `form.py` — `FormExtractor` — form-field by name
+  - `file.py` — `FileExtractor` — UploadFile with validation
+  - `path.py` — `PathExtractor` — path param with null-byte rejection + type conversion
+
+  Public API unchanged: `ParameterProcessor` from `processing.parameters` retains
+  its `process_parameters(compiled, request, dependency_cache)` signature.
+
+  **Both modes verified equal:** test suite passes 360/361 with compiled
+  Cython `.so` loaded AND with the `.so` removed (forcing pure-Python fallback).
+
+### Notes for v1.3.x
+
+- The compiled `parameters.pyx` keeps the v1.2.0 single-file Cython logic for
+  this release.  v1.3.x will evaluate whether splitting the `.pyx` into
+  per-extractor compiled units beats a single-file cdef class (multiple
+  `.so` modules add import overhead — TBD by benchmark).
+- Each extractor module has `__slots__` declared and full type hints — direct
+  `cdef class` candidates.
+
+---
+
 ## [1.2.1] — 2026-05-22
 
 **Refactor pass for Cython migration readiness.** No behavior changes, no API breaks,
