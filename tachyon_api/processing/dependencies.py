@@ -4,6 +4,10 @@ import asyncio
 import inspect
 from typing import Any, Callable, Dict, Type
 
+# Module-level signature cache — inspect.signature() is called once per callable,
+# not once per request.  Populated lazily on first resolution of each dependency.
+_SIG_CACHE: Dict[Callable, inspect.Signature] = {}
+
 from starlette.requests import Request
 
 from ..di import Depends, _registry
@@ -82,7 +86,10 @@ class DependencyResolver:
         if cache is not None and dependency in cache:
             return cache[dependency]
 
-        sig = inspect.signature(dependency)
+        sig = _SIG_CACHE.get(dependency)
+        if sig is None:
+            sig = inspect.signature(dependency)
+            _SIG_CACHE[dependency] = sig
         nested_kwargs = {}
         for param in sig.parameters.values():
             if param.annotation is Request:

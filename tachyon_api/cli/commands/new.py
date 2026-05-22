@@ -2,46 +2,12 @@
 tachyon new - Create new project with clean architecture
 """
 
-import keyword
-import re
 import typer
 from pathlib import Path
 from typing import Optional
 
 from ..templates import ProjectTemplates
-
-
-def _validate_name(name: str) -> str:
-    """
-    Validate and normalise a project/module name.
-    - Convert hyphens to underscores (my-api → my_api)
-    - Reject Python keywords, names starting with digits, or invalid chars
-    Returns the normalised snake_case name.
-    """
-    normalised = name.replace("-", "_").lower()
-
-    if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', normalised):
-        typer.secho(
-            f"❌ '{name}' is not a valid Python identifier.\n"
-            f"   Use letters, digits, and underscores only — no spaces or special chars.",
-            fg=typer.colors.RED,
-        )
-        raise typer.Exit(1)
-
-    if keyword.iskeyword(normalised):
-        typer.secho(
-            f"❌ '{normalised}' is a Python reserved keyword and cannot be used as a project name.",
-            fg=typer.colors.RED,
-        )
-        raise typer.Exit(1)
-
-    if normalised != name:
-        typer.secho(
-            f"  ℹ  Name normalised: '{name}' → '{normalised}'",
-            fg=typer.colors.BRIGHT_BLACK,
-        )
-
-    return normalised
+from ..utils import validate_name as _validate_name
 
 
 def create_project(name: str, parent_path: Optional[Path] = None):
