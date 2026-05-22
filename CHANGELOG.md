@@ -11,6 +11,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Performance
 
+**F7 — Direct dispatch — list args, no kwargs dict** (`feature/direct-dispatch`)
+
+- `processing/parameters.py` + `parameters.pyx`: `process_parameters` now returns a
+  `list` (pre-allocated `[None] * compiled.param_count`) instead of a `dict`.
+  Each param writes `args[i] = value` — C array index write in Cython vs
+  `PyDict_SetItem` with string hashing.
+- `processing/response_processor.py` + `response_processor.pyx`: `call_endpoint`
+  accepts `list args` and calls `func(*args)` instead of `func(**kwargs)`.
+  Positional call eliminates the per-arg key lookup Python does during `**dict` unpacking.
+- All `_process_*` helper methods refactored to return `(value, error)` tuples instead
+  of writing to the dict — cleaner separation and enables further Cython optimization.
+- `processing/compiler.py`: `CompiledEndpoint` gains `param_count` field
+  (pre-computed `len(params)`) — avoids `len()` call per request in the processor.
+- `app.py`: fast-paths updated to pass `[]` instead of `{}` to `call_endpoint`.
+- Micro-benchmark delta (pure Python): `func(**kwargs)` **140ns → 68ns (-51%)** for
+  the call itself; net saving per request ~72ns on the call overhead.
+  Larger gains expected in Cython path where list index writes become `PyList_SET_ITEM`.
+
 **F6 — Zero-allocation routing** (`feature/zero-alloc-routing`)
 
 - `routing/trie.py` + `routing/trie.pyx`: `match()` now inlines segment traversal

@@ -40,7 +40,7 @@ cdef class ResponseProcessor:
         return TachyonJSONResponse(payload)
 
     @staticmethod
-    async def call_endpoint(compiled, dict kwargs):
+    async def call_endpoint(compiled, list args):
         if compiled.is_async:
-            return await compiled.func(**kwargs)
-        return compiled.func(**kwargs)
+            return await compiled.func(*args)
+        return compiled.func(*args)
