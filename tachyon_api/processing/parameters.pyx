@@ -13,7 +13,6 @@ import cython
 import msgspec
 import typing
 
-from starlette.requests import Request
 from starlette.responses import JSONResponse
 
 from ..responses import validation_error_response
@@ -24,6 +23,7 @@ from .compiler import (
     KIND_HEADER, KIND_COOKIE, KIND_FORM, KIND_FILE,
     KIND_PATH, KIND_PATH_IMPLICIT, KIND_DEP_CALLABLE, KIND_DEP_CLASS,
 )
+from .scope import TachyonScope
 
 # C-level integer constants — avoids Python object lookup on each comparison
 cdef int _KIND_REQUEST       = KIND_REQUEST
@@ -66,7 +66,7 @@ cdef class ParameterProcessor:
             kind = p.kind  # int field from cdef class — direct C read
 
             if kind == _KIND_REQUEST:
-                args[i] = request
+                args[i] = request.as_request()
 
             elif kind == _KIND_BG:
                 if _bg is None:

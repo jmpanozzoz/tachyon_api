@@ -7,6 +7,7 @@ from typing import Any, Callable, Dict, Type
 from starlette.requests import Request
 
 from ..di import Depends, _registry
+from .scope import TachyonScope
 
 
 class DependencyResolver:
@@ -85,7 +86,10 @@ class DependencyResolver:
         nested_kwargs = {}
         for param in sig.parameters.values():
             if param.annotation is Request:
-                nested_kwargs[param.name] = request
+                # Callable dep declared `request: Request` — give it the full Starlette object
+                nested_kwargs[param.name] = (
+                    request.as_request() if isinstance(request, TachyonScope) else request
+                )
             elif isinstance(param.default, Depends):
                 if param.default.dependency is not None:
                     nested_kwargs[param.name] = await self.resolve_callable_dependency(

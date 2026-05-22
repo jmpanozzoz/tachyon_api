@@ -7,7 +7,6 @@ from typing import Any, Optional, Tuple
 
 import msgspec
 
-from starlette.requests import Request
 from starlette.responses import JSONResponse
 
 from ..models import Struct
@@ -21,6 +20,7 @@ from .compiler import (
     KIND_HEADER, KIND_COOKIE, KIND_FORM, KIND_FILE,
     KIND_PATH, KIND_PATH_IMPLICIT, KIND_DEP_CALLABLE, KIND_DEP_CLASS,
 )
+from .scope import TachyonScope
 
 _DEFAULT_MAX_BODY_SIZE = 10 * 1024 * 1024  # 10 MB
 
@@ -32,7 +32,7 @@ class ParameterProcessor:
     async def process_parameters(
         self,
         compiled: CompiledEndpoint,
-        request: Request,
+        request: TachyonScope,
         dependency_cache,
     ) -> Tuple[list, Optional[JSONResponse], Optional[BackgroundTasks]]:
         # Pre-allocate list of exact size — positional args for func(*args) call.
@@ -45,7 +45,8 @@ class ParameterProcessor:
             kind = p.kind
 
             if kind == KIND_REQUEST:
-                args[i] = request
+                # User declared `request: Request` — materialise the full Starlette object
+                args[i] = request.as_request()
 
             elif kind == KIND_BG:
                 if _bg is None:
@@ -115,7 +116,7 @@ class ParameterProcessor:
         return args, None, _bg
 
     async def _process_body(
-        self, p: ParamDescriptor, request: Request
+        self, p: ParamDescriptor, request: TachyonScope
     ) -> Tuple[Any, Optional[JSONResponse]]:
         max_body_size = getattr(self.app, "max_body_size", _DEFAULT_MAX_BODY_SIZE)
         cl = request.headers.get("content-length")
@@ -197,7 +198,7 @@ class ParameterProcessor:
         return None, validation_error_response(f"Missing required query parameter: {name}")
 
     def _process_header(
-        self, p: ParamDescriptor, request: Request
+        self, p: ParamDescriptor, request: TachyonScope
     ) -> Tuple[Any, Optional[JSONResponse]]:
         value = request.headers.get(p.effective_name)
         if value is not None:
@@ -207,7 +208,7 @@ class ParameterProcessor:
         return None, validation_error_response(f"Missing required header: {p.effective_name}")
 
     def _process_cookie(
-        self, p: ParamDescriptor, request: Request
+        self, p: ParamDescriptor, request: TachyonScope
     ) -> Tuple[Any, Optional[JSONResponse]]:
         value = request.cookies.get(p.effective_name)
         if value is not None:

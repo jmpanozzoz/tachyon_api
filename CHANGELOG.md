@@ -11,6 +11,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Performance
 
+**F8 — Eliminate Request object from hot path** (`feature/no-request`)
+
+- New `processing/scope.py` + `processing/scope.pyx`: `TachyonScope` — thin ASGI scope
+  wrapper with `__slots__`, direct C-field None checks (Cython `cdef class`), and no
+  Starlette class hierarchy. Implements the exact subset of the Request API that
+  `process_parameters` uses: `path_params`, `query_params`, `headers`, `cookies`,
+  `body()`, `form()`.
+- `app.py`: `_trie_dispatch` creates `TachyonScope(scope, receive, send)` instead of
+  `Request(scope, receive, send)` for parameterised endpoints.
+- `KIND_REQUEST` params: `as_request()` materialises the full Starlette `Request`
+  lazily — only when the endpoint explicitly declares `request: Request`.
+- Exception handlers: `request.as_request()` called on error paths only — no overhead
+  on the happy path.
+- `processing/dependencies.py`: `resolve_callable_dependency` calls `as_request()` when
+  injecting `Request` into callable dependencies.
+- `setup.py`: `scope.pyx` added to the Cython extension build.
+- Micro-benchmark delta: `TachyonScope()` **221ns** vs `Request()` **398ns** → **−176ns/req**
+  on all parameterised endpoints. Exceeds the F8 roadmap target of −100ns.
+
 **F7 — Direct dispatch — list args, no kwargs dict** (`feature/direct-dispatch`)
 
 - `processing/parameters.py` + `parameters.pyx`: `process_parameters` now returns a
