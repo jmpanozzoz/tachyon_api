@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased] — v1.2.0
+
+### Performance
+
+**F6 — Zero-allocation routing** (`feature/zero-alloc-routing`)
+
+- `routing/trie.py` + `routing/trie.pyx`: `match()` now inlines segment traversal
+  directly — no `_segments()` list allocation, no generator. The path string is
+  scanned with `str.find('/')` in a tight loop, extracting slices in place.
+- `path_params` dict is lazily allocated: starts as `None`, upgraded to `{}` only
+  when the first param segment is actually encountered. Static routes (`/health`,
+  `/docs`, etc.) produce zero dict allocations during matching.
+- `_EMPTY_PARAMS = MappingProxyType({})` — module-level immutable sentinel returned
+  for routes with no path parameters and for not-found / method-not-allowed responses.
+  One allocation at module load; replaces a fresh `{}` per request.
+- `processing/compiler.py`: `CompiledEndpoint` gains `has_path_params` flag
+  (pre-computed at registration) — available for F7/F8 to skip path-param extraction
+  without re-iterating `params`.
+- Micro-benchmark delta (pure Python): static route match **~0.21µs**;
+  1-param route **~0.23µs**; 2-param route **~0.27µs**.
+
+---
+
 ## [1.1.0] - 2026-05-20
 
 ### ⚠️ Breaking Changes (internal APIs only)
