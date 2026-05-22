@@ -338,6 +338,41 @@ print(settings.APP_NAME)  # reads from .env or environment
 
 ---
 
+---
+
+## 🤖 tachyon install-skill
+
+Install Tachyon context files so your AI coding assistant understands how to write
+correct Tachyon code — `Body()` requirement, `Struct` vs BaseModel, DI patterns,
+CLI commands, and anti-patterns.
+
+```bash
+tachyon install-skill              # installs for all tools
+tachyon install-skill --cursor     # only .cursorrules
+tachyon install-skill --claude     # only CLAUDE.md
+tachyon install-skill --copilot    # only .github/copilot-instructions.md
+tachyon install-skill --opencode   # only .opencode/rules.md
+tachyon install-skill --agents     # only AGENTS.md (Codex, Aider, generic)
+```
+
+### What it generates
+
+| Tool | File |
+|------|------|
+| **Cursor** | `.cursorrules` |
+| **Claude Code** | `CLAUDE.md` (creates or appends Tachyon section) |
+| **GitHub Copilot** | `.github/copilot-instructions.md` |
+| **OpenCode** | `.opencode/rules.md` |
+| **Codex / Aider / generic** | `AGENTS.md` |
+
+All files contain the same knowledge base: syntax reference, correct patterns,
+anti-patterns, and CLI commands. Safe to run multiple times — idempotent.
+
+> **Tip:** Run `tachyon install-skill` in the root of any project that uses Tachyon
+> to give your AI assistant full context immediately.
+
+---
+
 ## 🔗 Related
 
 - [Architecture](./02-architecture.md) — clean architecture patterns

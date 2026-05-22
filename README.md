@@ -252,6 +252,19 @@ tachyon lint all
 
 **Name validation:** hyphens auto-converted to underscores (`my-api` → `my_api`), Python keywords rejected with a clear error.
 
+### AI Agent Integration
+
+Teach your AI coding assistant (Claude Code, Cursor, Copilot, OpenCode, Codex) how to write correct Tachyon code:
+
+```bash
+tachyon install-skill              # generates context files for all tools
+tachyon install-skill --cursor     # only .cursorrules
+tachyon install-skill --claude     # only CLAUDE.md
+tachyon install-skill --copilot    # only .github/copilot-instructions.md
+```
+
+Installs knowledge about `Body()` requirement, `Struct` vs BaseModel, DI patterns, CLI commands, and anti-patterns. Safe to run multiple times.
+
 👉 [Full CLI documentation](./docs/12-cli.md)
 
 ---
