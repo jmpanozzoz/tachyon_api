@@ -6,8 +6,8 @@
 
 Tachyon soporta dos tipos de inyección de dependencias:
 
-1. **Implícita** - Con `@injectable` (singleton)
-2. **Explícita** - Con `Depends()` (por request)
+1. **Implícita** - Con `@injectable` (tres scopes: `singleton`, `request`, `transient`)
+2. **Explícita** - Con `Depends()` (factory por request, sync + async)
 
 ---
 
@@ -42,9 +42,48 @@ def get_users(repo: UserRepository = Depends()):
 ```
 
 ### Características:
-- ✅ **Singleton** - Una instancia por aplicación
 - ✅ **Recursivo** - Resuelve dependencias anidadas
 - ✅ **Lazy** - Se crea cuando se necesita
+- ✅ **Cycle detection** - levanta `TypeError: Circular dependency detected ...`
+- ✅ **Scopes** - `singleton` (default), `request`, `transient` — ver sección siguiente
+
+---
+
+## 🔁 Scopes (v1.2.0+)
+
+`@injectable` acepta un keyword `scope` con tres valores:
+
+```python
+from tachyon_api import injectable
+
+@injectable                           # equivalente a @injectable(scope="singleton")
+class DB:
+    """One instance per application — shared across all requests."""
+
+@injectable(scope="request")
+class RequestContext:
+    """One instance per HTTP request — cached in the request's dependency_cache."""
+    def __init__(self):
+        import uuid
+        self.correlation_id = str(uuid.uuid4())
+
+@injectable(scope="transient")
+class IdGenerator:
+    """New instance on every injection — never cached."""
+    def __init__(self):
+        self._seq = 0
+```
+
+### Cuándo usar cada uno
+
+| Scope | Cuándo usarlo | Ejemplos |
+|-------|---------------|----------|
+| **`singleton`** *(default)* | Estado app-wide, conexiones costosas | DB pool, settings, HTTP clients, caches |
+| **`request`** | Estado por-request compartido entre deps | Correlation IDs, parsed auth claims, per-request feature flags |
+| **`transient`** | Builders / generadores que no deben compartir estado | UUID/ID generators, BulkRequestBuilder, EmailComposer |
+
+Sub-deps respetan el scope del padre: si `B` depende de `A` (request-scoped),
+`B.a` es **la misma instancia** que recibe el endpoint cuando depende de `A`.
 
 ---
 
@@ -78,7 +117,63 @@ def get_profile(user: dict = Depends(get_current_user)):
 ### Características:
 - ✅ **Por request** - Se ejecuta en cada request
 - ✅ **Cacheable** - Mismo callable = mismo resultado por request
-- ✅ **Async** - Soporta funciones async
+- ✅ **Async-aware** - Si el factory devuelve una coroutine, Tachyon la awaitea
+
+### Async dependencies
+
+`Depends(async_fn)` funciona transparentemente:
+
+```python
+async def get_user(token: str = Header(...)):
+    return await verify_token_async(token)
+
+@app.get("/me")
+async def me(user: dict = Depends(get_user)):   # await automático
+    return user
+```
+
+> **Limitación actual:** generator-based deps con `yield` para cleanup NO están
+> soportados.  Para cleanup, usá un context manager dentro del endpoint o
+> registralo en el lifespan.
+
+---
+
+## 🚨 Exception handlers para clases derivadas de HTTPException (v1.2.811+)
+
+Podés registrar handlers para SUBCLASES de `HTTPException` y Tachyon
+los va a despachar correctamente:
+
+```python
+from tachyon_api import Tachyon, HTTPException
+from starlette.responses import JSONResponse
+
+class KYCException(HTTPException):
+    def __init__(self, status_code, detail, error_code):
+        super().__init__(status_code=status_code, detail=detail)
+        self.error_code = error_code
+
+class CustomerNotFoundError(KYCException):
+    def __init__(self, customer_id):
+        super().__init__(404, f"Customer {customer_id} not found", "CUSTOMER_NOT_FOUND")
+
+app = Tachyon()
+
+@app.exception_handler(KYCException)        # captura todas las subclases
+async def kyc_handler(request, exc):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"success": False, "error": exc.detail, "code": exc.error_code},
+    )
+```
+
+`ExceptionTable.dispatch` itera los handlers registrados en orden de
+inserción y elige el primer `isinstance` match.  Si nada matchea pero
+la excepción ES `HTTPException`, vuelve al body default `{"detail": ...}`.
+
+Antes de v1.2.811 este handler nunca se ejecutaba: la dispatch hacía
+short-circuit al default response apenas veía un HTTPException.  Si
+estás migrando desde una versión anterior, los handlers para subclases
+ahora SÍ disparan — ojo con cambios de body shape.
 
 ---
 
@@ -210,8 +305,10 @@ def protected(user: dict = Depends(get_current_user)):
 
 | Tipo | Decorador/Función | Scope | Uso |
 |------|-------------------|-------|-----|
-| Implícita | `@injectable` | Singleton | Services, Repositories |
-| Explícita | `Depends(callable)` | Per-request | Auth, Factories |
+| Implícita | `@injectable` | Singleton *(default)* | Services, Repositories, DB pools |
+| Implícita | `@injectable(scope="request")` | Per-request | Correlation IDs, parsed auth context |
+| Implícita | `@injectable(scope="transient")` | New per injection | Builders, ID generators |
+| Explícita | `Depends(callable)` | Per-request | Auth, Factories, sync + async |
 | Override | `app.dependency_overrides` | Testing | Mocks |
 
 ---

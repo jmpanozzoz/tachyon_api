@@ -1,9 +1,9 @@
 # 🚀 Tachyon API
 
-![Version](https://img.shields.io/badge/version-1.1.0-blue.svg)
+![Version](https://img.shields.io/badge/version-1.2.x-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.10+-brightgreen.svg)
 ![License](https://img.shields.io/badge/license-GPL--3.0-orange.svg)
-![Tests](https://img.shields.io/badge/tests-233%20passed-brightgreen.svg)
+![Tests](https://img.shields.io/badge/tests-366%20passed-brightgreen.svg)
 ![Status](https://img.shields.io/badge/status-stable-brightgreen.svg)
 
 **A lightweight, high-performance API framework for Python with the elegance of FastAPI and the speed of light.**
@@ -95,15 +95,16 @@ python setup.py build_ext --inplace    # compile extensions (required step)
 | Category | Features |
 |----------|----------|
 | **Core** | Decorators API, Routers, Middlewares, ASGI compatible |
-| **Parameters** | Path, Query, Body, Header, Cookie, Form, File (all with `alias=`) |
-| **Validation** | msgspec Struct (ultra-fast), automatic 422 errors, body size limit |
-| **DI** | `@injectable` (implicit), `Depends()` (explicit), circular dep detection |
-| **Security** | HTTPBearer, HTTPBasic, OAuth2, API Keys |
-| **Async** | Background Tasks, WebSockets |
-| **Performance** | orjson serialization, `@cache` decorator, endpoint pre-compilation |
-| **Docs** | OpenAPI 3.0, Scalar UI, Swagger, ReDoc (XSS-safe HTML generation) |
-| **CLI** | Project scaffolding, code generation, linting |
-| **Testing** | `TachyonTestClient`, `dependency_overrides` |
+| **Parameters** | Path, Query, Body (incl. `Body(List[Struct])`), Header, Cookie, Form, File (all with `alias=`) |
+| **Validation** | msgspec Struct (ultra-fast), automatic 422 errors, configurable body size limit (default 2 MB) |
+| **DI** | `@injectable` (3 scopes: singleton / **request** / **transient**), `Depends()` (sync + async), circular dep detection |
+| **Security** | HTTPBearer, HTTPBasic, OAuth2, API Keys (Header / Query / Cookie), `SecurityHeadersMiddleware` (X-Frame-Options, CSP, HSTS, …) |
+| **Async** | Background Tasks (failures logged, not silenced), WebSockets with **typed path params + DI** |
+| **Performance** | orjson serialization, `@cache` decorator, endpoint pre-compilation, optional Cython hot-path |
+| **Docs** | OpenAPI 3.0 (incl. `List[Struct]` arrays + `multipart/form-data`), Scalar UI, Swagger, ReDoc (XSS-safe HTML generation) |
+| **CLI** | Project scaffolding, code generation, linting, AI-agent skill installer |
+| **Testing** | `TachyonTestClient` (sync), `create_client()` (async, full httpx kwargs), `dependency_overrides` |
+| **Architecture** | 63 atomic SRP modules across `app/`, `processing/`, `responses/`, `openapi/`, `security/` (v1.2.x refactor) |
 
 ---
 
@@ -126,6 +127,7 @@ python setup.py build_ext --inplace    # compile extensions (required step)
 | [Request Lifecycle](./docs/13-request-lifecycle.md) | How requests are processed |
 | [Migration from FastAPI](./docs/14-migration-fastapi.md) | Migration guide |
 | [Best Practices](./docs/15-best-practices.md) | Recommended patterns |
+| [Cython Build](./docs/16-cython-build.md) | Compiling `[fast]` extensions |
 
 ---
 
@@ -139,13 +141,16 @@ pip install -r requirements.txt
 uvicorn example.app:app --reload
 ```
 
-The KYC Demo implements:
-- 🔐 JWT Authentication
-- 👤 Customer CRUD
+The KYC Demo exercises every v1.2.x feature:
+- 🔐 JWT Authentication + API Keys
+- 👤 Customer CRUD + bulk endpoint (`Body(List[Struct])`)
 - 📋 KYC Verification with Background Tasks
-- 📁 Document Uploads
-- 🌐 WebSocket Notifications
-- 🧪 12 Tests with Mocks
+- 📁 Document Uploads (`multipart/form-data`)
+- 🌐 WebSocket — legacy plain-string + modern DI-injected with `room_id: uuid.UUID`
+- 💉 DI scopes — `singleton` (services), `request` (correlation context), `transient` (ID generator)
+- 🛡️ Security headers + opt-in CORS allow-list
+- 🚨 Custom exception handler for the `KYCException` hierarchy
+- 🧪 17 tests (`pytest example/tests/`), including async tests via `create_client`
 
 **Demo credentials:** `demo@example.com` / `demo123`
 
@@ -164,19 +169,69 @@ The KYC Demo implements:
 
 ---
 
+## 🏛️ Architecture
+
+Tachyon's request hot path is a thin chain of composed collaborators — every
+piece is single-responsibility and ready for Cython compilation:
+
+```
+client
+  │
+  ├─→ Tachyon.__call__ (ASGI entry — sets scope["app"])
+  │     │
+  │     ├─→ ASGIEntry         lazy build of HTTP app
+  │     │
+  │     ├─→ HTTPDispatcher    HTTP → trie  ·  WS/lifespan → Starlette
+  │     │
+  │     ├─→ MiddlewareStack   user-registered middlewares (CORS, Security…)
+  │     │
+  │     └─→ TachyonDispatcher (Cython cdef)  ← radix trie match O(k)
+  │           │
+  │           ├─→ _ASGIHandler (no-param fast path, 2 sends only)
+  │           │
+  │           └─→ handler closure
+  │                 ├─→ ParameterPipeline → 10 atomic extractors
+  │                 │     (body / query / query-list / header / cookie / form / file / path)
+  │                 ├─→ DependencyResolver → OverrideLookup / ScopeCache /
+  │                 │                        ClassFactory / CallableFactory
+  │                 ├─→ ResponseProcessor (msgspec encode if Struct)
+  │                 └─→ ExceptionTable (walks subclass handlers)
+  │
+  └─→ TachyonJSONResponse | TachyonBytesResponse | _InternalErrorResponse
+        (pre-built ASGI dicts, zero extra allocations per response)
+```
+
+The v1.2.x SRP refactor decomposed 1,753 monolithic lines into 63 atomic modules
+with `__slots__` and full type hints — direct `cdef class` candidates.
+
+👉 [Full architecture documentation](./docs/02-architecture.md)
+
+---
+
 ## 💉 Dependency Injection
 
 ```python
 from tachyon_api import injectable, Depends
 
-@injectable
-class UserService:
-    def get_user(self, id: str):
-        return {"id": id}
+@injectable                       # singleton (default) — one per app
+class DB:
+    def __init__(self):
+        self.pool = "..."
+
+@injectable(scope="request")      # one per HTTP request
+class RequestContext:
+    def __init__(self):
+        import uuid
+        self.correlation_id = str(uuid.uuid4())
+
+@injectable(scope="transient")    # new instance every time it's injected
+class IdGenerator:
+    def __init__(self):
+        self._seq = 0
 
 @app.get("/users/{id}")
-def get_user(id: str, service: UserService = Depends()):
-    return service.get_user(id)
+def get_user(id: str, db: DB = Depends(), ctx: RequestContext = Depends()):
+    return {"id": id, "trace": ctx.correlation_id}
 ```
 
 👉 [Full DI documentation](./docs/03-dependency-injection.md)
@@ -217,11 +272,22 @@ def notify(background_tasks: BackgroundTasks):
 ## 🌐 WebSockets
 
 ```python
-@app.websocket("/ws")
-async def websocket(ws):
-    await ws.accept()
-    data = await ws.receive_text()
-    await ws.send_text(f"Echo: {data}")
+import uuid
+from tachyon_api import injectable, Depends
+
+@injectable
+class RoomBroadcaster:
+    async def join(self, ws, room_key: str): ...
+
+@app.websocket("/ws/rooms/{room_id}")           # typed UUID path param
+async def room(
+    websocket,
+    room_id: uuid.UUID,                          # auto-converted; 1008 on mismatch
+    broadcaster: RoomBroadcaster = Depends(),    # @injectable DI in WS
+):
+    await broadcaster.join(websocket, str(room_id))
+    while True:
+        await websocket.send_json({"room": str(room_id)})
 ```
 
 👉 [Full WebSockets documentation](./docs/10-websockets.md)
@@ -272,12 +338,23 @@ Installs knowledge about `Body()` requirement, `Struct` vs BaseModel, DI pattern
 ## 🧪 Testing
 
 ```python
+# Sync — Starlette TestClient compatible
 from tachyon_api.testing import TachyonTestClient
 
 def test_hello():
     client = TachyonTestClient(app)
-    response = client.get("/")
-    assert response.status_code == 200
+    assert client.get("/").status_code == 200
+
+
+# Async — httpx.AsyncClient over ASGI transport
+import pytest
+from tachyon_api.testing import create_client
+
+@pytest.mark.asyncio
+async def test_hello_async():
+    async with create_client(app, headers={"X-Trace": "abc"}) as client:
+        response = await client.get("/")
+        assert response.status_code == 200
 ```
 
 ```bash

@@ -27,20 +27,55 @@ def test_hello():
 
 ---
 
-## 🔄 AsyncTachyonTestClient
+## 🔄 Async clients
 
-Para tests async:
+Tachyon expone dos formas equivalentes de testear async — ambas montan
+`httpx.AsyncClient` sobre `ASGITransport(app=app)`, sin red real:
+
+### `create_client()` *(recomendado — v1.2.0+)*
+
+Async context manager que devuelve directamente el `httpx.AsyncClient`,
+acepta cualquier kwarg de httpx:
 
 ```python
 import pytest
-from tachyon_api.testing import AsyncTachyonTestClient
+from tachyon_api.testing import create_client
 
 @pytest.mark.asyncio
 async def test_async_endpoint():
-    async with AsyncTachyonTestClient(app) as client:
+    async with create_client(app) as client:
         response = await client.get("/hello")
         assert response.status_code == 200
+
+@pytest.mark.asyncio
+async def test_with_kwargs():
+    async with create_client(
+        app,
+        headers={"X-Trace-Id": "abc"},
+        cookies={"session": "s123"},
+        auth=("user", "pass"),
+        follow_redirects=True,
+        timeout=10.0,
+    ) as client:
+        # Todos los kwargs son los de httpx.AsyncClient — base_url ya está seteado
+        r = await client.get("/me")
 ```
+
+### `AsyncTachyonTestClient`
+
+Equivalente clase-based, mismas opciones:
+
+```python
+from tachyon_api.testing import AsyncTachyonTestClient
+
+@pytest.mark.asyncio
+async def test_async():
+    async with AsyncTachyonTestClient(app, headers={"X-Token": "test"}) as client:
+        response = await client.get("/users/1")
+```
+
+Cuál elegir es preferencia de estilo — `create_client` es el helper canónico
+y el que usa la suite del framework + el example.
 
 ---
 

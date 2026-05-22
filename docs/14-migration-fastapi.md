@@ -133,9 +133,85 @@ def get_data(db: Database = Depends(get_db)):  # Also works
 ```
 
 ### Key difference
-`@injectable` creates an app-scoped singleton (created once, reused across all requests).
-FastAPI's `Depends(get_db)` creates a new instance per request unless you add `@lru_cache`.
-Tachyon's approach is more efficient for stateless services.
+`@injectable` creates an app-scoped singleton by default (created once, reused
+across all requests).  FastAPI's `Depends(get_db)` creates a new instance per
+request unless you add `@lru_cache`.
+
+For finer control, Tachyon v1.2.0+ accepts a `scope` keyword:
+
+```python
+@injectable                          # default — one per app
+@injectable(scope="request")         # one per HTTP request (cached in dependency_cache)
+@injectable(scope="transient")       # new instance on every injection
+```
+
+See [Dependency Injection](./03-dependency-injection.md) for when to use each.
+
+---
+
+## 🚨 v1.2.x Gotchas (after first migration)
+
+Items to keep in mind if you migrate to v1.2.x specifically:
+
+### CORS is opt-in *(v1.2.0+)*
+
+The CORS middleware no longer defaults to `allow_origins=["*"]`.  You must pass
+an explicit allow-list, or no Access-Control-Allow-Origin header will be set
+and browsers will block cross-origin requests:
+
+```python
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "https://example.com"],   # explicit
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
+    allow_headers=["Authorization", "Content-Type"],
+)
+```
+
+### Default `max_body_size` reduced to 2 MB *(v1.2.0+)*
+
+FastAPI doesn't enforce a body-size limit by default.  Tachyon v1.2.0 ships
+with a 2 MB cap (down from 10 MB).  Bodies larger than the cap return 422.
+Override per-app:
+
+```python
+app = Tachyon(max_body_size=10 * 1024 * 1024)   # 10 MB
+```
+
+### `SecurityHeadersMiddleware` is opt-in
+
+X-Frame-Options, X-Content-Type-Options, Referrer-Policy, etc. are **not**
+applied by default.  Register the middleware if you want them:
+
+```python
+from tachyon_api.middlewares import SecurityHeadersMiddleware
+
+app.add_middleware(SecurityHeadersMiddleware)   # safe defaults
+```
+
+### `UploadFile.filename` is sanitized *(v1.2.0+)*
+
+Tachyon strips directory components and null bytes from
+`UploadFile.filename` at construction.  If your FastAPI code relied on the
+original filename for nested storage paths, you'll get the basename only
+(this is the secure behavior — applications should never trust filenames
+from clients).
+
+### Exception handlers for HTTPException subclasses *(v1.2.811+)*
+
+You can register a handler for a subclass of `HTTPException` and it will be
+dispatched correctly:
+
+```python
+class MyDomainError(HTTPException): ...
+
+@app.exception_handler(MyDomainError)
+async def domain_handler(request, exc):
+    return JSONResponse(status_code=exc.status_code, content={...})
+```
+
+Before v1.2.811 this didn't work — only handlers registered for
+`HTTPException` exactly were invoked.
 
 ---
 
@@ -296,20 +372,21 @@ def test_api():
     assert response.status_code == 200
 ```
 
-For async tests, use `httpx.AsyncClient` with `ASGITransport`:
+For async tests, use the bundled `create_client` helper *(v1.2.0+)*:
+
 ```python
 import pytest
-import httpx
+from tachyon_api.testing import create_client
 
 @pytest.mark.asyncio
 async def test_async():
-    async with httpx.AsyncClient(
-        transport=httpx.ASGITransport(app=app),
-        base_url="http://test"
-    ) as client:
+    async with create_client(app, headers={"X-Trace": "t"}) as client:
         r = await client.get("/")
     assert r.status_code == 200
 ```
+
+It's a thin wrapper around `httpx.AsyncClient(transport=ASGITransport(app=app), ...)`
+that forwards every httpx kwarg (cookies, auth, follow_redirects, timeout, …).
 
 ---
 

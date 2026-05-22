@@ -76,6 +76,79 @@ const ws = new WebSocket("ws://localhost:8000/ws/lobby");
 
 ---
 
+## 🎯 Typed Path Params (v1.2.0+)
+
+Anotá los path params con un tipo concreto y Tachyon parsea + valida antes
+de invocar el handler. Si la conversión falla, la conexión se cierra con
+código **1008 (policy violation)** y el handler no corre:
+
+```python
+import uuid
+
+@app.websocket("/ws/rooms/{room_id}")
+async def room(websocket, room_id: uuid.UUID):    # <- typed
+    # Si room_id no es un UUID válido, la conexión se cerró antes de llegar acá.
+    await websocket.accept()
+    await websocket.send_json({"room": str(room_id)})
+```
+
+Tipos soportados: `int`, `float`, `bool`, `str` *(default)*, `uuid.UUID`,
+`datetime`, `date`, y todo lo que `TypeConverter` resuelve para path params HTTP.
+
+---
+
+## 💉 DI en WebSocket handlers (v1.2.0+)
+
+Las mismas reglas de DI de los HTTP handlers aplican a los WebSockets — incluyendo
+`@injectable` (con sus tres scopes) y `Depends(callable)`:
+
+```python
+from tachyon_api import injectable, Depends
+
+@injectable                                       # singleton
+class RoomBroadcaster:
+    def __init__(self):
+        self._rooms: dict = {}
+
+    async def join(self, ws, key: str):
+        await ws.accept()
+        self._rooms.setdefault(key, []).append(ws)
+
+    async def broadcast(self, key: str, msg: dict):
+        for ws in self._rooms.get(key, []):
+            await ws.send_json(msg)
+
+async def get_optional_user(websocket):
+    """Factory que extrae usuario (o None) antes de aceptar la conexión."""
+    token = websocket.query_params.get("token")
+    return verify(token) if token else None
+
+@app.websocket("/ws/rooms/{room_id}")
+async def room_stream(
+    websocket,
+    room_id: uuid.UUID,
+    broadcaster: RoomBroadcaster = Depends(),         # @injectable singleton
+    user: dict = Depends(get_optional_user),          # callable per-connection
+):
+    await broadcaster.join(websocket, str(room_id))
+    while True:
+        data = await websocket.receive_json()
+        await broadcaster.broadcast(str(room_id), data)
+```
+
+### Cómo se resuelven los deps
+
+- **Descriptores pre-computados al registrar** la ruta (cero `inspect` por conexión).
+- **`@injectable` (singleton)**: misma instancia que comparte con el resto de la app.
+- **`Depends(callable)`**: se invoca **una vez por conexión** durante el setup
+  del handler, no por cada `receive` / `send`.
+
+> Limitación actual: la inyección de `request: Request` dentro de `Depends(callable)`
+> recibe el objeto `WebSocket` cuando el handler es WS — algunos factories diseñados
+> exclusivamente para HTTP pueden fallar al acceder `request.method`, etc.
+
+---
+
 ## ❓ Query Parameters
 
 ```python
