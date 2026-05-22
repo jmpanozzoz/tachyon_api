@@ -7,6 +7,64 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.2.84] — 2026-05-22
+
+**v1.2.8x project audit / Cython prep — sub-version 4/4: Cython impact analysis.**
+Closes the v1.2.8x phase.  Produces `docs/cython-plan-v1.2.9.md`: the
+prioritized, quantified plan for the v1.2.9 sprint, built on the v1.2.83
+audit baseline.
+
+### Added
+
+- **`docs/cython-plan-v1.2.9.md`** — 9-section plan with:
+  1. **State of compilation today** — 7 `.pyx` modules currently compiled.
+  2. **The `parameters.pyx` divergence** — load-bearing finding: v1.2.2 split
+     `parameters.py` into 10 `_extractors/*.py` modules but `parameters.pyx`
+     still ships the pre-v1.2.2 monolithic logic.  In compiled mode the new
+     extractors are dead code.  Two shapes documented for v1.2.9 (mirror
+     SRP in Cython vs. embed in monolithic `.pyx`); recommended approach is
+     "Shape A in stages, with a perf gate".
+  3. **Classification of all 63 modules** — hot/lukewarm/cold × cdef
+     feasibility (Easy/Medium/Hard/N/A) for every module under `tachyon_api/`.
+  4. **Per-module impact estimates** — highest expected impact: response
+     classes (−0.04 to −0.07 µs), DI resolver pipeline (−0.03 to −0.05 µs),
+     extractor mirroring + parameters.pyx rewrite (−0.05 to −0.10 µs).
+  5. **Prioritized 7-phase sprint plan** — Phase 1 response classes →
+     Phase 2 DI resolver → Phase 3 exception table → Phase 4 extractor
+     migration (sub-phased with per-step perf gates) → Phase 5 nogil
+     bearer parser → Phase 6 fix the 2 known-failing tests from v1.2.83
+     → Phase 7 add no-`.so` CI matrix step.
+  6. **v1.2.9 target numbers** — conservative (Phases 1+2+3 only):
+     FULL HANDLER 1.07 µs → **0.95 µs**, ~6.1x vs FastAPI; optimistic
+     (all phases): **0.85 µs**, ~7.0x vs FastAPI.
+  7. **Risks and mitigations** — import-overhead regression in Phase 4 has
+     a fall-back to Shape B; bench noise mitigated by 5-run medians.
+  8. **Out of scope** — Starlette 1.0, pytest 9, typer 0.25, CI-version
+     matrix all deferred.
+  9. **9 PRs concretely sequenced** for v1.2.9 with expected delta per PR.
+
+### Verification
+
+- 360/361 framework tests still pass (no code touched).
+- `docs/cython-plan-v1.2.9.md` renders correctly.
+- `pyproject.toml` bumped to `1.2.84`.
+
+### v1.2.8x phase summary
+
+With this release, the v1.2.8x audit / Cython prep phase closes:
+
+| Sub-version | Deliverable |
+|---|---|
+| v1.2.81 | `example/` modernized to showcase every v1.2.x feature |
+| v1.2.811 + v1.2.812 + v1.2.813 | Two framework bug fixes + example test-runner fix discovered while modernizing the example |
+| v1.2.82 | README + `docs/` refreshed for v1.2.x state; new `16-cython-build.md` |
+| v1.2.83 | `audit-v1.2.83.md` (coverage, API surface, deps, compat, debt, baseline perf) |
+| **v1.2.84** | **`cython-plan-v1.2.9.md`** (this) — sprint roadmap |
+
+**Cleared to start v1.2.9 with Phase 1.**
+
+---
+
 ## [1.2.83] — 2026-05-22
 
 **v1.2.8x project audit / Cython prep — sub-version 3/4: project-level audit.**
