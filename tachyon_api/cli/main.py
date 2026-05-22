@@ -3,9 +3,12 @@ Tachyon CLI - Main entry point
 
 Commands:
 - tachyon new <project>     Create new project
+- tachyon run [app]         Start development / production server
 - tachyon generate          Generate components (alias: g)
+- tachyon routes [app]      List all registered routes
 - tachyon openapi           OpenAPI utilities
 - tachyon lint              Code quality (ruff wrapper)
+- tachyon version           Show version
 """
 
 import typer
@@ -21,24 +24,18 @@ app = typer.Typer(
     no_args_is_help=True,
 )
 
-# Register sub-commands
-app.add_typer(
-    generate.app,
-    name="generate",
-    help="Generate components (service, controller, etc.)",
-)
-app.add_typer(generate.app, name="g", help="Alias for 'generate'", hidden=True)
-app.add_typer(openapi.app, name="openapi", help="OpenAPI schema utilities")
-app.add_typer(lint.app, name="lint", help="Code quality tools (ruff wrapper)")
+# Sub-command groups
+app.add_typer(generate.app, name="generate", help="Generate components (service, controller, etc.)")
+app.add_typer(generate.app, name="g",        help="Alias for 'generate'", hidden=True)
+app.add_typer(openapi.app,  name="openapi",  help="OpenAPI schema utilities")
+app.add_typer(lint.app,     name="lint",     help="Code quality tools (ruff wrapper)")
 
 
 @app.command()
 def new(
-    name: str = typer.Argument(..., help="Project name"),
+    name: str = typer.Argument(..., help="Project name (e.g. my-api)"),
     path: Optional[Path] = typer.Option(
-        None,
-        "--path",
-        "-p",
+        None, "--path", "-p",
         help="Parent directory for the project (default: current directory)",
     ),
 ):
@@ -50,8 +47,50 @@ def new(
         tachyon new my-api --path ./projects
     """
     from .commands.new import create_project
-
     create_project(name, path)
+
+
+@app.command()
+def run(
+    app_path: str = typer.Argument("app:app", help="ASGI app in 'module:attribute' format"),
+    host: str   = typer.Option("0.0.0.0", "--host", "-h", help="Bind host"),
+    port: int   = typer.Option(8000,      "--port", "-p", help="Bind port"),
+    reload: bool = typer.Option(True,  "--reload/--no-reload", help="Auto-reload on code changes"),
+    workers: int = typer.Option(1,     "--workers", "-w", help="Number of worker processes"),
+    prod: bool   = typer.Option(False, "--prod",           help="Production mode (no reload, workers=4)"),
+    tachyon_server: bool = typer.Option(
+        False, "--tachyon-server",
+        help="Use TachyonServer for direct transport writes (F12b)",
+    ),
+):
+    """
+    ▶  Start the Tachyon development or production server.
+
+    Wraps uvicorn with sensible defaults (uvloop, httptools, reload in dev).
+
+    Example:
+        tachyon run
+        tachyon run app:app --port 9000
+        tachyon run --prod --workers 4
+        tachyon run --tachyon-server
+    """
+    from .commands.run import run_server
+    run_server(app_path, host, port, reload, workers, prod, tachyon_server)
+
+
+@app.command()
+def routes(
+    app_path: str = typer.Argument("app:app", help="ASGI app in 'module:attribute' format"),
+):
+    """
+    📋 List all registered routes without starting the server.
+
+    Example:
+        tachyon routes
+        tachyon routes myapp:app
+    """
+    from .commands.routes import list_routes
+    list_routes(app_path)
 
 
 @app.command()

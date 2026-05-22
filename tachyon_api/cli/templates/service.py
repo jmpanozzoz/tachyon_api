@@ -322,10 +322,61 @@ class Test{class_name}Service:
         """Placeholder test - implement your tests here."""
         # TODO: Implement actual tests
         # from modules.{snake_name} import {class_name}Service, {class_name}Repository
-        # 
+        #
         # repository = {class_name}Repository()
         # service = {class_name}Service(repository)
         # result = service.get_all()
         # assert result is not None
         assert True
+'''
+
+    @staticmethod
+    def middleware(snake_name: str, class_name: str) -> str:
+        return f'''"""
+{class_name}Middleware — ASGI middleware skeleton.
+
+Register in app.py:
+    app.add_middleware({class_name}Middleware)
+"""
+
+from starlette.types import ASGIApp, Receive, Scope, Send
+from starlette.requests import Request
+from starlette.responses import Response
+
+
+class {class_name}Middleware:
+    """
+    {class_name} ASGI middleware.
+
+    Wraps every HTTP request. Override the process() method with your logic.
+    """
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        request = Request(scope, receive)
+        response = await self.process(request)
+        if response is not None:
+            # Short-circuit: return early (e.g. auth rejection)
+            await response(scope, receive, send)
+            return
+
+        await self.app(scope, receive, send)
+
+    async def process(self, request: Request) -> Response | None:
+        """
+        Inspect / modify the request before it reaches the endpoint.
+
+        Return a Response to short-circuit (e.g. 401), or None to continue.
+        """
+        # TODO: implement your middleware logic here
+        # Example — reject unauthenticated requests:
+        # if not request.headers.get("authorization"):
+        #     return Response("Unauthorized", status_code=401)
+        return None
 '''

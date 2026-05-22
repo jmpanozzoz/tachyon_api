@@ -231,15 +231,26 @@ async def websocket(ws):
 ## 🔧 CLI Tools
 
 ```bash
-# Create new project
+# Create project (generates .env.example, config.py with dotenv, clean arch)
 tachyon new my-api
 
-# Generate module
-tachyon generate service users --crud
+# Start development server (uvloop + httptools auto-detected, reload on)
+tachyon run
+
+# List all registered routes
+tachyon routes
+
+# Generate a full CRUD module
+tachyon g service users --crud
+
+# Generate an ASGI middleware skeleton
+tachyon g middleware auth
 
 # Code quality
 tachyon lint all
 ```
+
+**Name validation:** hyphens auto-converted to underscores (`my-api` → `my_api`), Python keywords rejected with a clear error.
 
 👉 [Full CLI documentation](./docs/12-cli.md)
 
