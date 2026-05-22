@@ -47,6 +47,11 @@ try:
             sources=["tachyon_api/processing/scope.pyx"],
             extra_compile_args=extra_compile_args,
         ),
+        Extension(
+            "tachyon_api.processing.dispatch",
+            sources=["tachyon_api/processing/dispatch.pyx"],
+            extra_compile_args=extra_compile_args,
+        ),
     ]
 
     setup(
