@@ -107,6 +107,34 @@ try:
             sources=["tachyon_api/app/_exception_table.pyx"],
             extra_compile_args=extra_compile_args,
         ),
+        # v1.2.94 — Phase 4a: easy extractors as cdef class.
+        # Used by the pure-Python `parameters.py` fallback today; Phase 4b
+        # will rewrite `parameters.pyx` to delegate to these too.
+        Extension(
+            "tachyon_api.processing._extractors._missing",
+            sources=["tachyon_api/processing/_extractors/_missing.pyx"],
+            extra_compile_args=extra_compile_args,
+        ),
+        Extension(
+            "tachyon_api.processing._extractors.header",
+            sources=["tachyon_api/processing/_extractors/header.pyx"],
+            extra_compile_args=extra_compile_args,
+        ),
+        Extension(
+            "tachyon_api.processing._extractors.cookie",
+            sources=["tachyon_api/processing/_extractors/cookie.pyx"],
+            extra_compile_args=extra_compile_args,
+        ),
+        Extension(
+            "tachyon_api.processing._extractors.query",
+            sources=["tachyon_api/processing/_extractors/query.pyx"],
+            extra_compile_args=extra_compile_args,
+        ),
+        Extension(
+            "tachyon_api.processing._extractors.path",
+            sources=["tachyon_api/processing/_extractors/path.pyx"],
+            extra_compile_args=extra_compile_args,
+        ),
     ]
 
     setup(
