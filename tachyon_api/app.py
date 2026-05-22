@@ -28,6 +28,7 @@ from .responses import (
 from .core.lifecycle import LifecycleManager
 from .core.websocket import WebSocketManager
 from .processing.compiler import compile_endpoint
+from .processing.dispatch import TachyonDispatcher
 from .processing.parameters import ParameterProcessor
 from .processing.dependencies import DependencyResolver
 from .processing.response_processor import ResponseProcessor
@@ -82,6 +83,19 @@ class Tachyon:
         # We replace it with our dispatch *before* the first request so that
         # Starlette.build_middleware_stack() (lazy) wraps our dispatcher instead.
         self._trie = RadixTrie()
+
+        # F9: TachyonDispatcher — Cython cdef class replacing the Python _trie_dispatch method.
+        # Constructed once; per-request path reads C-level struct fields, no Python attribute lookups.
+        self._dispatcher = TachyonDispatcher(
+            trie=self._trie,
+            _404_start=_404_START,
+            _404_body=_404_BODY_MSG,
+            _405_body=_405_BODY,
+            _405_ct=_405_PLAIN_CT,
+            _405_cl=_CL_405,
+            asgi_handler_class=_ASGIHandler,
+        )
+
         _original_router_app = self._router.router.app  # kept for WS + lifespan
         self._router.router.middleware_stack = self._make_http_dispatch(_original_router_app)
 
@@ -177,13 +191,12 @@ class Tachyon:
     # ── Trie dispatch ────────────────────────────────────────────────────────
 
     def _make_http_dispatch(self, original_router_app: Callable) -> Callable:
-        """Return an ASGI callable: HTTP → trie, everything else → Starlette."""
-        trie = self._trie
-        _dispatch = self._trie_dispatch
+        """Return an ASGI callable: HTTP → TachyonDispatcher, everything else → Starlette."""
+        _dispatcher = self._dispatcher
 
         async def dispatch(scope, receive, send):
             if scope["type"] == "http":
-                await _dispatch(scope, receive, send)
+                await _dispatcher(scope, receive, send)
             else:
                 # WebSocket routing and lifespan stay in Starlette's Router
                 await original_router_app(scope, receive, send)
@@ -423,13 +436,13 @@ class Tachyon:
             )
 
     def _build_http_app(self) -> Callable:
-        """Build HTTP ASGI app: only user middlewares wrap our trie dispatch.
+        """Build HTTP ASGI app: only user middlewares wrap TachyonDispatcher.
 
         Starlette's ServerErrorMiddleware and ExceptionMiddleware are skipped for
         HTTP requests — their job is already done by the try/except in each handler
         closure. This eliminates ~1.5µs per request from two extra coroutine calls.
         """
-        app: Callable = self._trie_dispatch  # bound method → ASGI-compatible
+        app: Callable = self._dispatcher  # Cython cdef class — ASGI-compatible callable
         for mw in reversed(self.middleware_stack):
             app = mw["func"](app=app, **mw["options"])
         return app

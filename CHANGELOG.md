@@ -11,6 +11,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Performance
 
+**F9 — `_trie_dispatch` to Cython cdef class** (`feature/cython-dispatch`)
+
+- New `processing/dispatch.py` + `processing/dispatch.pyx`: `TachyonDispatcher` —
+  `cdef class` that replaces the pure-Python `_trie_dispatch` method as the innermost
+  ASGI callable in `_build_http_app`.
+- Cython gains: `cdef int status` (no Python int boxing), `cdef object handler/path_params`
+  (direct C pointer locals, no Python name-lookup overhead), C-level struct field reads
+  for all `self.*` constants (`_trie`, `_404_start`, etc.).
+- `type(handler) is self._asgi_handler_class` — C type-pointer comparison in Cython,
+  faster than `isinstance` for exact-type checks.
+- `app.py`: `__init__` instantiates `self._dispatcher = TachyonDispatcher(...)` once at
+  startup. `_build_http_app` and `_make_http_dispatch` both use `self._dispatcher`
+  instead of the Python `_trie_dispatch` bound method.
+- `setup.py`: `dispatch.pyx` added to Cython extension build.
+- Savings: neutral in pure Python; Cython path: ~80ns saved from removing Python int
+  boxing + C-level struct reads on every HTTP request.
+
 **F8 — Eliminate Request object from hot path** (`feature/no-request`)
 
 - New `processing/scope.py` + `processing/scope.pyx`: `TachyonScope` — thin ASGI scope
