@@ -7,6 +7,83 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.2.92] — 2026-05-22
+
+**v1.2.9 Cython sprint — Phase 2/7: DI resolver pipeline compiled (cdef class).**
+Result: **resolve_dependency 41–50% faster** across all three scopes; FULL
+HANDLER unchanged in non-DI scenarios (as expected — the resolver isn't on
+the path for endpoints without `@injectable` or `Depends`).
+
+### Added (5 new compiled modules)
+
+- **`processing/dependencies/_override_lookup.pyx`** — `cdef class OverrideLookup`
+- **`processing/dependencies/_scope_cache.pyx`** — `cdef class ScopeCache`
+- **`processing/dependencies/_circular_detector.pyx`** — `cdef class CircularDetector`
+- **`processing/dependencies/_class_factory.pyx`** — `cdef class ClassFactory`
+- **`processing/dependencies/_resolver.pyx`** — `cdef class DependencyResolver`
+  (orchestrator; preserves the `_resolving` legacy attribute for backward compat)
+
+Unlike Phase 1, these classes have no Python parent class, so `cdef class`
+is viable and the typed attribute slots (`cdef object _app`, etc.) actually
+take effect.
+
+`_callable_factory.py` and `_sig_cache.py` deliberately stay in pure Python
+per the v1.2.84 plan: callable factory mixes async + recursion + nested
+resolve and is the riskiest cdef target; sig cache is a dict lookup
+already at C level.
+
+### Changed
+
+- **`setup.py`** — five new `Extension` entries.  Cython now produces 15
+  compiled `.so` files (was 10 after Phase 1).
+
+### Added (benchmark)
+
+- **`benchmark/profile_di.py`** — DI-specific micro-bench measuring
+  `resolve_dependency` for each scope.  Was missing from the bench suite;
+  needed to validate Phase 2.
+
+### Measurements
+
+**`benchmark/profile_di.py`, compiled vs pure-Python fallback:**
+
+| Scope | Pure Python `.py` | Compiled `.pyx` | Δ |
+|---|---:|---:|---:|
+| singleton (cache hit) | 0.343 µs/iter | **0.172 µs/iter** | **−50%** |
+| request (fresh cache) | 0.970 µs/iter | **0.557 µs/iter** | **−43%** |
+| transient (always new) | 0.889 µs/iter | **0.522 µs/iter** | **−41%** |
+
+Per request, assuming 1–2 deps resolved, that's roughly **−0.20 to −0.40 µs
+on endpoints with DI**.
+
+**`benchmark/profile_hotpath.py` (no-DI scenarios, 10-run median):**
+
+| Metric | v1.2.91 baseline | v1.2.92 | Δ |
+|---|---:|---:|---:|
+| FULL HANDLER cycle | 0.93 µs | 0.93–0.94 µs | within noise |
+
+Phase 2 gate ("no regression in non-DI") **PASSED**.
+
+### Verification
+
+- 366/367 framework tests pass with compiled `.so` loaded.
+- The `DependencyResolver._resolving` legacy attribute (used by at least one
+  test) is preserved as a `cdef public set` mirroring `_circular._resolving`.
+- The orchestrator's `__init__` ordering is unchanged: collaborators are
+  constructed in the same sequence, `OverrideLookup` reads
+  `app.dependency_overrides` lazily at lookup time (preserves the
+  pre-construction tolerance from v1.2.4).
+
+### v1.2.9 status
+
+After Phase 2: FULL HANDLER stable at ~0.93 µs (no-DI); DI scenarios get
+visible per-request speedups proportional to how many deps the endpoint uses.
+
+Phases remaining: 3 (ExceptionTable), 4a/b/c (extractors), 5 (nogil bearer),
+6 (fix 2 known-failing tests), 7 (no-`.so` CI matrix).
+
+---
+
 ## [1.2.91] — 2026-05-22
 
 **v1.2.9 Cython sprint — Phase 1/7: response classes compiled.**

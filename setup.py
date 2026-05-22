@@ -57,7 +57,8 @@ try:
             sources=["tachyon_api/_server_fast.pyx"],
             extra_compile_args=extra_compile_args,
         ),
-        # v1.2.91 — Phase 1: response classes as cdef class
+        # v1.2.91 — Phase 1: response classes as compiled .pyx (regular class,
+        # cdef class blocked by Starlette JSONResponse parent — see CHANGELOG).
         Extension(
             "tachyon_api.responses._json_response",
             sources=["tachyon_api/responses/_json_response.pyx"],
@@ -71,6 +72,33 @@ try:
         Extension(
             "tachyon_api.responses._internal_error",
             sources=["tachyon_api/responses/_internal_error.pyx"],
+            extra_compile_args=extra_compile_args,
+        ),
+        # v1.2.92 — Phase 2: DI resolver pipeline as cdef class (no Python
+        # parent, so cdef class is viable here unlike Phase 1).
+        Extension(
+            "tachyon_api.processing.dependencies._override_lookup",
+            sources=["tachyon_api/processing/dependencies/_override_lookup.pyx"],
+            extra_compile_args=extra_compile_args,
+        ),
+        Extension(
+            "tachyon_api.processing.dependencies._scope_cache",
+            sources=["tachyon_api/processing/dependencies/_scope_cache.pyx"],
+            extra_compile_args=extra_compile_args,
+        ),
+        Extension(
+            "tachyon_api.processing.dependencies._circular_detector",
+            sources=["tachyon_api/processing/dependencies/_circular_detector.pyx"],
+            extra_compile_args=extra_compile_args,
+        ),
+        Extension(
+            "tachyon_api.processing.dependencies._class_factory",
+            sources=["tachyon_api/processing/dependencies/_class_factory.pyx"],
+            extra_compile_args=extra_compile_args,
+        ),
+        Extension(
+            "tachyon_api.processing.dependencies._resolver",
+            sources=["tachyon_api/processing/dependencies/_resolver.pyx"],
             extra_compile_args=extra_compile_args,
         ),
     ]
