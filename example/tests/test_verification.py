@@ -2,9 +2,9 @@
 Tests for Verification module.
 """
 
-from ..app import app
-from ..modules.customers.customers_repository import CustomersRepository
-from ..modules.customers.customers_dto import CustomerResponse
+from example.app import app
+from example.modules.customers.customers_repository import CustomersRepository
+from example.modules.customers.customers_dto import CustomerResponse
 
 
 class MockCustomersRepository:

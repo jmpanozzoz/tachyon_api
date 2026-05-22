@@ -4,9 +4,9 @@ Tests for Customers module.
 Demonstrates dependency_overrides for mocking.
 """
 
-from ..app import app
-from ..modules.customers.customers_repository import CustomersRepository
-from ..modules.customers.customers_dto import CustomerResponse, AddressDTO
+from example.app import app
+from example.modules.customers.customers_repository import CustomersRepository
+from example.modules.customers.customers_dto import CustomerResponse, AddressDTO
 
 
 class MockCustomersRepository:

@@ -7,6 +7,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.2.812] — 2026-05-22
+
+**Fix the example test runner.**  Companion to v1.2.811: brings `pytest example/tests/`
+back to a green collection so the v1.2.83 audit has a working baseline.
+
+### Fixed
+
+- **`example/tests/` collection** — pytest 8.x + `pytest-asyncio 0.23.x` raise
+  `AttributeError: 'Package' object has no attribute 'obj'` during collection
+  whenever any ancestor of the test file is a Python package. The framework's
+  own `tests/` directory has no `__init__.py` and so was unaffected; the
+  `example/` tree has `__init__.py` everywhere (for the relative imports in
+  the app code), so its tests never collected.
+
+  Two-part fix:
+  1. **Remove `example/tests/__init__.py`** — the test directory does not need
+     to be a sub-package of `example/`.  pytest discovers tests by file name,
+     not by package membership.
+  2. **Switch test-file imports from relative to absolute**: `from ..app import app`
+     → `from example.app import app` (and similarly for `..config`, `..modules.*`).
+     Affected files: `conftest.py`, `test_async_client.py`, `test_customers.py`,
+     `test_verification.py`. `test_auth.py` had no imports.
+
+- **`example/requirements.txt`** — bump `pytest-asyncio>=1.1.0` (was `>=0.23.0`).
+  The 0.23.x line carries the Package-collector bug; 1.1.0+ fixes it.
+  The framework's own `pyproject.toml` already requires `^1.1.0`.
+
+### Verified
+
+- `pytest example/tests/` now collects 17 tests and runs them; 16/17 pass.
+- The single remaining failure (`TestVerificationEndpoints.test_start_enhanced_verification`)
+  is a pre-existing domain-logic issue in the example: `VerificationService.start_verification`
+  reuses an in-progress verification when one already exists for the customer,
+  so the second test in the class re-uses the first test's `standard`
+  verification (3 checks) instead of creating an `enhanced` one (5 checks).
+  Tracked as a v1.2.83 audit finding — out of scope for the test-runner fix.
+- Framework suite still 366/367.
+
+---
+
 ## [1.2.811] — 2026-05-22
 
 **Framework bug fixes discovered during v1.2.81 example modernization.**
