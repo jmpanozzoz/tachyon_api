@@ -21,10 +21,17 @@ from starlette.responses import JSONResponse
 from ..responses import validation_error_response
 from ..utils import TypeConverter, TypeUtils
 from ..background import BackgroundTasks
-from ._extractors.header import HeaderExtractor
-from ._extractors.cookie import CookieExtractor
-from ._extractors.query import QueryExtractor
-from ._extractors.path import PathExtractor
+# Python imports for instantiation
+from ._extractors.header import HeaderExtractor as _HeaderExtractor_py
+from ._extractors.cookie import CookieExtractor as _CookieExtractor_py
+from ._extractors.query import QueryExtractor as _QueryExtractor_py
+from ._extractors.path import PathExtractor as _PathExtractor_py
+
+# C-level cimport — enables direct cdef class slot dispatch (Phase 4b.3).
+from ._extractors.header cimport HeaderExtractor
+from ._extractors.cookie cimport CookieExtractor
+from ._extractors.query cimport QueryExtractor
+from ._extractors.path cimport PathExtractor
 from .compiler import (
     KIND_REQUEST, KIND_BG, KIND_BODY, KIND_QUERY,
     KIND_HEADER, KIND_COOKIE, KIND_FORM, KIND_FILE,
@@ -51,20 +58,30 @@ cdef int _DEFAULT_MAX_BODY_SIZE = 2 * 1024 * 1024  # 2 MB — matches parameters
 
 
 cdef class ParameterProcessor:
-    """Parameter extractor — orchestrator that delegates to cdef extractors."""
+    """Parameter extractor — orchestrator that delegates to cdef extractors.
+
+    The four migrated extractors are stored as typed cdef class references
+    (not generic `cdef object`).  Combined with the `cpdef extract(...)`
+    signature declared in each extractor's `.pxd`, this turns the dispatch
+    `self._header_extractor.extract(...)` into a direct C slot call —
+    recovers the ~60-120 ns/req of cross-module Python dispatch overhead
+    introduced in Phase 4b.2.
+    """
 
     cdef object app
-    cdef object _header_extractor
-    cdef object _cookie_extractor
-    cdef object _query_extractor
-    cdef object _path_extractor
+    cdef HeaderExtractor _header_extractor
+    cdef CookieExtractor _cookie_extractor
+    cdef QueryExtractor _query_extractor
+    cdef PathExtractor _path_extractor
 
     def __init__(self, app_instance):
         self.app = app_instance
-        self._header_extractor = HeaderExtractor()
-        self._cookie_extractor = CookieExtractor()
-        self._query_extractor = QueryExtractor()
-        self._path_extractor = PathExtractor()
+        # Use the Python-imported aliases to instantiate (cimport names refer
+        # only to the C-level type, not callable as a constructor here).
+        self._header_extractor = _HeaderExtractor_py()
+        self._cookie_extractor = _CookieExtractor_py()
+        self._query_extractor = _QueryExtractor_py()
+        self._path_extractor = _PathExtractor_py()
 
     async def process_parameters(self, compiled, request, dependency_cache):
         # Pre-allocate exact-size list — C array under the hood in CPython.

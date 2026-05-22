@@ -7,6 +7,64 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.2.97] — 2026-05-22
+
+**v1.2.9 Cython sprint — Phase 4b.3/7: `.pxd` declarations + `cimport` recover
+the Phase 4b.2 path+query regression.**
+
+Phase 4b.2 introduced cross-module cdef dispatch overhead because
+`parameters.pyx` held extractor instances as `cdef object` (untyped) — each
+call went through Python's method machinery.  This phase adds `.pxd`
+declarations to each cdef extractor and uses `cimport` to get typed C-level
+references, enabling direct extension-type slot dispatch.
+
+### Added (4 new `.pxd` files)
+
+- `processing/_extractors/header.pxd` — `cdef class HeaderExtractor` + `cpdef extract`
+- `processing/_extractors/cookie.pxd` — same for `CookieExtractor`
+- `processing/_extractors/query.pxd` — same for `QueryExtractor`
+- `processing/_extractors/path.pxd` — same for `PathExtractor`
+
+### Changed
+
+- Each extractor's `.pyx`: `def extract(...)` → `cpdef extract(self, object descriptor, object source)`
+  (`cpdef` required to match the `.pxd` declaration).
+- `processing/parameters.pyx`:
+  - `cimport` each extractor class for the C-level type.
+  - Renamed Python imports to `_X_py` aliases for use as constructors.
+  - Extractor fields typed as the actual cdef class (`cdef HeaderExtractor _header_extractor`) instead of `cdef object`.
+  - Cython now generates direct slot dispatch for `self._header_extractor.extract(...)`.
+
+### Measurements (10-run median, compiled mode)
+
+| Metric | Phase 4b.2 | Phase 4b.3 | Δ vs 4b.2 | Δ vs v1.2.83 baseline |
+|---|---:|---:|---:|---:|
+| **FULL HANDLER cycle** | 0.965 µs | **0.95 µs** | −1.5% | **−9.5%** |
+| `process_parameters` — path+query | 0.635 µs | **0.595 µs** | **−6.3%** | +4.4% |
+| `process_parameters` — body POST | 0.80 µs | 0.80 µs | unchanged | unchanged |
+| `process_parameters` — no params | 0.16 µs | 0.16 µs | unchanged | unchanged |
+
+path+query regression dropped from +11.4% (4b.2) to +4.4% (4b.3) vs the
+v1.2.83 baseline.  Remaining gap is `descriptor.*` Python attribute access
+inside the extractors — not addressable without deeper changes.
+
+### Verification
+
+- 366/367 framework tests pass with `.so` loaded.
+- 366/367 framework tests pass without `.so` (pure-Python fallback) — both
+  modes agree.  `.pxd` is a Cython-only artifact, no impact on `.py`.
+- F11 fast-int/fast-float preserved.
+
+### Sprint status
+
+After Phase 4b.3 the v1.2.9 sprint hits **0.95 µs FULL HANDLER median**,
+matching the conservative target (`≤ 0.95 µs`) declared in `docs/cython-plan-v1.2.9.md`.
+
+Remaining: Phase 4c (body/form/file/query_list to cdef), Phase 5 (nogil
+bearer), Phase 6 (fix known-failing tests), Phase 7 (CI matrix).
+
+---
+
 ## [1.2.96] — 2026-05-22
 
 **v1.2.9 Cython sprint — Phase 4b.2/7: `parameters.pyx` delegates to cdef

@@ -11,7 +11,7 @@ from ._missing import missing
 cdef class HeaderExtractor:
     """Extracts a single header value by its canonical name."""
 
-    def extract(self, descriptor, request):
+    cpdef extract(self, object descriptor, object request):
         value = request.headers.get(descriptor.effective_name)
         if value is not None:
             return (value, None)

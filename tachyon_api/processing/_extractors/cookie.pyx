@@ -7,7 +7,7 @@ from ._missing import missing
 cdef class CookieExtractor:
     """Extracts a single cookie value by name."""
 
-    def extract(self, descriptor, request):
+    cpdef extract(self, object descriptor, object request):
         value = request.cookies.get(descriptor.effective_name)
         if value is not None:
             return (value, None)

@@ -54,7 +54,7 @@ cdef object _fast_float(str s):
 cdef class QueryExtractor:
     """Extracts a single scalar query parameter and converts to its declared type."""
 
-    def extract(self, descriptor, query_params):
+    cpdef extract(self, object descriptor, object query_params):
         cdef str name = descriptor.name
         cdef str raw_val
         cdef object base_type
