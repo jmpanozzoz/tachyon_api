@@ -13,13 +13,16 @@ runner = CliRunner()
 
 class TestNewCommand:
     def test_new_creates_project_structure(self):
+        # `my-api` is normalised to `my_api` by `validate_name` (hyphens → underscores)
+        # so the project gets created under that Python-identifier-safe name.
         with tempfile.TemporaryDirectory() as tmpdir:
             result = runner.invoke(app, ["new", "my-api", "--path", tmpdir])
 
             assert result.exit_code == 0
             assert "Creating Tachyon project" in result.stdout
+            assert "my-api" in result.stdout and "my_api" in result.stdout
 
-            project_path = Path(tmpdir) / "my-api"
+            project_path = Path(tmpdir) / "my_api"
 
             # Check directories
             assert (project_path / "modules").exists()
