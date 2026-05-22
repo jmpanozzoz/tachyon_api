@@ -94,7 +94,12 @@ class CompiledEndpoint:
         self.params = params
         # Pre-computed flags — zero cost at request time
         self.has_params = bool(params)
-        self.has_callable_deps = any(p.kind == KIND_DEP_CALLABLE for p in params)
+        from ..di import _scopes, SCOPE_SINGLETON
+        self.has_callable_deps = any(
+            p.kind == KIND_DEP_CALLABLE
+            or (p.kind == KIND_DEP_CLASS and _scopes.get(p.annotation, SCOPE_SINGLETON) != SCOPE_SINGLETON)
+            for p in params
+        )
         self.has_path_params = any(p.kind in (KIND_PATH, KIND_PATH_IMPLICIT) for p in params)
         # Pre-computed length — used to pre-allocate the args list in process_parameters
         self.param_count = len(params)

@@ -24,6 +24,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`core/lifecycle.py`** — Startup handlers now raise `RuntimeError` on failure (with the original exception as cause), preventing the app from booting in a broken state. Shutdown handlers log failures at WARNING and continue processing remaining handlers.
 - **`cache.py`** — `RedisCacheBackend.clear()` now calls `flushdb()` (current DB only) instead of silently no-oping. Falls back to `flushall()` if `flushdb()` is unavailable.
 
+### Added
+
+- **`tachyon_api/testing.py`** — `create_client(app, ...)` async context manager promoted from `tests/helpers.py` to the framework's public testing module. Accepts all httpx kwargs (headers, cookies, auth, follow_redirects, timeout). `AsyncTachyonTestClient` gains the same explicit parameters for discoverability.
+- **`di.py`** — `@injectable` now accepts an optional `scope` keyword: `"singleton"` *(default, unchanged)*, `"request"` *(one instance per HTTP request, cached in per-request dependency_cache)*, `"transient"` *(new instance on every injection)*. Backward-compatible: bare `@injectable` still means singleton. Exports `SCOPE_SINGLETON`, `SCOPE_REQUEST`, `SCOPE_TRANSIENT` constants.
+- **`core/websocket.py`** — WebSocket handlers now support typed path params (converted via `TypeConverter` based on annotations; type mismatch closes with code 1008), `@injectable` class deps, and `Depends(callable)` per-connection factories. Param descriptors are pre-computed at route registration (zero `inspect` overhead per connection).
+- **`openapi.py`** — `generate_route` now generates correct OpenAPI for: `response_model=List[Struct]` (array schema with `$ref`), `Body` with `List[Struct]` (JSON requestBody), `Form` and `File` params (`multipart/form-data` requestBody with `required` fields and `format: binary` for files).
+
 ### Fixed (continued)
 
 - **`security.py`** — `_APIKeyBase._get_raw()` is now a proper `@abstractmethod` (via `ABC`); direct instantiation of the base class is caught at class definition time instead of raising `NotImplementedError` at runtime.

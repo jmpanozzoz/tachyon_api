@@ -10,7 +10,7 @@ _SIG_CACHE: Dict[Callable, inspect.Signature] = {}
 
 from starlette.requests import Request
 
-from ..di import Depends, _registry
+from ..di import Depends, _registry, _scopes, SCOPE_SINGLETON, SCOPE_REQUEST, SCOPE_TRANSIENT
 from .scope import TachyonScope
 
 
@@ -19,7 +19,9 @@ class DependencyResolver:
         self.app = app_instance
         self._resolving: set = set()
 
-    def resolve_dependency(self, cls: Type) -> Any:
+    def resolve_dependency(self, cls: Type, request_cache: "Dict | None" = None) -> Any:
+        scope = _scopes.get(cls, SCOPE_SINGLETON)
+
         if cls in self.app.dependency_overrides:
             override = self.app.dependency_overrides[cls]
             if callable(override) and not isinstance(override, type):
@@ -28,9 +30,15 @@ class DependencyResolver:
                 return override()
             return override
 
-        cached = self.app.get_instance(cls)
-        if cached is not None:
-            return cached
+        # Check scope-appropriate cache
+        if scope == SCOPE_SINGLETON:
+            cached = self.app.get_instance(cls)
+            if cached is not None:
+                return cached
+        elif scope == SCOPE_REQUEST:
+            if request_cache is not None and cls in request_cache:
+                return request_cache[cls]
+        # SCOPE_TRANSIENT: no cache check — always create
 
         if cls not in _registry:
             try:
@@ -46,8 +54,12 @@ class DependencyResolver:
                 f"Circular dependency detected while resolving '{cls.__name__}'"
             )
 
-        sig = inspect.signature(cls)
-        dependencies = {}
+        sig = _SIG_CACHE.get(cls)
+        if sig is None:
+            sig = inspect.signature(cls)
+            _SIG_CACHE[cls] = sig
+
+        nested: Dict[str, Any] = {}
         self._resolving.add(cls)
         try:
             for param in sig.parameters.values():
@@ -57,15 +69,18 @@ class DependencyResolver:
                             f"Parameter '{param.name}' in '{cls.__name__}' has no type annotation; "
                             f"cannot resolve dependency."
                         )
-                    dependencies[param.name] = self.resolve_dependency(param.annotation)
+                    nested[param.name] = self.resolve_dependency(param.annotation, request_cache)
         finally:
             self._resolving.discard(cls)
 
-        instance = cls(**dependencies)
-        # register_instance is the public API; singletons are app-scoped (not request-scoped).
-        # In pure asyncio, resolve_dependency is synchronous so there is no concurrent
-        # mutation risk; multi-threaded servers should use request-scoped Depends() instead.
-        self.app.register_instance(cls, instance)
+        instance = cls(**nested)
+
+        if scope == SCOPE_SINGLETON:
+            self.app.register_instance(cls, instance)
+        elif scope == SCOPE_REQUEST and request_cache is not None:
+            request_cache[cls] = instance
+        # SCOPE_TRANSIENT: no caching
+
         return instance
 
     async def resolve_callable_dependency(
