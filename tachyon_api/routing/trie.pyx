@@ -4,11 +4,19 @@ Cython-compiled radix trie router.
 
 cdef class _Node: C struct fields — static/param_child/handlers are direct field
 reads rather than Python dict-based attribute lookups.
+
+match() inlines segment traversal at C level — no _segments() list, no generator.
+path_params dict is only allocated when the first param segment is actually hit.
 """
+from types import MappingProxyType
 
 _NOT_FOUND          = 0
 _METHOD_NOT_ALLOWED = 1
 _FOUND              = 2
+
+# Immutable empty sentinel — returned for static routes (no path params).
+# One allocation at module load; zero per request on static routes.
+_EMPTY_PARAMS = MappingProxyType({})
 
 
 cdef class _Node:
@@ -64,32 +72,52 @@ cdef class RadixTrie:
         node.allowed.add(m)
         node.allow_header = ", ".join(sorted(node.allowed))
 
-    def match(self, path, method):
+    def match(self, str path, str method):
         """
         Match path + method in O(k).
-        Returns (status, handler, path_params, allowed_methods).
+
+        Inlines segment traversal — no _segments() list, no generator overhead.
+        path_params is lazily allocated: None until the first param segment is hit,
+        _EMPTY_PARAMS (immutable singleton) when the route has no path parameters.
         """
         cdef _Node node = self._root
-        cdef dict path_params = {}
+        cdef dict path_params = None
+        cdef int pos, slash_pos, path_len
+        cdef str seg
+        cdef object existing
 
-        for seg in _segments(path):
+        path_len = len(path)
+        pos = 1 if path_len > 0 and path[0] == "/" else 0
+
+        while pos < path_len:
+            slash_pos = path.find("/", pos)
+            if slash_pos == -1:
+                seg = path[pos:]
+                pos = path_len
+            else:
+                seg = path[pos:slash_pos]
+                pos = slash_pos + 1
+
+            if not seg:
+                continue
+
             existing = node.static.get(seg)
             if existing is not None:
                 node = <_Node>existing
             elif node.param_child is not None:
+                if path_params is None:
+                    path_params = {}
                 path_params[(<_Node>node.param_child).param_name] = seg
                 node = <_Node>node.param_child
             else:
-                return 0, None, {}, None  # _NOT_FOUND
+                return 0, None, _EMPTY_PARAMS, None  # _NOT_FOUND
 
         handler = node.handlers.get(method.upper())
         if handler is not None:
-            # Return singleton for empty params — one less dict allocation per static route
-            return 2, handler, path_params if path_params else {}, None  # _FOUND
+            return 2, handler, path_params if path_params is not None else _EMPTY_PARAMS, None  # _FOUND
         if node.allowed:
-            # Return pre-sorted allow_header string — no sorting at request time
-            return 1, None, path_params, node.allow_header  # _METHOD_NOT_ALLOWED
-        return 0, None, {}, None  # _NOT_FOUND
+            return 1, None, path_params if path_params is not None else _EMPTY_PARAMS, node.allow_header  # _METHOD_NOT_ALLOWED
+        return 0, None, _EMPTY_PARAMS, None  # _NOT_FOUND
 
 
 def _segments(path):

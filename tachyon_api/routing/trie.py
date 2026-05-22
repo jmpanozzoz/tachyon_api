@@ -9,12 +9,17 @@ Path format: /users/{user_id}/profile  (Starlette / FastAPI convention)
 
 from __future__ import annotations
 
+from types import MappingProxyType
 from typing import Callable, Dict, Optional, Set, Tuple, Any
 
 
 _NOT_FOUND          = 0
 _METHOD_NOT_ALLOWED = 1
 _FOUND              = 2
+
+# Immutable empty sentinel — returned for routes with no path params.
+# MappingProxyType prevents accidental mutation; safe because nobody writes to path_params.
+_EMPTY_PARAMS = MappingProxyType({})
 
 
 class _Node:
@@ -76,36 +81,55 @@ class RadixTrie:
 
     def match(
         self, path: str, method: str
-    ) -> Tuple[int, Optional[Callable], Dict[str, str], Optional[Set[str]]]:
+    ) -> Tuple[int, Optional[Callable], Dict[str, str], Optional[str]]:
         """
-        Match path + method.
+        Match path + method in O(k).
 
-        Returns (status, handler, path_params, allowed_methods):
+        Returns (status, handler, path_params, allow_header):
         - status 0 (_NOT_FOUND):          no path match
         - status 1 (_METHOD_NOT_ALLOWED): path matched, method not registered
         - status 2 (_FOUND):              full match
+
+        path_params is _EMPTY_PARAMS (MappingProxyType) for routes with no path
+        parameters — avoids a dict allocation on every static-route request.
         """
         node = self._root
-        path_params: Dict[str, str] = {}
+        path_params = None  # deferred: only allocated on first param segment hit
 
-        for seg in _segments(path):
+        length = len(path)
+        pos = 1 if length > 0 and path[0] == "/" else 0
+
+        while pos < length:
+            slash = path.find("/", pos)
+            if slash == -1:
+                seg = path[pos:]
+                pos = length
+            else:
+                seg = path[pos:slash]
+                pos = slash + 1
+
+            if not seg:
+                continue
+
             child = node.static.get(seg)
             if child is not None:
                 node = child
             elif node.param_child is not None:
+                if path_params is None:
+                    path_params = {}
                 path_params[node.param_child.param_name] = seg
                 node = node.param_child
             else:
-                return _NOT_FOUND, None, {}, None
+                return _NOT_FOUND, None, _EMPTY_PARAMS, None
 
         handler = node.handlers.get(method.upper())
         if handler is not None:
-            return _FOUND, handler, path_params, None
+            return _FOUND, handler, path_params if path_params is not None else _EMPTY_PARAMS, None
 
         if node.allowed:
-            return _METHOD_NOT_ALLOWED, None, path_params, node.allow_header
+            return _METHOD_NOT_ALLOWED, None, path_params if path_params is not None else _EMPTY_PARAMS, node.allow_header
 
-        return _NOT_FOUND, None, {}, None
+        return _NOT_FOUND, None, _EMPTY_PARAMS, None
 
 
 def _segments(path: str):
