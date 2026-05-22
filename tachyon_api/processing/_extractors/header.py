@@ -2,7 +2,6 @@
 
 from ..compiler import ParamDescriptor
 from ..scope import TachyonScope
-from ._base import ExtractorResult
 from ._missing import missing
 
 
@@ -11,8 +10,9 @@ class HeaderExtractor:
 
     __slots__ = ()
 
-    def extract(self, descriptor: ParamDescriptor, request: TachyonScope) -> ExtractorResult:
+    def extract(self, descriptor: ParamDescriptor, request: TachyonScope):
+        """Returns `(value, error)` plain tuple."""
         value = request.headers.get(descriptor.effective_name)
         if value is not None:
-            return ExtractorResult(value, None)
+            return (value, None)
         return missing(descriptor, "header", descriptor.effective_name)

@@ -16,7 +16,6 @@ from starlette.responses import JSONResponse
 
 from ...responses import validation_error_response
 from ...utils import TypeConverter
-from ._base import ExtractorResult
 from ._missing import missing
 
 
@@ -77,5 +76,5 @@ cdef class QueryExtractor:
             )
 
         if isinstance(converted, JSONResponse):
-            return ExtractorResult(None, converted)
-        return ExtractorResult(converted, None)
+            return (None, converted)
+        return (converted, None)

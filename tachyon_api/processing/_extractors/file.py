@@ -2,7 +2,6 @@
 
 from ..compiler import ParamDescriptor
 from ...responses import validation_error_response
-from ._base import ExtractorResult
 from ._missing import missing
 
 
@@ -11,18 +10,17 @@ class FileExtractor:
 
     __slots__ = ()
 
-    def extract(self, descriptor: ParamDescriptor, form_data) -> ExtractorResult:
+    def extract(self, descriptor: ParamDescriptor, form_data):
+        """Returns `(value, error)` plain tuple."""
         name = descriptor.effective_name
         if name not in form_data:
             return missing(descriptor, "file", name)
 
         uploaded = form_data[name]
         if hasattr(uploaded, "filename"):
-            return ExtractorResult(uploaded, None)
+            return (uploaded, None)
 
         # Value is present but not a file — fall back to default or 422
         if descriptor.default is not ...:
-            return ExtractorResult(descriptor.default, None)
-        return ExtractorResult(
-            None, validation_error_response(f"Invalid file upload for: {name}")
-        )
+            return (descriptor.default, None)
+        return (None, validation_error_response(f"Invalid file upload for: {name}"))

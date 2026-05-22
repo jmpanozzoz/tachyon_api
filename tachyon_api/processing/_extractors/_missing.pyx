@@ -7,13 +7,13 @@ extractor.
 """
 
 from ...responses import validation_error_response
-from ._base import ExtractorResult
 
 
 def missing(descriptor, kind, name):
-    """Return the descriptor's default, or a 422 if no default is configured."""
+    """Return `(default, None)` if a default is set, otherwise `(None, 422-response)`.
+
+    Plain tuple — NamedTuple construction is too costly at request rates.
+    """
     if descriptor.default is not ...:
-        return ExtractorResult(descriptor.default, None)
-    return ExtractorResult(
-        None, validation_error_response(f"Missing required {kind}: {name}")
-    )
+        return (descriptor.default, None)
+    return (None, validation_error_response(f"Missing required {kind}: {name}"))
