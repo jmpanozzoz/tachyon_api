@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.2.991] — 2026-05-22
+
+**v1.2.9 Cython sprint — Phase 6/7: fix stale CLI test (suite now 367/367).**
+
+`test_new_creates_project_structure` had been red since the v1.2.81 sprint
+that added `validate_name` (hyphen → underscore normalisation, Python-keyword
+rejection).  The test still asserted on `Path(tmpdir) / "my-api"` while
+the CLI now creates `Path(tmpdir) / "my_api"` and prints a normalisation
+notice — the production code is correct, the test was outdated.
+
+### Fixed
+
+- `tests/test_cli.py::TestNewCommand::test_new_creates_project_structure`:
+  asserts the project lives at the normalised name (`my_api`) and that the
+  stdout shows both the input (`my-api`) and the normalised form
+  (`my_api`).
+
+### Result
+
+| | Before | After |
+|---|---:|---:|
+| Tests passing | 366/367 | **367/367** |
+| Tests failing | 1 | **0** |
+
+No production code changed in this phase — Phase 6 is purely a test fix.
+
+---
+
 ## [1.2.99] — 2026-05-22
 
 **v1.2.9 Cython sprint — Phase 5/7: Bearer header parser compiled.**
