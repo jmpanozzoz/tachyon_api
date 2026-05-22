@@ -9,48 +9,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] — v1.2.0
 
+### Added
+
+- **`di.py`** — `@injectable` accepts optional `scope` keyword: `"singleton"` *(default, unchanged)*, `"request"` *(one instance per HTTP request)*, `"transient"` *(new instance on every injection)*. Backward-compatible; bare `@injectable` still means singleton. Exports `SCOPE_SINGLETON`, `SCOPE_REQUEST`, `SCOPE_TRANSIENT`.
+- **`core/websocket.py`** — WebSocket handlers now support: typed path params (converted via `TypeConverter`; type mismatch closes with code 1008), `@injectable` class deps, and `Depends(callable)` per-connection factories. Param descriptors pre-computed at route registration — zero `inspect` overhead per connection.
+- **`openapi.py`** — `generate_route` generates correct schemas for: `response_model=List[Struct]` (array with `$ref`), `Body` with `List[Struct]`, `Form`/`File` params (`multipart/form-data` requestBody with `required` and `format: binary`).
+- **`middlewares/security_headers.py`** — New `SecurityHeadersMiddleware`: opt-in, injects `x-content-type-options`, `x-frame-options`, `referrer-policy`, `x-permitted-cross-domain-policies`. HSTS/CSP via constructor params.
+- **`testing.py`** — `create_client(app, ...)` promoted to framework public API (was only in `tests/helpers.py`). Accepts httpx kwargs: headers, cookies, auth, follow_redirects, timeout. `AsyncTachyonTestClient` gains the same kwargs.
+
 ### Security
 
-- **`files.py`** — `UploadFile` now subclasses Starlette's version and sanitizes `filename` at construction time: strips null bytes and directory components to prevent path traversal attacks.
-- **`responses.py`** — `response_validation_error_response` no longer echoes internal error details in the HTTP response body; details are logged at WARNING level only.
-- **`middlewares/cors.py`** — `CORSMiddleware` defaults changed to `allow_origins=()` and `allow_headers=()`; `allow_methods` defaults to explicit safe verbs instead of `"*"`. CORS is now opt-in — callers must list origins explicitly.
-- **`security.py`** — `APIKeyQuery` docstring warns that query-parameter tokens appear in server logs, browser history, and Referer headers.
-- **`middlewares/security_headers.py`** — New `SecurityHeadersMiddleware`: opt-in middleware that injects `x-content-type-options`, `x-frame-options`, `referrer-policy`, and `x-permitted-cross-domain-policies` on every HTTP response. HSTS and CSP available via constructor params.
-- **`processing/parameters.py`** — Path parameters containing null bytes (`\x00`) are rejected with 422 before type conversion.
+- **`files.py`** — `UploadFile` sanitizes `filename` at construction: strips null bytes and directory components to prevent path traversal.
+- **`responses.py`** — `response_validation_error_response` no longer echoes internal error details in the HTTP response body; logged at WARNING only.
+- **`middlewares/cors.py`** — Defaults changed to `allow_origins=()`, `allow_headers=()`, explicit `allow_methods`. CORS is now opt-in.
+- **`security.py`** — `APIKeyQuery` docstring warns tokens in query params appear in logs/history/Referer.
+- **`processing/parameters.py`** — Path params containing `\x00` (null bytes) rejected with 422.
 
 ### Fixed
 
-- **`background.py`** — `BackgroundTasks.run_tasks()` no longer swallows task exceptions silently; failures are logged at WARNING with full traceback (`exc_info=True`).
-- **`core/lifecycle.py`** — Startup handlers now raise `RuntimeError` on failure (with the original exception as cause), preventing the app from booting in a broken state. Shutdown handlers log failures at WARNING and continue processing remaining handlers.
-- **`cache.py`** — `RedisCacheBackend.clear()` now calls `flushdb()` (current DB only) instead of silently no-oping. Falls back to `flushall()` if `flushdb()` is unavailable.
-
-### Added
-
-- **`tachyon_api/testing.py`** — `create_client(app, ...)` async context manager promoted from `tests/helpers.py` to the framework's public testing module. Accepts all httpx kwargs (headers, cookies, auth, follow_redirects, timeout). `AsyncTachyonTestClient` gains the same explicit parameters for discoverability.
-- **`di.py`** — `@injectable` now accepts an optional `scope` keyword: `"singleton"` *(default, unchanged)*, `"request"` *(one instance per HTTP request, cached in per-request dependency_cache)*, `"transient"` *(new instance on every injection)*. Backward-compatible: bare `@injectable` still means singleton. Exports `SCOPE_SINGLETON`, `SCOPE_REQUEST`, `SCOPE_TRANSIENT` constants.
-- **`core/websocket.py`** — WebSocket handlers now support typed path params (converted via `TypeConverter` based on annotations; type mismatch closes with code 1008), `@injectable` class deps, and `Depends(callable)` per-connection factories. Param descriptors are pre-computed at route registration (zero `inspect` overhead per connection).
-- **`openapi.py`** — `generate_route` now generates correct OpenAPI for: `response_model=List[Struct]` (array schema with `$ref`), `Body` with `List[Struct]` (JSON requestBody), `Form` and `File` params (`multipart/form-data` requestBody with `required` fields and `format: binary` for files).
-
-### Fixed (continued)
-
-- **`security.py`** — `_APIKeyBase._get_raw()` is now a proper `@abstractmethod` (via `ABC`); direct instantiation of the base class is caught at class definition time instead of raising `NotImplementedError` at runtime.
-- **`openapi.py`** — `build_param_schema` now generates correct schemas for `datetime.datetime` (`string/date-time`), `datetime.date` (`string/date`), `uuid.UUID` (`string/uuid`), and `Enum` subclasses (emits `enum` array with inferred `string`/`integer` type).
-- **`cli/templates/service.py`** — `assert True` removed from generated test placeholder (replaced with `pass`); `# TODO:` markers replaced with plain guidance comments.
+- **`background.py`** — `BackgroundTasks.run_tasks()` logs failures at WARNING with traceback instead of silently swallowing them.
+- **`core/lifecycle.py`** — Startup handlers raise `RuntimeError` on failure; shutdown handlers log and continue remaining handlers.
+- **`cache.py`** — `RedisCacheBackend.clear()` calls `flushdb()` instead of no-op; falls back to `flushall()`.
+- **`security.py`** — `_APIKeyBase._get_raw()` is a proper `@abstractmethod` via `ABC`.
+- **`openapi.py`** — `build_param_schema` generates correct schemas for `datetime`, `date`, `uuid.UUID`, and `Enum` subclasses.
+- **`cli/templates/service.py`** — `assert True` replaced with `pass` in generated test placeholder; `# TODO:` markers replaced with descriptive comments.
 
 ### Performance
 
-- **`processing/response_processor.py`** — `msgspec.convert()` is skipped when `type(payload) is response_model`, avoiding a C-level conversion call for endpoints that already return the correct type.
-- **`processing/dependencies.py`** — Module-level `_SIG_CACHE` eliminates repeated `inspect.signature()` calls for `Depends(callable)` deps: O(1) dict lookup after the first resolution of each callable.
-- **`app.py`** — `isinstance(handler, _ASGIHandler)` → `type(handler) is _ASGIHandler` in the trie dispatch path (~5 ns per call).
+- **`processing/response_processor.py`** — Skips `msgspec.convert()` when `type(payload) is response_model`.
+- **`processing/dependencies.py`** — `_SIG_CACHE` eliminates `inspect.signature()` per-request for `Depends(callable)` and class deps.
+- **`app.py`** — `isinstance(handler, _ASGIHandler)` → `type(handler) is _ASGIHandler` in trie dispatch.
 
 ### Changed
 
-- **`app.py` / `processing/parameters.py`** — Default `max_body_size` reduced from 10 MB to 2 MB. Override via `Tachyon(max_body_size=...)`.
+- **`app.py` / `processing/parameters.py`** — Default `max_body_size` reduced 10 MB → 2 MB. Override via `Tachyon(max_body_size=...)`.
 
 ### Refactor
 
-- **`cli/utils.py`** (new): `validate_name(name, kind)` extracted from the duplicated implementations in `cli/commands/generate.py` and `cli/commands/new.py`.
-- **`processing/parameters.py`** — `_missing_param(p, kind, name)` helper consolidates 6 identical default/error-return patterns across `_process_query`, `_process_header`, `_process_cookie`, `_process_form`, `_process_file`, and `_process_path`.
+- **`cli/utils.py`** (new) — `validate_name(name, kind)` extracted from duplicated code in `generate.py` and `new.py`.
+- **`processing/parameters.py`** — `_missing_param(p, kind, name)` consolidates 6 repeated default/error patterns.
 
 ### Performance (F12b/F12)
 
