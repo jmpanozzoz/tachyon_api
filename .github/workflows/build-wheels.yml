@@ -23,15 +23,17 @@ jobs:
             arch: x86_64
           - os: ubuntu-latest
             arch: aarch64
-          # Both macOS architectures cross-compile from a single arm64 runner.
-          # The macos-13 (Intel) hosted pool stopped reliably allocating in
-          # May 2026 — jobs sat queued for hours.  Apple Silicon runners ship
-          # an SDK that targets both arm64 and x86_64, and cibuildwheel sets
-          # the right -target flags transparently.
+          # macOS is arm64-only.  Two attempts at x86_64 support failed:
+          # the `macos-13` (Intel) hosted runner pool stopped reliably
+          # allocating in May 2026, and cross-compiling x86_64 from a
+          # `macos-14` arm64 runner doesn't work — setuptools produces
+          # x86_64 binaries, but poetry-core's wheel packaging step doesn't
+          # honor `_PYTHON_HOST_PLATFORM` and tags the wheel with the host's
+          # arch (arm64), so `delocate-wheel --require-archs x86_64` aborts
+          # with "Failed to find any binary with the required architecture".
+          # macOS Intel users fall back to source build from sdist.
           - os: macos-14
             arch: arm64
-          - os: macos-14
-            arch: x86_64
           - os: windows-latest
             arch: AMD64
 

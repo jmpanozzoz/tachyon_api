@@ -16,24 +16,23 @@ The `[fast]` extra used to require a manual `python setup.py build_ext
 --inplace` step after install — quietly the biggest adoption barrier the
 framework had.  This release introduces a `cibuildwheel`-based pipeline
 that publishes prebuilt wheels for Linux (x86_64, aarch64), macOS
-(x86_64, arm64), and Windows (x86_64) on CPython 3.10–3.13.  Users on a
-matching platform get the 27 compiled `.so` modules automatically — no
-build tools, no flags, no extra command.  Users on an unmatched platform
-fall back to building from sdist (still works) or to the pure-Python
-runtime fallback (also still works).
+(arm64), and Windows (x86_64) on CPython 3.10–3.13 — 20 wheels per
+release.  Users on a matching platform get the 27 compiled `.so` modules
+automatically — no build tools, no flags, no extra command.  Users on
+macOS Intel or any other unmatched platform fall back to building from
+sdist (still works) or to the pure-Python runtime fallback (also still
+works).
 
 ### Added
 
 - `cibuildwheel` configuration in `pyproject.toml` covering CPython
-  3.10–3.13 on Linux x86_64+aarch64, macOS x86_64+arm64, and Windows
-  AMD64.  Skips PyPy, musllinux, free-threaded, and 32-bit targets.
+  3.10–3.13 on Linux x86_64+aarch64, macOS arm64, and Windows AMD64.
+  Skips PyPy, musllinux, free-threaded, and 32-bit targets.  macOS
+  Intel was attempted twice (native `macos-13` runner + arm64 cross-
+  compile) — see the workflow comment for why it was dropped.
 - `.github/workflows/build-wheels.yml`: matrix wheel build on tag `v*`
   and `workflow_dispatch`, uploading wheels + sdist as run artifacts.
   No PyPI auto-publish — owner runs `twine upload` from the artifact.
-  Both macOS architectures cross-compile from a single `macos-14`
-  (Apple Silicon) runner; the `macos-13` Intel hosted pool stopped
-  reliably allocating in May 2026 (jobs queued for hours), and Apple
-  Silicon's SDK supports both targets natively.
 - `setup.py` honors `TACHYON_SKIP_CYTHON=1` to force a pure-Python build
   even when Cython is importable.  Used by the CI fallback-verification
   job (`Tests (pure-Python fallback)`), which would otherwise compile

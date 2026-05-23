@@ -66,19 +66,19 @@ Benchmarked against **FastAPI 0.136.1 (Pydantic v2)** · 1 worker · 100 concurr
 ### Cython extensions: shipped precompiled
 
 `pip install tachyon-api` ships **prebuilt wheels with the 27 Cython
-extensions already compiled** for Linux (x86_64, aarch64), macOS (x86_64,
-arm64), and Windows (x86_64) on CPython 3.10–3.13. No manual build step.
+extensions already compiled** for Linux (x86_64, aarch64), macOS (arm64),
+and Windows (x86_64) on CPython 3.10–3.13. No manual build step.
 
 ```bash
 pip install tachyon-api      # compiled .so on supported platforms
 ```
 
-> **Source builds:** if you're on a platform without a published wheel, pip
-> falls back to the sdist and compiles the extensions from `.pyx`. That
-> path requires a C compiler and `pip install tachyon-api[fast]` (which
-> pulls in Cython). If compilation fails for any reason, the framework
-> still works — runtime falls back to the pure-Python siblings of every
-> `.pyx` module automatically.
+> **Source builds:** macOS Intel and any platform without a published
+> wheel pull the sdist and compile the extensions from `.pyx`. That path
+> requires a C compiler and `pip install tachyon-api[fast]` (which pulls
+> in Cython). If compilation fails for any reason, the framework still
+> works — runtime falls back to the pure-Python siblings of every `.pyx`
+> module automatically.
 
 #### What `[fast]` actually buys you (compiled vs pure-Python)
 
