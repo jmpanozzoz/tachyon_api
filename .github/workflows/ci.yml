@@ -28,6 +28,12 @@ jobs:
         with:
           python-version: "3.10"
       - name: Install package (no Cython compilation)
+        env:
+          # _build.py honors this and skips ext_modules even if Cython is
+          # available in the PEP 517 build env. Without it, build-system
+          # requires would pull Cython in and the editable install would
+          # compile .so files — defeating the purpose of this job.
+          TACHYON_SKIP_CYTHON: "1"
         run: |
           pip install --upgrade pip
           pip install -e .

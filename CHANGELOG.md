@@ -30,11 +30,10 @@ runtime fallback (also still works).
 - `.github/workflows/build-wheels.yml`: matrix wheel build on tag `v*`
   and `workflow_dispatch`, uploading wheels + sdist as run artifacts.
   No PyPI auto-publish — owner runs `twine upload` from the artifact.
-- `_build.py` build script invoked by poetry-core (via
-  `[tool.poetry.build] script = "_build.py"`) to inject Cython
-  extensions into the wheel build.  Named `_build.py` rather than
-  `build.py` to avoid shadowing the PEP 517 `build` frontend package
-  when running `python -m build` from the project root.
+- `setup.py` honors `TACHYON_SKIP_CYTHON=1` to force a pure-Python build
+  even when Cython is importable.  Used by the CI fallback-verification
+  job (`Tests (pure-Python fallback)`), which would otherwise compile
+  `.so` files now that Cython is in `[build-system].requires`.
 
 ### Changed
 
@@ -44,7 +43,11 @@ runtime fallback (also still works).
   recompilable from source.
 - `[build-system] requires` adds `setuptools>=61` and `cython>=3.0` so
   isolated PEP 517 builds (pip and cibuildwheel) have the toolchain
-  available.
+  available.  Poetry-core uses the project's existing `setup.py` rather
+  than generating its own (the documented behavior when `setup.py` is
+  present), so no `[tool.poetry.build]` script is needed.
+- `.github/workflows/ci.yml` `Tests (pure-Python fallback)` job sets
+  `TACHYON_SKIP_CYTHON=1` to preserve its "no `.so` files" invariant.
 - README install section: `pip install tachyon-api` is documented as the
   one-step install on supported platforms.  The "manual `build_ext`
   required" caveat is gone; the `[fast]` extra is now only relevant for

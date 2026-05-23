@@ -7,7 +7,6 @@ license = "GPL-3.0-or-later"
 readme = "README.md"
 include = [
     { path = "setup.py",                  format = ["sdist"] },
-    { path = "_build.py",                 format = ["sdist"] },
     { path = "MANIFEST.in",               format = ["sdist"] },
     { path = "tachyon_api/**/*.pyx",      format = ["sdist"] },
     { path = "tachyon_api/**/*.pxd",      format = ["sdist"] },
@@ -30,7 +29,13 @@ python-multipart = "^0.0.20"
 fast = ["cython"]
 
 [tool.poetry.build]
-script = "_build.py"
+# Required so poetry-core's wheel builder enters the build-extensions branch
+# (it short-circuits when no build_script is configured).  Since `setup.py`
+# already exists in the project root, poetry-core uses it as-is and runs
+# `python setup.py build` — see
+# poetry.core.masonry.builders.sdist.SdistBuilder.setup_py() and
+# poetry.core.masonry.builders.wheel.WheelBuilder._run_build_command().
+script = "setup.py"
 generate-setup-file = true
 
 [tool.poetry.group.dev.dependencies]
