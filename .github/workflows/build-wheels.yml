@@ -23,10 +23,15 @@ jobs:
             arch: x86_64
           - os: ubuntu-latest
             arch: aarch64
-          - os: macos-13
-            arch: x86_64
+          # Both macOS architectures cross-compile from a single arm64 runner.
+          # The macos-13 (Intel) hosted pool stopped reliably allocating in
+          # May 2026 — jobs sat queued for hours.  Apple Silicon runners ship
+          # an SDK that targets both arm64 and x86_64, and cibuildwheel sets
+          # the right -target flags transparently.
           - os: macos-14
             arch: arm64
+          - os: macos-14
+            arch: x86_64
           - os: windows-latest
             arch: AMD64
 

@@ -30,6 +30,10 @@ runtime fallback (also still works).
 - `.github/workflows/build-wheels.yml`: matrix wheel build on tag `v*`
   and `workflow_dispatch`, uploading wheels + sdist as run artifacts.
   No PyPI auto-publish — owner runs `twine upload` from the artifact.
+  Both macOS architectures cross-compile from a single `macos-14`
+  (Apple Silicon) runner; the `macos-13` Intel hosted pool stopped
+  reliably allocating in May 2026 (jobs queued for hours), and Apple
+  Silicon's SDK supports both targets natively.
 - `setup.py` honors `TACHYON_SKIP_CYTHON=1` to force a pure-Python build
   even when Cython is importable.  Used by the CI fallback-verification
   job (`Tests (pure-Python fallback)`), which would otherwise compile
