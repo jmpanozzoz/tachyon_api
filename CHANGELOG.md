@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [Unreleased]
+## [1.3.0] — 2026-05-27
 
 **Precompiled wheels: `pip install tachyon-api` now ships compiled Cython
 extensions out of the box on the supported matrix.**
