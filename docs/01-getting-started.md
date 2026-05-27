@@ -24,17 +24,17 @@ Tachyon instala automáticamente:
 - `msgspec` - Validación y serialización ultra-rápida
 - `orjson` - JSON encoding/decoding rápido
 
-### Optional: High-Performance Builds
+### Precompiled extensions
 
-For additional speed on the request hot path (radix trie + parameter processing compiled to C):
+`pip install tachyon-api` already ships **27 precompiled Cython extensions** for Linux (x86_64, aarch64), macOS (arm64), and Windows (x86_64) on CPython 3.10–3.13. No extra step required — the compiled hot path is active by default.
+
+On platforms without a published wheel (e.g. macOS Intel), `pip` builds from source. That path requires a C compiler and Cython:
 
 ```bash
-pip install tachyon-api[fast]          # installs cython
-python setup.py build_ext --inplace    # compile extensions
+pip install tachyon-api[fast]   # pulls in Cython for source builds
 ```
 
-Falls back to pure Python automatically when `.so` is not present — no code changes needed.
-The Cython extensions give ~11% improvement on the Python processing layer.
+If compilation fails for any reason, Tachyon falls back to pure Python automatically — no code changes needed. The Cython extensions add ~14% throughput on top of the already-fast pure-Python baseline.
 
 For production servers, also use:
 

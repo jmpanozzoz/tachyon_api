@@ -24,9 +24,10 @@ pip uninstall fastapi pydantic
 # Install Tachyon
 pip install tachyon-api
 
-# Optional: Cython extensions for ~11% extra speed
+# Cython extensions ship precompiled — no extra step on supported platforms
+# (Linux x86_64/aarch64, macOS arm64, Windows x86_64, CPython 3.10-3.13)
+# On other platforms, add [fast] to build from source:
 # pip install tachyon-api[fast]
-# python setup.py build_ext --inplace
 ```
 
 ---
@@ -414,8 +415,7 @@ Typical results after migrating from FastAPI:
 
 For maximum performance in production:
 ```bash
-pip install tachyon-api[fast]                          # Cython extensions
-python setup.py build_ext --inplace                    # compile
+pip install tachyon-api                                # precompiled extensions included
 uvicorn app:app --loop uvloop --http httptools          # fast server config
 ```
 
