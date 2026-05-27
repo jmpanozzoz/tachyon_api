@@ -45,7 +45,7 @@ tachyon run                 # uvloop + httptools + reload, served at :8000
 
 ## ⚡ Performance
 
-Benchmarked against **FastAPI 0.136.1 (Pydantic v2)** · 1 worker · 100 concurrent connections · uvloop + httptools · Cython extensions compiled
+Benchmarked against **FastAPI 0.136.1 (Pydantic v2)** · 1 worker · 100 concurrent connections · uvloop + httptools · precompiled Cython extensions (shipped by default — see below)
 
 | Scenario | FastAPI | Tachyon | Speedup |
 |---|---:|---:|---:|
@@ -63,27 +63,23 @@ Benchmarked against **FastAPI 0.136.1 (Pydantic v2)** · 1 worker · 100 concurr
 
 > Benchmark code in [`benchmark/`](./benchmark/). Run with `bash benchmark/run_benchmark.sh`.
 
-### Cython extensions: shipped precompiled
+### Precompiled wheels — zero setup
 
-`pip install tachyon-api` ships **prebuilt wheels with the 27 Cython
-extensions already compiled** for Linux (x86_64, aarch64), macOS (arm64),
-and Windows (x86_64) on CPython 3.10–3.13. No manual build step.
+`pip install tachyon-api` ships **prebuilt wheels with all 27 Cython extensions already compiled** for:
 
-```bash
-pip install tachyon-api      # compiled .so on supported platforms
-```
+| Platform | Architectures | CPython |
+|---|---|---|
+| Linux | x86_64, aarch64 | 3.10 · 3.11 · 3.12 · 3.13 |
+| macOS | arm64 (Apple Silicon) | 3.10 · 3.11 · 3.12 · 3.13 |
+| Windows | x86_64 | 3.10 · 3.11 · 3.12 · 3.13 |
 
-> **Source builds:** macOS Intel and any platform without a published
-> wheel pull the sdist and compile the extensions from `.pyx`. That path
-> requires a C compiler and `pip install tachyon-api[fast]` (which pulls
-> in Cython). If compilation fails for any reason, the framework still
-> works — runtime falls back to the pure-Python siblings of every `.pyx`
-> module automatically.
+No manual build step. No Cython required. The numbers above are what you get out of the box.
 
-#### What `[fast]` actually buys you (compiled vs pure-Python)
+> **Not on the list?** (macOS Intel, Alpine, etc.) `pip` falls back to the sdist and compiles from `.pyx` source — requires a C compiler and `pip install tachyon-api[fast]` (which pulls in Cython). If compilation fails, the framework still works: runtime falls back to the pure-Python siblings of every `.pyx` module automatically.
 
-Same code, same workload — the only difference is whether the 27 Cython `.so`
-extensions are loaded.  Measured on the same FastAPI benchmark scenarios:
+### Compiled vs pure-Python delta
+
+Same code, same workload — the only difference is whether the 27 Cython `.so` extensions are loaded:
 
 | Scenario | Compiled | Pure-Python | Δ |
 |---|---:|---:|---:|
@@ -97,15 +93,7 @@ extensions are loaded.  Measured on the same FastAPI benchmark scenarios:
 | Multiple query params | 34,111 req/s | 29,803 req/s | **+14.5%** |
 | **TOTAL** | **340,960 req/s** | **298,966 req/s** | **+14.0%** |
 
-The biggest wins concentrate on endpoints that do real framework work — DI
-resolution (+18.3%), path/query parsing (+17.9%), response model (+17.1%),
-and validation (+13–15%).  Hello-world barely moves (+3.9%) because the
-framework is already a tiny slice of that request — there's no overhead left
-to compress.
-
-DI-heavy or validation-heavy services benefit most. If you're running a
-thin proxy or your bottleneck is downstream I/O, the pure-Python fallback
-(used automatically when no wheel matches) is fine.
+The biggest wins concentrate on real framework work — DI resolution (+18.3%), path/query parsing (+17.9%), response model (+17.1%), and validation (+13–15%). Hello-world barely moves (+3.9%): the framework is already a tiny slice of that request.
 
 ### Why is Tachyon faster?
 
@@ -130,7 +118,7 @@ thin proxy or your bottleneck is downstream I/O, the pure-Python fallback
 | **DI** | `@injectable` (3 scopes: singleton / **request** / **transient**), `Depends()` (sync + async), circular dep detection |
 | **Security** | HTTPBearer, HTTPBasic, OAuth2, API Keys (Header / Query / Cookie), `SecurityHeadersMiddleware` (X-Frame-Options, CSP, HSTS, …) |
 | **Async** | Background Tasks (failures logged, not silenced), WebSockets with **typed path params + DI** |
-| **Performance** | orjson serialization, `@cache` decorator, endpoint pre-compilation, optional Cython hot-path |
+| **Performance** | orjson serialization, `@cache` decorator, endpoint pre-compilation, 27 precompiled Cython extensions (shipped by default) |
 | **Docs** | OpenAPI 3.0 (incl. `List[Struct]` arrays + `multipart/form-data`), Scalar UI, Swagger, ReDoc (XSS-safe HTML generation) |
 | **CLI** | Project scaffolding, code generation, linting, AI-agent skill installer |
 | **Testing** | `TachyonTestClient` (sync), `create_client()` (async, full httpx kwargs), `dependency_overrides` |
@@ -157,7 +145,7 @@ thin proxy or your bottleneck is downstream I/O, the pure-Python fallback
 | [Request Lifecycle](./docs/13-request-lifecycle.md) | How requests are processed |
 | [Migration from FastAPI](./docs/14-migration-fastapi.md) | Migration guide |
 | [Best Practices](./docs/15-best-practices.md) | Recommended patterns |
-| [Cython Build](./docs/16-cython-build.md) | Compiling `[fast]` extensions |
+| [Cython Build](./docs/16-cython-build.md) | Precompiled wheels, source builds, and the `.py`/`.pyx` fallback model |
 
 ---
 
@@ -440,6 +428,8 @@ Upcoming:
 - Response streaming
 - GraphQL support
 - Multi-worker benchmarks
+- Benchmark suite vs Litestar / BlackSheep / Robyn
+- SQLAlchemy async integration guide
 
 ---
 
