@@ -55,7 +55,7 @@ class CustomerResponse(Struct):
 
 class CustomerListResponse(Struct):
     """Paginated list of customers."""
-    
+
     customers: List[CustomerResponse]
     total: int
     page: int

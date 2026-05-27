@@ -42,7 +42,8 @@ async def test_500_response_validation_error_structure():
     data = response.json()
     assert data["success"] is False
     assert data.get("code") == "RESPONSE_VALIDATION_ERROR"
-    assert "Response validation error" in response.text
+    # v1.2.0: internal error details no longer leak to the client (logged at WARNING instead)
+    assert data["error"] == "Internal Server Error"
 
 
 @pytest.mark.asyncio

@@ -6,12 +6,23 @@ Build Cython extensions for the tachyon_api hot path.
 
 The compiled .so files are preferred over .py by Python's import system
 automatically. Falls back to pure Python when .so is not present.
+
+Set TACHYON_SKIP_CYTHON=1 in the environment to force a pure-Python build
+even when Cython is available (used by the CI fallback-verification job).
 """
+
+import os
 
 from setuptools import setup
 from setuptools.dist import Distribution
 
 try:
+    # Honor TACHYON_SKIP_CYTHON=1 → produce a pure-Python distribution even
+    # when Cython is importable.  Falls through to the same setup() call as
+    # the ImportError branch below.
+    if os.environ.get("TACHYON_SKIP_CYTHON") == "1":
+        raise ImportError("TACHYON_SKIP_CYTHON=1 — skipping Cython extensions")
+
     from Cython.Build import cythonize
     from setuptools import Extension
     import sys
@@ -55,6 +66,116 @@ try:
         Extension(
             "tachyon_api._server_fast",
             sources=["tachyon_api/_server_fast.pyx"],
+            extra_compile_args=extra_compile_args,
+        ),
+        # v1.2.91 — Phase 1: response classes as compiled .pyx (regular class,
+        # cdef class blocked by Starlette JSONResponse parent — see CHANGELOG).
+        Extension(
+            "tachyon_api.responses._json_response",
+            sources=["tachyon_api/responses/_json_response.pyx"],
+            extra_compile_args=extra_compile_args,
+        ),
+        Extension(
+            "tachyon_api.responses._bytes_response",
+            sources=["tachyon_api/responses/_bytes_response.pyx"],
+            extra_compile_args=extra_compile_args,
+        ),
+        Extension(
+            "tachyon_api.responses._internal_error",
+            sources=["tachyon_api/responses/_internal_error.pyx"],
+            extra_compile_args=extra_compile_args,
+        ),
+        # v1.2.92 — Phase 2: DI resolver pipeline as cdef class (no Python
+        # parent, so cdef class is viable here unlike Phase 1).
+        Extension(
+            "tachyon_api.processing.dependencies._override_lookup",
+            sources=["tachyon_api/processing/dependencies/_override_lookup.pyx"],
+            extra_compile_args=extra_compile_args,
+        ),
+        Extension(
+            "tachyon_api.processing.dependencies._scope_cache",
+            sources=["tachyon_api/processing/dependencies/_scope_cache.pyx"],
+            extra_compile_args=extra_compile_args,
+        ),
+        Extension(
+            "tachyon_api.processing.dependencies._circular_detector",
+            sources=["tachyon_api/processing/dependencies/_circular_detector.pyx"],
+            extra_compile_args=extra_compile_args,
+        ),
+        Extension(
+            "tachyon_api.processing.dependencies._class_factory",
+            sources=["tachyon_api/processing/dependencies/_class_factory.pyx"],
+            extra_compile_args=extra_compile_args,
+        ),
+        Extension(
+            "tachyon_api.processing.dependencies._resolver",
+            sources=["tachyon_api/processing/dependencies/_resolver.pyx"],
+            extra_compile_args=extra_compile_args,
+        ),
+        # v1.2.93 — Phase 3: ExceptionTable as cdef class.
+        Extension(
+            "tachyon_api.app._exception_table",
+            sources=["tachyon_api/app/_exception_table.pyx"],
+            extra_compile_args=extra_compile_args,
+        ),
+        # v1.2.94 — Phase 4a: easy extractors as cdef class.
+        # Used by the pure-Python `parameters.py` fallback today; Phase 4b
+        # will rewrite `parameters.pyx` to delegate to these too.
+        Extension(
+            "tachyon_api.processing._extractors._missing",
+            sources=["tachyon_api/processing/_extractors/_missing.pyx"],
+            extra_compile_args=extra_compile_args,
+        ),
+        Extension(
+            "tachyon_api.processing._extractors.header",
+            sources=["tachyon_api/processing/_extractors/header.pyx"],
+            extra_compile_args=extra_compile_args,
+        ),
+        Extension(
+            "tachyon_api.processing._extractors.cookie",
+            sources=["tachyon_api/processing/_extractors/cookie.pyx"],
+            extra_compile_args=extra_compile_args,
+        ),
+        Extension(
+            "tachyon_api.processing._extractors.query",
+            sources=["tachyon_api/processing/_extractors/query.pyx"],
+            extra_compile_args=extra_compile_args,
+        ),
+        Extension(
+            "tachyon_api.processing._extractors.path",
+            sources=["tachyon_api/processing/_extractors/path.pyx"],
+            extra_compile_args=extra_compile_args,
+        ),
+        # v1.2.98 — Phase 4c: remaining extractors as cdef class.
+        Extension(
+            "tachyon_api.processing._extractors.body_limit",
+            sources=["tachyon_api/processing/_extractors/body_limit.pyx"],
+            extra_compile_args=extra_compile_args,
+        ),
+        Extension(
+            "tachyon_api.processing._extractors.body",
+            sources=["tachyon_api/processing/_extractors/body.pyx"],
+            extra_compile_args=extra_compile_args,
+        ),
+        Extension(
+            "tachyon_api.processing._extractors.form",
+            sources=["tachyon_api/processing/_extractors/form.pyx"],
+            extra_compile_args=extra_compile_args,
+        ),
+        Extension(
+            "tachyon_api.processing._extractors.file",
+            sources=["tachyon_api/processing/_extractors/file.pyx"],
+            extra_compile_args=extra_compile_args,
+        ),
+        Extension(
+            "tachyon_api.processing._extractors.query_list",
+            sources=["tachyon_api/processing/_extractors/query_list.pyx"],
+            extra_compile_args=extra_compile_args,
+        ),
+        # v1.2.99 — Phase 5: Bearer header parser (lukewarm path).
+        Extension(
+            "tachyon_api.security._bearer_parser",
+            sources=["tachyon_api/security/_bearer_parser.pyx"],
             extra_compile_args=extra_compile_args,
         ),
     ]

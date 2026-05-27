@@ -17,7 +17,9 @@ _WS_DEP_CALLABLE = 3
 
 
 class WebSocketManager:
-    def __init__(self, router):
+    __slots__ = ("_router",)
+
+    def __init__(self, router) -> None:
         self._router = router
 
     def websocket_decorator(self, path: str):

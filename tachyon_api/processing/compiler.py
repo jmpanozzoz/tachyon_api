@@ -200,8 +200,16 @@ def _build_typed_descriptor(name: str, kind: str, ann: Any, marker: Any) -> Para
         effective_name = getattr(marker, "alias", None) or name
 
     decoder = None
-    if kind == KIND_BODY and isinstance(ann, type) and issubclass(ann, Struct):
-        decoder = msgspec.json.Decoder(ann)
+    if kind == KIND_BODY:
+        # msgspec supports Struct, List[Struct], Tuple[...], Optional[Struct],
+        # dict, primitives, etc.  We delegate the "is this decodable" decision
+        # to msgspec by trying to build a decoder — if the type is genuinely
+        # unsupported, msgspec raises and we leave decoder=None so the body
+        # extractor returns a 422 at request time.
+        try:
+            decoder = msgspec.json.Decoder(ann)
+        except Exception:
+            decoder = None
 
     return ParamDescriptor(
         name=name,

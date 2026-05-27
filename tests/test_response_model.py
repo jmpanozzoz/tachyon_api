@@ -43,7 +43,10 @@ def test_response_model_validation_error_returns_500():
     client = TestClient(app)
     resp = client.get("/broken")
     assert resp.status_code == 500
-    assert resp.json()["detail"].lower().startswith("response validation error")
+    body = resp.json()
+    # v1.2.0: internal error details no longer leak to the client
+    assert body["code"] == "RESPONSE_VALIDATION_ERROR"
+    assert body["error"] == "Internal Server Error"
 
 
 def test_response_object_bypasses_validation():

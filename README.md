@@ -1,9 +1,9 @@
 # 🚀 Tachyon API
 
-![Version](https://img.shields.io/badge/version-1.1.0-blue.svg)
+![Version](https://img.shields.io/badge/version-1.2.x-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.10+-brightgreen.svg)
 ![License](https://img.shields.io/badge/license-GPL--3.0-orange.svg)
-![Tests](https://img.shields.io/badge/tests-233%20passed-brightgreen.svg)
+![Tests](https://img.shields.io/badge/tests-370%20passed-brightgreen.svg)
 ![Status](https://img.shields.io/badge/status-stable-brightgreen.svg)
 
 **A lightweight, high-performance API framework for Python with the elegance of FastAPI and the speed of light.**
@@ -36,7 +36,7 @@ def search(q: str = Query(...), limit: int = Query(10)):
 
 ```bash
 pip install tachyon-api
-uvicorn app:app --reload
+tachyon run                 # uvloop + httptools + reload, served at :8000
 ```
 
 📖 **Docs:** http://localhost:8000/docs
@@ -45,37 +45,55 @@ uvicorn app:app --reload
 
 ## ⚡ Performance
 
-Benchmarked against **FastAPI 0.136.1 (Pydantic v2)** · 1 worker · 100 concurrent connections · uvloop + httptools · Cython extensions compiled
+Benchmarked against **FastAPI 0.136.1 (Pydantic v2)** · 1 worker · 100 concurrent connections · uvloop + httptools · precompiled Cython extensions (shipped by default — see below)
 
 | Scenario | FastAPI | Tachyon | Speedup |
 |---|---:|---:|---:|
-| Hello World | 10,378 req/s | **49,521 req/s** | **4.77x** |
-| Path + query params | 7,294 req/s | **37,991 req/s** | **5.21x** |
-| Body validation (Struct) | 8,533 req/s | **41,507 req/s** | **4.86x** |
-| Nested body (complex Struct) | 8,205 req/s | **40,816 req/s** | **4.97x** |
-| Response model serialization | 6,766 req/s | **47,777 req/s** | **7.06x** |
-| Header param + auth | 8,705 req/s | **46,013 req/s** | **5.29x** |
-| Dependency injection | 6,491 req/s | **46,940 req/s** | **7.23x** |
-| Multiple query params | 6,325 req/s | **34,481 req/s** | **5.45x** |
-| **Total throughput** | **62,697 req/s** | **345,046 req/s** | **5.50x** |
+| Hello World | 10,314 req/s | **49,755 req/s** | **4.82x** |
+| Path + query params | 7,166 req/s | **37,598 req/s** | **5.25x** |
+| Body validation (Struct) | 8,371 req/s | **40,916 req/s** | **4.89x** |
+| Nested body (complex Struct) | 8,027 req/s | **39,994 req/s** | **4.98x** |
+| Response model serialization | 6,343 req/s | **47,561 req/s** | **7.50x** |
+| Header param + auth | 8,701 req/s | **45,415 req/s** | **5.22x** |
+| Dependency injection | 6,449 req/s | **45,610 req/s** | **7.07x** |
+| Multiple query params | 6,264 req/s | **34,111 req/s** | **5.45x** |
+| **Total throughput** | **61,635 req/s** | **340,960 req/s** | **5.53x** |
 
 **Latency:** ~2.3ms (Tachyon) vs ~13ms (FastAPI) on average.
 
 > Benchmark code in [`benchmark/`](./benchmark/). Run with `bash benchmark/run_benchmark.sh`.
 
-### Optional: Cython compilation
+### Precompiled wheels — zero setup
 
-Install with Cython extensions for additional speedup on the request hot path:
+`pip install tachyon-api` ships **prebuilt wheels with all 27 Cython extensions already compiled** for:
 
-```bash
-pip install tachyon-api[fast]          # installs cython dependency
-python setup.py build_ext --inplace    # compile extensions (required step)
-```
+| Platform | Architectures | CPython |
+|---|---|---|
+| Linux | x86_64, aarch64 | 3.10 · 3.11 · 3.12 · 3.13 |
+| macOS | arm64 (Apple Silicon) | 3.10 · 3.11 · 3.12 · 3.13 |
+| Windows | x86_64 | 3.10 · 3.11 · 3.12 · 3.13 |
 
-> **Note:** `pip install tachyon-api[fast]` installs the `cython` package but does **not**
-> auto-compile the extensions. Run `python setup.py build_ext --inplace` manually after install.
-> Falls back to pure Python automatically when `.so` is not present — no code changes needed.
-> Numbers above reflect the compiled version (~11% faster Python hot path).
+No manual build step. No Cython required. The numbers above are what you get out of the box.
+
+> **Not on the list?** (macOS Intel, Alpine, etc.) `pip` falls back to the sdist and compiles from `.pyx` source — requires a C compiler and `pip install tachyon-api[fast]` (which pulls in Cython). If compilation fails, the framework still works: runtime falls back to the pure-Python siblings of every `.pyx` module automatically.
+
+### Compiled vs pure-Python delta
+
+Same code, same workload — the only difference is whether the 27 Cython `.so` extensions are loaded:
+
+| Scenario | Compiled | Pure-Python | Δ |
+|---|---:|---:|---:|
+| Hello World | 49,755 req/s | 47,899 req/s | +3.9% |
+| Path + query params | 37,598 req/s | 31,901 req/s | **+17.9%** |
+| Body — simple Struct | 40,916 req/s | 35,623 req/s | **+14.9%** |
+| Body — nested Struct | 39,994 req/s | 35,204 req/s | **+13.6%** |
+| Response model | 47,561 req/s | 40,604 req/s | **+17.1%** |
+| Header param + auth | 45,415 req/s | 39,380 req/s | **+15.3%** |
+| **Dependency injection** | 45,610 req/s | 38,552 req/s | **+18.3%** |
+| Multiple query params | 34,111 req/s | 29,803 req/s | **+14.5%** |
+| **TOTAL** | **340,960 req/s** | **298,966 req/s** | **+14.0%** |
+
+The biggest wins concentrate on real framework work — DI resolution (+18.3%), path/query parsing (+17.9%), response model (+17.1%), and validation (+13–15%). Hello-world barely moves (+3.9%): the framework is already a tiny slice of that request.
 
 ### Why is Tachyon faster?
 
@@ -95,15 +113,16 @@ python setup.py build_ext --inplace    # compile extensions (required step)
 | Category | Features |
 |----------|----------|
 | **Core** | Decorators API, Routers, Middlewares, ASGI compatible |
-| **Parameters** | Path, Query, Body, Header, Cookie, Form, File (all with `alias=`) |
-| **Validation** | msgspec Struct (ultra-fast), automatic 422 errors, body size limit |
-| **DI** | `@injectable` (implicit), `Depends()` (explicit), circular dep detection |
-| **Security** | HTTPBearer, HTTPBasic, OAuth2, API Keys |
-| **Async** | Background Tasks, WebSockets |
-| **Performance** | orjson serialization, `@cache` decorator, endpoint pre-compilation |
-| **Docs** | OpenAPI 3.0, Scalar UI, Swagger, ReDoc (XSS-safe HTML generation) |
-| **CLI** | Project scaffolding, code generation, linting |
-| **Testing** | `TachyonTestClient`, `dependency_overrides` |
+| **Parameters** | Path, Query, Body (incl. `Body(List[Struct])`), Header, Cookie, Form, File (all with `alias=`) |
+| **Validation** | msgspec Struct (ultra-fast), automatic 422 errors, configurable body size limit (default 2 MB) |
+| **DI** | `@injectable` (3 scopes: singleton / **request** / **transient**), `Depends()` (sync + async), circular dep detection |
+| **Security** | HTTPBearer, HTTPBasic, OAuth2, API Keys (Header / Query / Cookie), `SecurityHeadersMiddleware` (X-Frame-Options, CSP, HSTS, …) |
+| **Async** | Background Tasks (failures logged, not silenced), WebSockets with **typed path params + DI** |
+| **Performance** | orjson serialization, `@cache` decorator, endpoint pre-compilation, 27 precompiled Cython extensions (shipped by default) |
+| **Docs** | OpenAPI 3.0 (incl. `List[Struct]` arrays + `multipart/form-data`), Scalar UI, Swagger, ReDoc (XSS-safe HTML generation) |
+| **CLI** | Project scaffolding, code generation, linting, AI-agent skill installer |
+| **Testing** | `TachyonTestClient` (sync), `create_client()` (async, full httpx kwargs), `dependency_overrides` |
+| **Architecture** | Atomic SRP modules across `app/`, `processing/`, `responses/`, `openapi/`, `security/` — 27 compiled to `.so` for the hot path (v1.2.x refactor + v1.2.9 Cython sprint) |
 
 ---
 
@@ -126,6 +145,7 @@ python setup.py build_ext --inplace    # compile extensions (required step)
 | [Request Lifecycle](./docs/13-request-lifecycle.md) | How requests are processed |
 | [Migration from FastAPI](./docs/14-migration-fastapi.md) | Migration guide |
 | [Best Practices](./docs/15-best-practices.md) | Recommended patterns |
+| [Cython Build](./docs/16-cython-build.md) | Precompiled wheels, source builds, and the `.py`/`.pyx` fallback model |
 
 ---
 
@@ -136,16 +156,19 @@ A complete example demonstrating all Tachyon features is available in [`example/
 ```bash
 cd example
 pip install -r requirements.txt
-uvicorn example.app:app --reload
+tachyon run example.app:app
 ```
 
-The KYC Demo implements:
-- 🔐 JWT Authentication
-- 👤 Customer CRUD
+The KYC Demo exercises every v1.2.x feature:
+- 🔐 JWT Authentication + API Keys
+- 👤 Customer CRUD + bulk endpoint (`Body(List[Struct])`)
 - 📋 KYC Verification with Background Tasks
-- 📁 Document Uploads
-- 🌐 WebSocket Notifications
-- 🧪 12 Tests with Mocks
+- 📁 Document Uploads (`multipart/form-data`)
+- 🌐 WebSocket — legacy plain-string + modern DI-injected with `room_id: uuid.UUID`
+- 💉 DI scopes — `singleton` (services), `request` (correlation context), `transient` (ID generator)
+- 🛡️ Security headers + opt-in CORS allow-list
+- 🚨 Custom exception handler for the `KYCException` hierarchy
+- 🧪 17 tests (`pytest example/tests/`), including async tests via `create_client`
 
 **Demo credentials:** `demo@example.com` / `demo123`
 
@@ -164,19 +187,71 @@ The KYC Demo implements:
 
 ---
 
+## 🏛️ Architecture
+
+Tachyon's request hot path is a thin chain of composed collaborators — every
+piece is single-responsibility and ready for Cython compilation:
+
+```
+client
+  │
+  ├─→ Tachyon.__call__ (ASGI entry — sets scope["app"])
+  │     │
+  │     ├─→ ASGIEntry         lazy build of HTTP app
+  │     │
+  │     ├─→ HTTPDispatcher    HTTP → trie  ·  WS/lifespan → Starlette
+  │     │
+  │     ├─→ MiddlewareStack   user-registered middlewares (CORS, Security…)
+  │     │
+  │     └─→ TachyonDispatcher (Cython cdef)  ← radix trie match O(k)
+  │           │
+  │           ├─→ _ASGIHandler (no-param fast path, 2 sends only)
+  │           │
+  │           └─→ handler closure
+  │                 ├─→ ParameterPipeline → 8 atomic extractors
+  │                 │     (body / query / query-list / header / cookie / form / file / path)
+  │                 ├─→ DependencyResolver → OverrideLookup / ScopeCache /
+  │                 │                        ClassFactory / CallableFactory
+  │                 ├─→ ResponseProcessor (msgspec encode if Struct)
+  │                 └─→ ExceptionTable (walks subclass handlers)
+  │
+  └─→ TachyonJSONResponse | TachyonBytesResponse | _InternalErrorResponse
+        (pre-built ASGI dicts, zero extra allocations per response)
+```
+
+The v1.2.x SRP refactor decomposed the monolithic hot path into atomic modules
+with `__slots__` and full type hints — direct `cdef class` candidates.  The
+v1.2.9 Cython sprint then compiled 27 of them to `.so`, keeping every `.py`
+sibling as a transparent fallback (Python prefers `.so` automatically).
+
+👉 [Full architecture documentation](./docs/02-architecture.md)
+
+---
+
 ## 💉 Dependency Injection
 
 ```python
 from tachyon_api import injectable, Depends
 
-@injectable
-class UserService:
-    def get_user(self, id: str):
-        return {"id": id}
+@injectable                       # singleton (default) — one per app
+class DB:
+    def __init__(self):
+        self.pool = "..."
+
+@injectable(scope="request")      # one per HTTP request
+class RequestContext:
+    def __init__(self):
+        import uuid
+        self.correlation_id = str(uuid.uuid4())
+
+@injectable(scope="transient")    # new instance every time it's injected
+class IdGenerator:
+    def __init__(self):
+        self._seq = 0
 
 @app.get("/users/{id}")
-def get_user(id: str, service: UserService = Depends()):
-    return service.get_user(id)
+def get_user(id: str, db: DB = Depends(), ctx: RequestContext = Depends()):
+    return {"id": id, "trace": ctx.correlation_id}
 ```
 
 👉 [Full DI documentation](./docs/03-dependency-injection.md)
@@ -217,11 +292,22 @@ def notify(background_tasks: BackgroundTasks):
 ## 🌐 WebSockets
 
 ```python
-@app.websocket("/ws")
-async def websocket(ws):
-    await ws.accept()
-    data = await ws.receive_text()
-    await ws.send_text(f"Echo: {data}")
+import uuid
+from tachyon_api import injectable, Depends
+
+@injectable
+class RoomBroadcaster:
+    async def join(self, ws, room_key: str): ...
+
+@app.websocket("/ws/rooms/{room_id}")           # typed UUID path param
+async def room(
+    websocket,
+    room_id: uuid.UUID,                          # auto-converted; 1008 on mismatch
+    broadcaster: RoomBroadcaster = Depends(),    # @injectable DI in WS
+):
+    await broadcaster.join(websocket, str(room_id))
+    while True:
+        await websocket.send_json({"room": str(room_id)})
 ```
 
 👉 [Full WebSockets documentation](./docs/10-websockets.md)
@@ -272,12 +358,23 @@ Installs knowledge about `Body()` requirement, `Struct` vs BaseModel, DI pattern
 ## 🧪 Testing
 
 ```python
+# Sync — Starlette TestClient compatible
 from tachyon_api.testing import TachyonTestClient
 
 def test_hello():
     client = TachyonTestClient(app)
-    response = client.get("/")
-    assert response.status_code == 200
+    assert client.get("/").status_code == 200
+
+
+# Async — httpx.AsyncClient over ASGI transport
+import pytest
+from tachyon_api.testing import create_client
+
+@pytest.mark.asyncio
+async def test_hello_async():
+    async with create_client(app, headers={"X-Trace": "abc"}) as client:
+        response = await client.get("/")
+        assert response.status_code == 200
 ```
 
 ```bash
@@ -292,8 +389,8 @@ pytest tests/ -v
 
 | Feature | Tachyon | FastAPI |
 |---------|---------|---------|
-| **Throughput** | ~336k req/s total | ~60k req/s total |
-| **Latency** | ~2.1ms avg | ~14ms avg |
+| **Throughput** | ~341k req/s total | ~62k req/s total |
+| **Latency** | ~2.3ms avg | ~14ms avg |
 | **Routing** | Radix trie O(k) | Regex scan O(N) |
 | **Serialization** | msgspec + orjson | Pydantic v2 |
 | **Request compilation** | Once at startup | Per request |
@@ -331,6 +428,8 @@ Upcoming:
 - Response streaming
 - GraphQL support
 - Multi-worker benchmarks
+- Benchmark suite vs Litestar / BlackSheep / Robyn
+- SQLAlchemy async integration guide
 
 ---
 

@@ -564,13 +564,13 @@ def test_app_get_instance_returns_none_if_not_registered():
 
 
 def test_app_setup_docs_idempotent():
-    """Cover `if self._docs_setup: return` — _setup_docs called twice should not duplicate routes."""
+    """DocsRoutes.setup() called twice should not duplicate routes."""
     from tachyon_api import Tachyon
 
     app = Tachyon()
-    app._setup_docs()  # first call
+    app._docs_routes.setup()  # first call
     routes_after_first = len(app.routes)
-    app._setup_docs()  # second call — should return early
+    app._docs_routes.setup()  # second call — should return early
     assert len(app.routes) == routes_after_first  # no duplicate routes
 
 

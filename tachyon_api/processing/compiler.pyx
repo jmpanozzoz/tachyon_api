@@ -14,7 +14,7 @@ import msgspec
 from ..params import Body, Query, Path, Header, Cookie, Form, File
 from ..models import Struct
 from ..background import BackgroundTasks
-from ..di import Depends, _registry
+from ..di import Depends, _registry, _scopes, SCOPE_SINGLETON
 from ..utils import TypeUtils
 
 # Integer kind constants — same values as compiler.py (pure Python fallback)
@@ -112,7 +112,20 @@ cdef class CompiledEndpoint:
         self.params           = params
         self.has_params       = bool(params)
         self.param_count      = len(params)
-        self.has_callable_deps = any((<ParamDescriptor>p).kind == KIND_DEP_CALLABLE for p in params)
+        # Allocate dependency_cache at request time iff any param needs it:
+        #   • KIND_DEP_CALLABLE (Depends(callable)) — always per-request
+        #   • KIND_DEP_CLASS with non-singleton scope — request- or transient-scoped
+        # MUST mirror compiler.py exactly — v1.2.85 / pre-v1.3.0 audit incident:
+        # missing the scope check here silently breaks non-singleton class DI in
+        # compiled mode while pure-Python users are unaffected.
+        self.has_callable_deps = any(
+            (<ParamDescriptor>p).kind == KIND_DEP_CALLABLE
+            or (
+                (<ParamDescriptor>p).kind == KIND_DEP_CLASS
+                and _scopes.get((<ParamDescriptor>p).annotation, SCOPE_SINGLETON) != SCOPE_SINGLETON
+            )
+            for p in params
+        )
         self.has_path_params  = any((<ParamDescriptor>p).kind in (KIND_PATH, KIND_PATH_IMPLICIT) for p in params)
 
 
@@ -190,8 +203,12 @@ cdef _build_typed_descriptor(str name, int kind, object ann, object marker):
         effective_name = getattr(marker, "alias", None) or name
 
     decoder = None
-    if kind == KIND_BODY and isinstance(ann, type) and issubclass(ann, Struct):
-        decoder = msgspec.json.Decoder(ann)
+    if kind == KIND_BODY:
+        # See compiler.py for rationale — try msgspec, accept any decodable type.
+        try:
+            decoder = msgspec.json.Decoder(ann)
+        except Exception:
+            decoder = None
 
     return ParamDescriptor(
         name=name, kind=kind, annotation=ann, marker=marker,
