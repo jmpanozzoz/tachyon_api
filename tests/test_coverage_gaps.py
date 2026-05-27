@@ -987,7 +987,7 @@ def test_cache_async_backend_set_failure_logged(caplog):
 
     import asyncio
     with caplog.at_level(logging.WARNING):
-        result = asyncio.get_event_loop().run_until_complete(afn())
+        result = asyncio.run(afn())
     assert result == 42  # still returns despite set failure
 
 
