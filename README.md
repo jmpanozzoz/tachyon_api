@@ -63,19 +63,22 @@ Benchmarked against **FastAPI 0.136.1 (Pydantic v2)** · 1 worker · 100 concurr
 
 > Benchmark code in [`benchmark/`](./benchmark/). Run with `bash benchmark/run_benchmark.sh`.
 
-### Optional: Cython compilation
+### Cython extensions: shipped precompiled
 
-Install with Cython extensions for additional speedup on the request hot path:
+`pip install tachyon-api` ships **prebuilt wheels with the 27 Cython
+extensions already compiled** for Linux (x86_64, aarch64), macOS (arm64),
+and Windows (x86_64) on CPython 3.10–3.13. No manual build step.
 
 ```bash
-pip install tachyon-api[fast]          # installs cython dependency
-python setup.py build_ext --inplace    # compile extensions (required step)
+pip install tachyon-api      # compiled .so on supported platforms
 ```
 
-> **Note:** `pip install tachyon-api[fast]` installs the `cython` package but does **not**
-> auto-compile the extensions. Run `python setup.py build_ext --inplace` manually after install.
-> Falls back to pure Python automatically when `.so` is not present — no code changes needed.
-> Numbers above reflect the compiled version.
+> **Source builds:** macOS Intel and any platform without a published
+> wheel pull the sdist and compile the extensions from `.pyx`. That path
+> requires a C compiler and `pip install tachyon-api[fast]` (which pulls
+> in Cython). If compilation fails for any reason, the framework still
+> works — runtime falls back to the pure-Python siblings of every `.pyx`
+> module automatically.
 
 #### What `[fast]` actually buys you (compiled vs pure-Python)
 
@@ -100,9 +103,9 @@ and validation (+13–15%).  Hello-world barely moves (+3.9%) because the
 framework is already a tiny slice of that request — there's no overhead left
 to compress.
 
-If you're shipping APIs with DI, validation, and response models, the `[fast]`
-extra is worth the extra `build_ext` step.  If you're running a thin proxy or
-your bottleneck is downstream I/O, the pure-Python fallback is fine.
+DI-heavy or validation-heavy services benefit most. If you're running a
+thin proxy or your bottleneck is downstream I/O, the pure-Python fallback
+(used automatically when no wheel matches) is fine.
 
 ### Why is Tachyon faster?
 

@@ -7,6 +7,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased]
+
+**Precompiled wheels: `pip install tachyon-api` now ships compiled Cython
+extensions out of the box on the supported matrix.**
+
+The `[fast]` extra used to require a manual `python setup.py build_ext
+--inplace` step after install — quietly the biggest adoption barrier the
+framework had.  This release introduces a `cibuildwheel`-based pipeline
+that publishes prebuilt wheels for Linux (x86_64, aarch64), macOS
+(arm64), and Windows (x86_64) on CPython 3.10–3.13 — 20 wheels per
+release.  Users on a matching platform get the 27 compiled `.so` modules
+automatically — no build tools, no flags, no extra command.  Users on
+macOS Intel or any other unmatched platform fall back to building from
+sdist (still works) or to the pure-Python runtime fallback (also still
+works).
+
+### Added
+
+- `cibuildwheel` configuration in `pyproject.toml` covering CPython
+  3.10–3.13 on Linux x86_64+aarch64, macOS arm64, and Windows AMD64.
+  Skips PyPy, musllinux, free-threaded, and 32-bit targets.  macOS
+  Intel was attempted twice (native `macos-13` runner + arm64 cross-
+  compile) — see the workflow comment for why it was dropped.
+- `.github/workflows/build-wheels.yml`: matrix wheel build on tag `v*`
+  and `workflow_dispatch`, uploading wheels + sdist as run artifacts.
+  No PyPI auto-publish — owner runs `twine upload` from the artifact.
+- `setup.py` honors `TACHYON_SKIP_CYTHON=1` to force a pure-Python build
+  even when Cython is importable.  Used by the CI fallback-verification
+  job (`Tests (pure-Python fallback)`), which would otherwise compile
+  `.so` files now that Cython is in `[build-system].requires`.
+
+### Changed
+
+- `pyproject.toml` `[tool.poetry.include]` now ships every `.pyx` and
+  `.pxd` under `tachyon_api/` in the sdist (was 5 explicit entries; the
+  build declares 27 extensions).  Sdist builds are now actually
+  recompilable from source.
+- `[build-system] requires` adds `setuptools>=61` and `cython>=3.0` so
+  isolated PEP 517 builds (pip and cibuildwheel) have the toolchain
+  available.  Poetry-core uses the project's existing `setup.py` rather
+  than generating its own (the documented behavior when `setup.py` is
+  present), so no `[tool.poetry.build]` script is needed.
+- `.github/workflows/ci.yml` `Tests (pure-Python fallback)` job sets
+  `TACHYON_SKIP_CYTHON=1` to preserve its "no `.so` files" invariant.
+- README install section: `pip install tachyon-api` is documented as the
+  one-step install on supported platforms.  The "manual `build_ext`
+  required" caveat is gone; the `[fast]` extra is now only relevant for
+  source builds on unsupported platforms.
+
+---
+
 ## [1.2.993] — 2026-05-22
 
 **Pre-v1.3.0 audit fixes: silent DI scope divergence in compiled mode + query

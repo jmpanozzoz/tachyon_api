@@ -6,12 +6,23 @@ Build Cython extensions for the tachyon_api hot path.
 
 The compiled .so files are preferred over .py by Python's import system
 automatically. Falls back to pure Python when .so is not present.
+
+Set TACHYON_SKIP_CYTHON=1 in the environment to force a pure-Python build
+even when Cython is available (used by the CI fallback-verification job).
 """
+
+import os
 
 from setuptools import setup
 from setuptools.dist import Distribution
 
 try:
+    # Honor TACHYON_SKIP_CYTHON=1 → produce a pure-Python distribution even
+    # when Cython is importable.  Falls through to the same setup() call as
+    # the ImportError branch below.
+    if os.environ.get("TACHYON_SKIP_CYTHON") == "1":
+        raise ImportError("TACHYON_SKIP_CYTHON=1 — skipping Cython extensions")
+
     from Cython.Build import cythonize
     from setuptools import Extension
     import sys

@@ -6,13 +6,10 @@ authors = ["Juan Manuel Panozzo Zénere <jm.panozzozenere@gmail.com>"]
 license = "GPL-3.0-or-later"
 readme = "README.md"
 include = [
-    { path = "setup.py",                                    format = ["sdist"] },
-    { path = "MANIFEST.in",                                 format = ["sdist"] },
-    { path = "tachyon_api/routing/trie.pyx",                format = ["sdist"] },
-    { path = "tachyon_api/processing/compiler.pyx",         format = ["sdist"] },
-    { path = "tachyon_api/processing/parameters.pyx",       format = ["sdist"] },
-    { path = "tachyon_api/processing/response_processor.pyx", format = ["sdist"] },
-    { path = "tachyon_api/_server_fast.pyx",                  format = ["sdist"] },
+    { path = "setup.py",                  format = ["sdist"] },
+    { path = "MANIFEST.in",               format = ["sdist"] },
+    { path = "tachyon_api/**/*.pyx",      format = ["sdist"] },
+    { path = "tachyon_api/**/*.pxd",      format = ["sdist"] },
 ]
 
 [tool.poetry.dependencies]
@@ -26,9 +23,20 @@ orjson = "^3.11.1"
 python-multipart = "^0.0.20"
 
 [tool.poetry.extras]
-# Note: pip install tachyon-api[fast] installs cython but does NOT auto-compile.
-# Run `python setup.py build_ext --inplace` manually after install.
+# Precompiled wheels published to PyPI already include the Cython extensions
+# as `.so` files. This extra is only useful when building from sdist on a
+# platform without a published wheel — pip will then compile from .pyx.
 fast = ["cython"]
+
+[tool.poetry.build]
+# Required so poetry-core's wheel builder enters the build-extensions branch
+# (it short-circuits when no build_script is configured).  Since `setup.py`
+# already exists in the project root, poetry-core uses it as-is and runs
+# `python setup.py build` — see
+# poetry.core.masonry.builders.sdist.SdistBuilder.setup_py() and
+# poetry.core.masonry.builders.wheel.WheelBuilder._run_build_command().
+script = "setup.py"
+generate-setup-file = true
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.4.1"
@@ -43,5 +51,25 @@ pydantic = "^2.13.4"
 tachyon = "tachyon_api.cli:app"
 
 [build-system]
-requires = ["poetry-core"]
+requires = ["poetry-core>=1.5.0", "setuptools>=61", "cython>=3.0"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.cibuildwheel]
+build = ["cp310-*", "cp311-*", "cp312-*", "cp313-*"]
+# Skip alternative interpreters/libcs:
+# - pp*    : PyPy (Cython generates CPython-API code; would need cffi rewrite)
+# - *-musllinux_* : Alpine; not in the supported matrix for v1
+# - *t-*   : free-threaded CPython (Cython 3 still maturing GIL-less support)
+# - *-win32, *_i686 : 32-bit; nobody serves prod from a 32-bit host
+skip = ["pp*", "*-musllinux_*", "*t-*", "*-win32", "*_i686"]
+build-frontend = "build"
+test-command = "python -c \"import tachyon_api; from tachyon_api.routing.trie import RadixTrie; from tachyon_api.processing.compiler import compile_endpoint; print('tachyon-api wheel smoke test OK')\""
+
+[tool.cibuildwheel.linux]
+archs = ["x86_64", "aarch64"]
+
+[tool.cibuildwheel.macos]
+archs = ["arm64"]
+
+[tool.cibuildwheel.windows]
+archs = ["AMD64"]

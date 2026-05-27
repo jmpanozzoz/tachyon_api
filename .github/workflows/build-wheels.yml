@@ -1,0 +1,114 @@
+name: Build wheels
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "setup.py"
+      - "pyproject.toml"
+      - ".github/workflows/build-wheels.yml"
+
+jobs:
+  build_wheels:
+    name: ${{ matrix.os }} · ${{ matrix.arch }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            arch: x86_64
+          - os: ubuntu-latest
+            arch: aarch64
+          # macOS is arm64-only.  Two attempts at x86_64 support failed:
+          # the `macos-13` (Intel) hosted runner pool stopped reliably
+          # allocating in May 2026, and cross-compiling x86_64 from a
+          # `macos-14` arm64 runner doesn't work — setuptools produces
+          # x86_64 binaries, but poetry-core's wheel packaging step doesn't
+          # honor `_PYTHON_HOST_PLATFORM` and tags the wheel with the host's
+          # arch (arm64), so `delocate-wheel --require-archs x86_64` aborts
+          # with "Failed to find any binary with the required architecture".
+          # macOS Intel users fall back to source build from sdist.
+          - os: macos-14
+            arch: arm64
+          - os: windows-latest
+            arch: AMD64
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up QEMU (Linux aarch64 cross-build)
+        if: matrix.os == 'ubuntu-latest' && matrix.arch == 'aarch64'
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
+      - name: Build wheels
+        uses: pypa/cibuildwheel@v2.21.3
+        env:
+          CIBW_ARCHS: ${{ matrix.arch }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-${{ matrix.os }}-${{ matrix.arch }}
+          path: wheelhouse/*.whl
+          if-no-files-found: error
+
+  build_sdist:
+    name: Build sdist
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install build frontend
+        run: pip install --upgrade pip build
+
+      - name: Build sdist
+        run: python -m build --sdist
+
+      - name: Verify sdist contains .pyx sources
+        run: |
+          set -euo pipefail
+          tarball=$(ls dist/*.tar.gz)
+          echo "Inspecting $tarball"
+          pyx_count=$(tar -tzf "$tarball" | grep -c '\.pyx$' || true)
+          echo "Found $pyx_count .pyx files in sdist"
+          if [ "$pyx_count" -lt 27 ]; then
+            echo "::error::Expected ≥27 .pyx files in sdist, found $pyx_count"
+            tar -tzf "$tarball" | grep '\.pyx$' || true
+            exit 1
+          fi
+          # setup.py must ship so sdist is recompilable
+          tar -tzf "$tarball" | grep -E '(^|/)setup\.py$' >/dev/null || { echo "::error::setup.py missing from sdist"; exit 1; }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sdist
+          path: dist/*.tar.gz
+          if-no-files-found: error
+
+  collect:
+    name: Collect dist/
+    needs: [build_wheels, build_sdist]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: List artifacts
+        run: ls -la dist/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-all
+          path: dist/*
+          if-no-files-found: error
