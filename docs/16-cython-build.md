@@ -1,104 +1,138 @@
 # 16. Cython Build
 
-> When and how to compile Tachyon's `[fast]` extensions.
+> How Tachyon ships compiled extensions, and what to do when no prebuilt wheel is available for your platform.
 
 ## TL;DR
 
 ```bash
-pip install tachyon-api[fast]              # installs cython
-python setup.py build_ext --inplace        # compile .pyx → .so
+pip install tachyon-api   # precompiled .so on supported platforms — nothing else needed
 ```
 
-That's it.  Python's import system automatically prefers the compiled `.so`
-modules over their `.py` siblings.  If you skip compilation (or the `.so`
-files aren't present), Tachyon transparently falls back to the pure-Python
-implementations.
+Tachyon's hot path is implemented in both pure Python (`.py`) and Cython (`.pyx`). Published wheels include the compiled `.so` binaries. Python's import system automatically prefers `.so` over `.py`, so the compiled path is active by default with no configuration required.
 
 ---
 
-## Why compile?
+## Supported wheel platforms
+
+| Platform | Architectures | CPython |
+|---|---|---|
+| Linux | x86_64, aarch64 | 3.10 · 3.11 · 3.12 · 3.13 |
+| macOS | arm64 (Apple Silicon) | 3.10 · 3.11 · 3.12 · 3.13 |
+| Windows | x86_64 | 3.10 · 3.11 · 3.12 · 3.13 |
+
+20 wheels are published per release (4 Python versions × 5 platform legs).
+
+---
+
+## Why are extensions compiled?
 
 Tachyon's hot path is dual-implemented: every `.pyx` (Cython) module has a
-matching `.py` (pure Python) version that produces identical output.  At
-runtime, **whichever wins the import takes precedence** — the compiled `.so`
-if compiled, otherwise the pure-Python `.py`.
+matching `.py` (pure Python) sibling that produces identical output. At
+runtime, whichever wins the import takes precedence — the compiled `.so`
+if present, otherwise the `.py` fallback.
 
-| Mode | When it runs | Throughput |
-|---|---|---|
-| **Pure Python** *(no compilation)* | Development, CI without `[fast]`, environments without a C toolchain | Baseline (~5x FastAPI on the published benchmarks) |
-| **Compiled Cython** *(`[fast]` + `build_ext --inplace`)* | Production with toolchain | +5–11% on the hot path, larger gains on parameter-heavy endpoints |
+| Mode | Throughput delta |
+|---|---|
+| **Pure Python** | Baseline — still ~5x faster than FastAPI |
+| **Compiled Cython** | +14% total; up to +18% on DI-heavy endpoints |
 
-The published benchmarks in the main README are run **with** Cython compiled.
-The numbers in `benchmark/profile_hotpath.py` cycle around **1.05 µs FULL
-HANDLER** in compiled mode, **~1.20 µs** in pure-Python mode (~13% slower).
+The benchmark numbers in the README are measured with the compiled path, which is what `pip install tachyon-api` gives you on supported platforms.
 
 ---
 
-## What gets compiled
+## What gets compiled (27 modules)
 
-The setup builds these extensions (see `setup.py` for the canonical list):
-
-| Source | Compiled extension | Role |
-|---|---|---|
-| `routing/trie.pyx` | `routing/trie.cpython-*.so` | Radix trie router (O(k) path match) |
-| `processing/compiler.pyx` | `processing/compiler.cpython-*.so` | Endpoint pre-compilation (`ParamDescriptor`, `CompiledEndpoint`) |
-| `processing/parameters.pyx` | `processing/parameters.cpython-*.so` | `ParameterProcessor` runtime extraction |
-| `processing/response_processor.pyx` | `processing/response_processor.cpython-*.so` | Response encoding + validation |
-| `processing/scope.pyx` | `processing/scope.cpython-*.so` | `TachyonScope` (lazy Starlette Request) |
-| `processing/dispatch.pyx` | `processing/dispatch.cpython-*.so` | `TachyonDispatcher` (cdef class) |
-| `_server_fast.pyx` | `_server_fast.cpython-*.so` | Direct `transport.write()` for HTTP/1.1 |
-
-Everything else is pure Python (no `.pyx` counterpart).
+| Module | Role |
+|---|---|
+| `routing/trie` | Radix trie router — O(k) path match |
+| `processing/compiler` | Endpoint pre-compilation (`CompiledEndpoint`, `ParamDescriptor`) |
+| `processing/parameters` | `ParameterPipeline` orchestrator |
+| `processing/response_processor` | Response encoding + validation |
+| `processing/scope` | `TachyonScope` (lazy Starlette Request) |
+| `processing/dispatch` | `TachyonDispatcher` (`cdef class`) |
+| `processing/dependencies/_override_lookup` | DI override resolution |
+| `processing/dependencies/_scope_cache` | Per-scope instance cache |
+| `processing/dependencies/_circular_detector` | Circular dependency guard |
+| `processing/dependencies/_class_factory` | `@injectable` class instantiation |
+| `processing/dependencies/_resolver` | Full DI resolver pipeline |
+| `processing/_extractors/_missing` | Missing-param sentinel |
+| `processing/_extractors/header` | Header extraction |
+| `processing/_extractors/cookie` | Cookie extraction |
+| `processing/_extractors/query` | Single query param extraction |
+| `processing/_extractors/query_list` | List query param extraction |
+| `processing/_extractors/path` | Path param extraction + type conversion |
+| `processing/_extractors/body` | Body extraction + msgspec decode |
+| `processing/_extractors/body_limit` | Body size limiter |
+| `processing/_extractors/form` | Form data extraction |
+| `processing/_extractors/file` | File upload extraction |
+| `responses/_json_response` | `TachyonJSONResponse` |
+| `responses/_bytes_response` | `TachyonBytesResponse` |
+| `responses/_internal_error` | `_InternalErrorResponse` |
+| `app/_exception_table` | Exception handler table |
+| `security/_bearer_parser` | Bearer token header parser |
+| `_server_fast` | Direct `transport.write()` for HTTP/1.1 |
 
 ---
 
-## Step-by-step
+## Source builds (no wheel for your platform)
 
-### 1. Install Cython
+If `pip install tachyon-api` falls back to the sdist (no matching wheel), it
+will attempt to compile the extensions from the `.pyx` sources. This requires:
+
+1. A C compiler (`gcc` on Linux, `clang` via Xcode Command Line Tools on macOS)
+2. Cython — install via the `[fast]` extra:
 
 ```bash
-pip install tachyon-api[fast]
+pip install tachyon-api[fast]   # pulls in cython>=3.0
 ```
 
-This adds `cython>=3.0` to your environment.  The extras label is purely a
-convenience for declaring the optional dependency — `pip install` does NOT
-trigger compilation by itself.
+If Cython is present in the build environment when installing from sdist, the
+extensions are compiled automatically. If it's absent or compilation fails,
+`pip` installs a pure-Python wheel and logs a warning — the framework still
+works, just without the +14% Cython boost.
 
-### 2. Compile in place
+---
+
+## Verifying which path is active
+
+```python
+import tachyon_api.routing.trie as trie
+print(trie.__file__)
+# compiled:    .../tachyon_api/routing/trie.cpython-312-darwin.so
+# pure Python: .../tachyon_api/routing/trie.py
+```
+
+---
+
+## Development: compiling in-place
+
+For contributors working on the `.pyx` sources:
 
 ```bash
+pip install cython>=3.0
 python setup.py build_ext --inplace
 ```
 
-This invokes `cythonize()` on every `.pyx` listed in `setup.py`, compiles
-the generated `.c` into a platform-specific `.so`, and copies the `.so` next
-to the `.py` source.
+After editing a `.pyx` file:
 
-Output looks like:
-
-```
-copying build/.../tachyon_api/routing/trie.cpython-310-darwin.so       -> tachyon_api/routing
-copying build/.../tachyon_api/processing/compiler.cpython-310-darwin.so -> tachyon_api/processing
-copying build/.../tachyon_api/processing/parameters.cpython-310-darwin.so -> tachyon_api/processing
-...
+```bash
+python setup.py build_ext --inplace --force   # force re-cythonize
 ```
 
-### 3. Verify
+To test the pure-Python fallback path:
 
-```python
->>> from tachyon_api.processing import parameters
->>> parameters.__file__
-'.../tachyon_api/processing/parameters.cpython-310-darwin.so'
+```bash
+find tachyon_api -name "*.cpython-*.so" -delete
+pytest tests/ -q   # should pass identically
 ```
 
-If you see `.py` instead of `.so`, the compiled version wasn't built or
-isn't on the import path.
+Tachyon CI runs both modes (compiled + pure-Python) on every PR to guard against drift between the `.py` and `.pyx` implementations.
 
 ---
 
 ## Compiler flags
 
-`setup.py` ships with these defaults:
+`setup.py` applies these defaults to all extensions:
 
 ```python
 extra_compile_args = ["-O2"]
@@ -118,78 +152,35 @@ cythonize(
 )
 ```
 
-The flags trade safety for speed — `boundscheck=False` disables bounds
-checking on indexed access, `cdivision=True` uses C division semantics, etc.
-These are safe in Tachyon's own hot path (verified by the test suite) but
-relaxing them isn't recommended for user-written `.pyx` modules without
-careful review.
-
----
-
-## Falling back to pure Python
-
-Just delete (or don't compile) the `.so` files.  Python's import system
-re-resolves to the `.py` sibling:
-
-```bash
-find tachyon_api -name "*.cpython-*.so" -delete
-python -c "from tachyon_api.processing import parameters; print(parameters.__file__)"
-# .../tachyon_api/processing/parameters.py
-```
-
-You can run the entire test suite in both modes — it should pass identically
-in both cases:
-
-```bash
-# Compiled
-python setup.py build_ext --inplace
-pytest tests/ -q
-
-# Pure Python
-find tachyon_api -name "*.cpython-*.so" -delete
-pytest tests/ -q
-```
-
-The Tachyon CI runs both flavors to guard against drift between the `.py` and
-`.pyx` implementations.
+These trade safety checks for speed. They are safe in Tachyon's own hot path (verified by the 370-test suite in both compiled and pure-Python mode), but are not recommended for user-written `.pyx` modules without review.
 
 ---
 
 ## Troubleshooting
 
-### `error: command 'clang' failed with exit status 1` (macOS)
-
-Install Xcode Command Line Tools:
+### `error: command 'clang' failed` (macOS)
 
 ```bash
 xcode-select --install
 ```
 
-### Compiled `.so` not picked up
+### Compiled `.so` not picked up after in-place build
 
-- Run `python -c "import sys; print(sys.path)"` and confirm the `.so` is on
-  an importable path.
-- Make sure the `.so` matches your Python version: the filename includes
-  `cpython-310` (or `311`, `312`, …); compiling against the wrong Python
-  produces a `.so` Python silently ignores.
-
-### Rebuilding after editing a `.pyx`
+Confirm the `.so` matches your Python version — the filename includes
+`cpython-310` (or `311`, `312`, …). A `.so` compiled against the wrong
+Python is silently ignored:
 
 ```bash
-python setup.py build_ext --inplace --force
+python -c "import sys; print(sys.version_info)"
+ls tachyon_api/routing/trie*.so
 ```
 
-`--force` re-cythonizes even if the source timestamp hasn't changed.
+### `TACHYON_SKIP_CYTHON=1`
 
----
+Set this environment variable to force a pure-Python install even when Cython
+is available in the build environment. Used internally by CI to verify the
+pure-Python fallback path:
 
-## Roadmap: v1.2.9 Cython sprint
-
-The v1.2.x SRP refactor (PRs #35 – #41) decomposed the framework into 63
-single-responsibility modules with `__slots__` and full type hints — every
-hot-path class is now a direct `cdef class` candidate.
-
-The v1.2.84 audit (next sub-version) will produce a prioritized list of
-modules to compile in v1.2.9, ordered by impact (µs saved per request).
-Current projection: ~0.85 µs FULL HANDLER target, ~7x over FastAPI
-(vs ~1.05 µs / ~5.5x today).
+```bash
+TACHYON_SKIP_CYTHON=1 pip install -e .
+```
