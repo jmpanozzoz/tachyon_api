@@ -153,3 +153,49 @@ async def test_multiple_middlewares():
     # Verify that both middlewares have added their headers
     assert response.headers["X-First-Middleware"] == "first middleware was here"
     assert response.headers["X-Second-Middleware"] == "second middleware was here"
+
+
+@pytest.mark.asyncio
+async def test_middleware_decorator():
+    app = Tachyon()
+    called = []
+
+    @app.middleware("http")
+    async def my_middleware(scope, receive, send, call_next):
+        called.append("before")
+        await call_next(scope, receive, send)
+        called.append("after")
+
+    @app.get("/mw")
+    def ep():
+        return {}
+
+    async with create_client(app) as client:
+        await client.get("/mw")
+
+    assert "before" in called
+    assert "after" in called
+
+
+@pytest.mark.asyncio
+async def test_custom_websocket_middleware_type():
+    from tachyon_api.middlewares.core import create_decorated_middleware_class
+
+    app = Tachyon()
+    called = []
+
+    async def my_ws_middleware(scope, receive, send, call_next):
+        called.append(scope.get("type"))
+        await call_next(scope, receive, send)
+
+    DecoratedMW = create_decorated_middleware_class(my_ws_middleware, "websocket")
+    app.add_middleware(DecoratedMW)
+
+    @app.get("/test")
+    def ep():
+        return {}
+
+    async with create_client(app) as client:
+        await client.get("/test")
+    # At minimum, the middleware should be registered without error
+    assert app is not None

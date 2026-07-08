@@ -4,6 +4,7 @@ Tests for Tachyon CLI.
 
 import tempfile
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 from typer.testing import CliRunner
 
 from tachyon_api.cli import app
@@ -219,3 +220,90 @@ class TestOpenAPICommand:
 
             assert result.exit_code == 1
             assert "missing" in result.stdout.lower()
+
+
+class TestCLILintExtended:
+    def test_lint_check_with_fix_flag(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            (Path(tmpdir) / "t.py").write_text("x=1\n")
+            with patch("tachyon_api.cli.commands.lint.subprocess.run") as mock_run:
+                mock_run.return_value = MagicMock(returncode=0)
+                with patch("tachyon_api.cli.commands.lint._check_ruff_installed", return_value=True):
+                    result = runner.invoke(app, ["lint", "check", tmpdir, "--fix"])
+            assert result.exit_code == 0
+
+    def test_lint_check_ruff_not_installed(self):
+        with patch("tachyon_api.cli.commands.lint._check_ruff_installed", return_value=False):
+            result = runner.invoke(app, ["lint", "check", "."])
+        assert result.exit_code == 1
+        assert "ruff" in result.stdout.lower()
+
+    def test_lint_fix_command(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            (Path(tmpdir) / "t.py").write_text("x=1\n")
+            with patch("tachyon_api.cli.commands.lint.subprocess.run") as mock_run:
+                mock_run.return_value = MagicMock(returncode=0)
+                with patch("tachyon_api.cli.commands.lint._check_ruff_installed", return_value=True):
+                    result = runner.invoke(app, ["lint", "fix", tmpdir])
+            assert result.exit_code == 0
+
+    def test_lint_format_command(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            (Path(tmpdir) / "t.py").write_text("x=1\n")
+            with patch("tachyon_api.cli.commands.lint.subprocess.run") as mock_run:
+                mock_run.return_value = MagicMock(returncode=0)
+                with patch("tachyon_api.cli.commands.lint._check_ruff_installed", return_value=True):
+                    result = runner.invoke(app, ["lint", "format", tmpdir])
+            assert result.exit_code == 0
+
+    def test_lint_format_check_only(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with patch("tachyon_api.cli.commands.lint.subprocess.run") as mock_run:
+                mock_run.return_value = MagicMock(returncode=0)
+                with patch("tachyon_api.cli.commands.lint._check_ruff_installed", return_value=True):
+                    result = runner.invoke(app, ["lint", "format", tmpdir, "--check"])
+            assert result.exit_code == 0
+
+    def test_lint_all_command(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with patch("tachyon_api.cli.commands.lint.subprocess.run") as mock_run:
+                mock_run.return_value = MagicMock(returncode=0)
+                with patch("tachyon_api.cli.commands.lint._check_ruff_installed", return_value=True):
+                    result = runner.invoke(app, ["lint", "all", tmpdir])
+            assert result.exit_code == 0
+
+    def test_lint_all_with_issues(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with patch("tachyon_api.cli.commands.lint.subprocess.run") as mock_run:
+                mock_run.return_value = MagicMock(returncode=1)
+                with patch("tachyon_api.cli.commands.lint._check_ruff_installed", return_value=True):
+                    result = runner.invoke(app, ["lint", "all", tmpdir])
+            assert result.exit_code == 1
+
+
+class TestCLIOpenAPIExtended:
+    def test_openapi_export_invalid_format(self):
+        result = runner.invoke(app, ["openapi", "export", "not-valid-format"])
+        assert result.exit_code == 1
+        assert "Invalid" in result.stdout
+
+    def test_openapi_export_module_not_found(self):
+        result = runner.invoke(app, ["openapi", "export", "nonexistent_module:app"])
+        assert result.exit_code == 1
+        assert "not found" in result.stdout.lower()
+
+    def test_openapi_export_attribute_not_found(self):
+        result = runner.invoke(app, ["openapi", "export", "os:nonexistent_attr"])
+        assert result.exit_code == 1
+        assert "not found" in result.stdout.lower()
+
+    def test_openapi_validate_missing_file(self):
+        result = runner.invoke(app, ["openapi", "validate", "/nonexistent/schema.json"])
+        assert result.exit_code == 1
+
+    def test_openapi_validate_invalid_json(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            f = Path(tmpdir) / "bad.json"
+            f.write_text("not valid json {{{")
+            result = runner.invoke(app, ["openapi", "validate", str(f)])
+        assert result.exit_code == 1

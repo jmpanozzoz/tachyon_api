@@ -275,3 +275,85 @@ def test_openapi_html_escapes_special_chars_in_url():
     assert "<script>alert(1)</script>" not in swagger_html
     assert "<script>alert(1)</script>" not in redoc_html
     assert "<script>alert(1)</script>" not in scalar_html
+
+
+class TestOpenAPISchemaEdgeCases:
+    def test_optional_type_gets_nullable(self):
+        from tachyon_api.openapi import _schema_for_python_type
+        from typing import Optional
+        schema = _schema_for_python_type(Optional[int], {}, set())
+        assert schema.get("nullable") is True
+
+    def test_already_visited_struct_returns_ref(self):
+        from tachyon_api.openapi import _schema_for_python_type
+        from tachyon_api.models import Struct
+
+        class MyModel(Struct):
+            x: int
+
+        visited = {MyModel}
+        schema = _schema_for_python_type(MyModel, {}, visited)
+        assert schema == {"$ref": "#/components/schemas/MyModel"}
+
+    def test_generate_route_with_depends_skips_param(self):
+        from tachyon_api import Tachyon, Depends
+        from tachyon_api.di import injectable
+
+        @injectable
+        class Svc:
+            pass
+
+        app = Tachyon()
+
+        @app.get("/test")
+        def ep(svc: Svc = Depends()):
+            return {}
+
+        schema = app.openapi_generator.get_openapi_schema()
+        # The svc param should NOT appear in the OpenAPI parameters
+        ep_schema = schema["paths"].get("/test", {}).get("get", {})
+        params = ep_schema.get("parameters", [])
+        param_names = [p["name"] for p in params]
+        assert "svc" not in param_names
+
+    def test_openapi_tags_list_in_generate_route(self):
+        from tachyon_api import Tachyon
+        app = Tachyon()
+
+        @app.get("/tagged", tags=["alpha", "beta"])
+        def ep():
+            return {}
+
+        schema = app.openapi_generator.get_openapi_schema()
+        op = schema["paths"]["/tagged"]["get"]
+        assert "alpha" in op["tags"]
+        assert "beta" in op["tags"]
+
+
+@pytest.mark.asyncio
+async def test_openapi_includes_422_and_500_error_responses():
+    from tachyon_api import Query
+
+    app = Tachyon()
+
+    @app.get("/items")
+    def items(q: str = Query(...)):
+        return {"q": q}
+
+    async with create_client(app) as client:
+        schema = (await client.get("/openapi.json")).json()
+
+    op = schema["paths"]["/items"]["get"]
+
+    assert "422" in op["responses"], "422 response must be present"
+    r422 = op["responses"]["422"]["content"]["application/json"]["schema"]
+    assert r422["$ref"].endswith("#/components/schemas/ValidationErrorResponse")
+
+    assert "500" in op["responses"], "500 response must be present"
+    r500 = op["responses"]["500"]["content"]["application/json"]["schema"]
+    assert r500["$ref"].endswith("#/components/schemas/ResponseValidationError")
+
+    # Components must include the referenced schemas
+    comps = schema["components"]["schemas"]
+    assert "ValidationErrorResponse" in comps
+    assert "ResponseValidationError" in comps

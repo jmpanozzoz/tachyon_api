@@ -55,3 +55,23 @@ async def test_logger_middleware_basic_logging():
     assert headers_lines, "Expected request headers to be logged"
     assert "authorization" in headers_lines[-1]
     assert "<redacted>" in headers_lines[-1]
+
+
+@pytest.mark.asyncio
+async def test_logger_middleware_with_body_logging():
+    from tachyon_api import Struct, Body
+
+    app = Tachyon()
+    app.add_middleware(LoggerMiddleware, log_request_body=True)
+
+    class Payload(Struct):
+        msg: str
+
+    @app.post("/data")
+    def ep(data: Payload = Body()):
+        return {"got": data.msg}
+
+    async with create_client(app) as client:
+        r = await client.post("/data", json={"msg": "hello"})
+
+    assert r.status_code == 200
