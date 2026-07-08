@@ -17,7 +17,6 @@ cdef class TachyonScope:
     cdef public object _scope
     cdef public object _receive
     cdef public object _send
-    cdef object _path_params
     cdef object _body
     cdef object _query_params
     cdef object _headers
@@ -25,13 +24,10 @@ cdef class TachyonScope:
     cdef object _form_data
     cdef object _request
 
-    def __init__(self, scope, receive, send, path_params):
+    def __init__(self, scope, receive, send):
         self._scope = scope
         self._receive = receive
         self._send = send
-        # F6: path_params comes straight from the trie match — the dispatcher no
-        # longer stores it into `scope`.  as_request() mirrors it lazily.
-        self._path_params = path_params
         self._body = None
         self._query_params = None
         self._headers = None
@@ -41,7 +37,7 @@ cdef class TachyonScope:
 
     @property
     def path_params(self):
-        return self._path_params
+        return self._scope["path_params"]
 
     @property
     def query_params(self):
@@ -92,8 +88,5 @@ cdef class TachyonScope:
 
     def as_request(self):
         if self._request is None:
-            # Mirror path_params into scope so Starlette's Request.path_params
-            # sees them — the dispatcher skips this write on the hot path.
-            self._scope["path_params"] = self._path_params
             self._request = Request(self._scope, self._receive, self._send)
         return self._request

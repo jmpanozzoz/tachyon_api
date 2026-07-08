@@ -66,14 +66,14 @@ class TachyonDispatcher:
             return
 
         # _FOUND
-        # F6: no `scope["path_params"] = ...` write here — the no-param fast
-        # path never reads it, and TachyonScope receives it directly below.
+        scope["path_params"] = path_params
+
         if type(handler) is self._asgi_handler_class:
             await handler.fn(scope, receive, send)
         else:
             from .scope import TachyonScope
             from ..responses import TachyonBytesResponse, TachyonJSONResponse
-            ts = TachyonScope(scope, receive, send, path_params)
+            ts = TachyonScope(scope, receive, send)
             response = await handler(ts)
             # F12a: bypass response.__call__ coroutine (~0.05µs saved)
             if type(response) is TachyonBytesResponse or type(response) is TachyonJSONResponse:
