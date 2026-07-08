@@ -56,9 +56,9 @@ def install_skill(
             existing = target.read_text()
             if "Tachyon API — Project Context" not in existing:
                 target.write_text(existing.rstrip() + "\n\n---\n\n" + claude_md_snippet())
-                typer.secho(f"  📄 Appended Tachyon section to CLAUDE.md  (Claude Code)", fg=typer.colors.GREEN)
+                typer.secho("  📄 Appended Tachyon section to CLAUDE.md  (Claude Code)", fg=typer.colors.GREEN)
             else:
-                typer.secho(f"  ✓ CLAUDE.md already contains Tachyon context", fg=typer.colors.BRIGHT_BLACK)
+                typer.secho("  ✓ CLAUDE.md already contains Tachyon context", fg=typer.colors.BRIGHT_BLACK)
         else:
             _write(target, claude_md_snippet(), "CLAUDE.md  (Claude Code)")
 
@@ -83,7 +83,7 @@ def install_skill(
             "AGENTS.md  (Codex / Aider / generic agents)",
         )
 
-    typer.echo(f"\n✅ Done! The AI context files teach your assistant:\n")
+    typer.echo("\n✅ Done! The AI context files teach your assistant:\n")
     typer.secho("   • Tachyon syntax and key differences from FastAPI", fg=typer.colors.CYAN)
     typer.secho("   • Body() requirement, Struct usage, DI patterns", fg=typer.colors.CYAN)
     typer.secho("   • CLI commands (tachyon run, generate, routes, ...)", fg=typer.colors.CYAN)
