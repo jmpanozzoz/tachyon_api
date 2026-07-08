@@ -62,34 +62,6 @@ def auth_headers(auth_token):
     return {"Authorization": f"Bearer {auth_token}"}
 
 
-@pytest.fixture
-def admin_token():
-    """
-    Generate a JWT token for admin user.
-    """
-    payload = {
-        "sub": "admin_user_001",
-        "email": "admin@example.com",
-        "role": "admin",
-        "exp": datetime.utcnow() + timedelta(hours=1),
-        "iat": datetime.utcnow(),
-    }
-    
-    return jwt.encode(
-        payload,
-        settings.secret_key,
-        algorithm=settings.jwt_algorithm,
-    )
-
-
-@pytest.fixture
-def admin_headers(admin_token):
-    """
-    Generate authorization headers for admin.
-    """
-    return {"Authorization": f"Bearer {admin_token}"}
-
-
 @pytest.fixture(autouse=True)
 def clean_state():
     """

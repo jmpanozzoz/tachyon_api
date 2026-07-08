@@ -11,7 +11,7 @@ import uuid
 
 from tachyon_api import injectable
 
-from .customers_dto import CustomerCreate, CustomerUpdate, CustomerResponse, AddressDTO
+from .customers_dto import CustomerCreate, CustomerResponse, AddressDTO
 
 
 # Mock database
@@ -95,33 +95,6 @@ class CustomersRepository:
         
         return [self._to_response(c) for c in customers], total
     
-    def update(
-        self,
-        customer_id: str,
-        data: CustomerUpdate,
-    ) -> Optional[CustomerResponse]:
-        """Update a customer."""
-        customer = _customers_db.get(customer_id)
-        
-        if not customer:
-            return None
-        
-        # Update fields if provided
-        if data.first_name is not None:
-            customer["first_name"] = data.first_name
-        if data.last_name is not None:
-            customer["last_name"] = data.last_name
-        if data.phone is not None:
-            customer["phone"] = data.phone
-        if data.date_of_birth is not None:
-            customer["date_of_birth"] = data.date_of_birth
-        if data.address is not None:
-            customer["address"] = data.address
-        
-        customer["updated_at"] = datetime.utcnow().isoformat()
-        
-        return self._to_response(customer)
-    
     def update_kyc_status(
         self,
         customer_id: str,
@@ -137,13 +110,6 @@ class CustomersRepository:
         customer["updated_at"] = datetime.utcnow().isoformat()
         
         return self._to_response(customer)
-    
-    def delete(self, customer_id: str) -> bool:
-        """Delete a customer."""
-        if customer_id in _customers_db:
-            del _customers_db[customer_id]
-            return True
-        return False
     
     def _to_response(self, customer: dict) -> CustomerResponse:
         """Convert database record to response DTO."""

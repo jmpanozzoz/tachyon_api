@@ -10,7 +10,6 @@ from ...shared.exceptions import CustomerNotFoundError
 from .customers_repository import CustomersRepository
 from .customers_dto import (
     CustomerCreate,
-    CustomerUpdate,
     CustomerResponse,
     CustomerListResponse,
 )
@@ -78,22 +77,3 @@ class CustomersService:
             limit=limit,
         )
     
-    def update_customer(
-        self,
-        customer_id: str,
-        data: CustomerUpdate,
-    ) -> CustomerResponse:
-        """Update customer information."""
-        customer = self.repository.update(customer_id, data)
-        
-        if not customer:
-            raise CustomerNotFoundError(customer_id)
-        
-        return customer
-    
-    def delete_customer(self, customer_id: str) -> bool:
-        """Delete a customer profile."""
-        if not self.repository.find_by_id(customer_id):
-            raise CustomerNotFoundError(customer_id)
-        
-        return self.repository.delete(customer_id)

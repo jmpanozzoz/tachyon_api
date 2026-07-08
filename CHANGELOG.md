@@ -68,6 +68,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **`example/` pruned to what its test suite exercises.** The demo is now a
+  minimal, fully verified showcase: removed the untested `documents/` and
+  `admin/` modules, the untested endpoints (`GET+PUT+DELETE /customers/…`
+  variants, `POST /customers/bulk`, `verification summary/list/retry`,
+  `GET /auth/status`) with their orphaned service/repository/DTO members, the
+  never-injected `get_current_customer`/`require_api_key`/`get_optional_user`
+  dependencies, `shared/id_generator.py`, the document/forbidden exception
+  classes, and the unused admin JWT fixtures.  The customer-notification
+  WebSocket stays: it is the consumer side of the tested verification flow
+  (`process_verification` broadcasts through it).  Versions and README
+  updated; ~900 lines removed, 17 example tests green.
 - **Module consolidation (cold path only — no hot-path shape changed):**
   - `security/_api_key_{base,header,query,cookie}.py` → `security/_api_keys.py`;
     `security/_{basic,bearer}_credentials.py` → `security/_credentials.py`.

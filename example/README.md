@@ -1,10 +1,10 @@
 # 🏦 KYC Demo API
 
-> A complete example demonstrating all Tachyon v1.2.x features
+> A compact example demonstrating Tachyon's core features — fully exercised by its test suite
 
 This example implements a **Know Your Customer (KYC)** verification system on
-top of Tachyon v1.2.x. It exercises every feature added through the v1.2.x
-cycle so users coming from FastAPI can map idioms 1:1.
+top of Tachyon so users coming from FastAPI can map idioms 1:1. Every endpoint
+in the demo is covered by `tests/`.
 
 ## ✨ Features Demonstrated
 
@@ -12,26 +12,19 @@ cycle so users coming from FastAPI can map idioms 1:1.
 |---------|----------|-------------|
 | **Clean Architecture** | `modules/` | Controller → Service → Repository pattern |
 | **Dependency Injection (singleton)** | `@injectable`, `Depends()` | The default scope — one instance per app |
-| **DI scope: request** ⭐ v1.2.0 | `shared/request_context.py` | `@injectable(scope="request")` — fresh per HTTP request |
-| **DI scope: transient** ⭐ v1.2.0 | `shared/id_generator.py` | `@injectable(scope="transient")` — fresh per injection point |
+| **DI scope: request** | `shared/request_context.py` | `@injectable(scope="request")` — fresh per HTTP request |
 | **JWT Authentication** | `modules/auth/` | Login, registration, token validation |
-| **API Key Auth** | `shared/dependencies.py` | Service-to-service auth |
-| **File Uploads (multipart)** | `modules/documents/` | `Form()` + `File()` → `multipart/form-data` in OpenAPI |
-| **Bulk request body** ⭐ v1.2.0 | `customers_controller.bulk_create_customers` | `Body(List[CustomerCreate])` — direct list body |
-| **`List[Struct]` response model** ⭐ v1.2.0 | `customers_controller.list_recent_customers` | `response_model=List[CustomerResponse]` → array schema |
+| **`List[Struct]` response model** | `customers_controller.list_recent_customers` | `response_model=List[CustomerResponse]` → array schema |
 | **Background Tasks** | `modules/verification/` | Async verification processing |
-| **WebSockets — DI + typed path** ⭐ v1.2.0 | `modules/admin/admin_ws.py` | `room_id: uuid.UUID` + `Depends(AdminBroadcaster)` |
-| **WebSockets — legacy plain path** | `app.py` | Original customer-notification channel kept for compat |
-| **Security headers** ⭐ v1.2.0 | `app.py` | `SecurityHeadersMiddleware` registered explicitly |
-| **CORS opt-in** ⭐ v1.2.0 | `app.py` | Explicit `allow_origins` list (no more wildcard default) |
-| **Custom exception handler** ⭐ v1.2.811 | `app.py` | `@app.exception_handler(KYCException)` — subclasses of `HTTPException` are dispatched correctly |
+| **WebSockets** | `app.py` | Customer-notification channel fed by the verification flow |
+| **Security headers** | `app.py` | `SecurityHeadersMiddleware` registered explicitly |
+| **CORS opt-in** | `app.py` | Explicit `allow_origins` list (no wildcard default) |
+| **Custom exception handler** | `app.py` | `@app.exception_handler(KYCException)` — subclasses of `HTTPException` are dispatched correctly |
 | **Caching** | `verification_service.py` | `@cache` decorator usage |
 | **Lifecycle Events** | `app.py` | `lifespan` context manager |
 | **Custom Exceptions** | `shared/exceptions.py` | Descriptive error hierarchy |
 | **Testing — sync** | `tests/conftest.py` | `TachyonTestClient`, `dependency_overrides` |
-| **Testing — async** ⭐ v1.2.0 | `tests/test_async_client.py` | `tachyon_api.testing.create_client` with httpx kwargs |
-
-⭐ = new or revised in Tachyon v1.2.x. Click through to the source for usage.
+| **Testing — async** | `tests/test_async_client.py` | `tachyon_api.testing.create_client` with httpx kwargs |
 
 ## 📁 Project Structure
 
@@ -53,24 +46,21 @@ example/
 │   │   ├── customers_repository.py
 │   │   └── customers_dto.py
 │   │
-│   ├── verification/           # KYC verification
-│   │   ├── verification_controller.py
-│   │   ├── verification_service.py
-│   │   ├── verification_repository.py
-│   │   └── verification_dto.py
-│   │
-│   └── documents/              # Document uploads
-│       ├── documents_controller.py
-│       ├── documents_service.py
-│       └── documents_dto.py
+│   └── verification/           # KYC verification
+│       ├── verification_controller.py
+│       ├── verification_service.py
+│       ├── verification_repository.py
+│       └── verification_dto.py
 │
 ├── shared/                     # Shared utilities
 │   ├── dependencies.py         # Auth dependencies
 │   ├── exceptions.py           # Custom exceptions
+│   ├── request_context.py      # Request-scoped DI showcase
 │   └── websocket_manager.py    # WebSocket connections
 │
 └── tests/                      # Tests
     ├── conftest.py             # Fixtures
+    ├── test_async_client.py
     ├── test_auth.py
     ├── test_customers.py
     └── test_verification.py
@@ -122,17 +112,7 @@ curl -X POST http://localhost:8000/customers/ \
   }'
 ```
 
-### 3. Upload Documents
-
-```bash
-curl -X POST http://localhost:8000/documents/upload \
-  -H "Authorization: Bearer <token>" \
-  -F "customer_id=<customer_id>" \
-  -F "document_type=passport" \
-  -F "file=@passport.jpg"
-```
-
-### 4. Start Verification
+### 3. Start Verification
 
 ```bash
 curl -X POST http://localhost:8000/verification/start \
@@ -141,7 +121,7 @@ curl -X POST http://localhost:8000/verification/start \
   -d '{"customer_id": "<customer_id>"}'
 ```
 
-### 5. Connect to WebSocket for Updates
+### 4. Connect to WebSocket for Updates
 
 ```javascript
 const ws = new WebSocket("ws://localhost:8000/ws/notifications/<customer_id>");

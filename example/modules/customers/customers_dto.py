@@ -27,16 +27,6 @@ class CustomerCreate(Struct):
     address: Optional[AddressDTO] = None
 
 
-class CustomerUpdate(Struct):
-    """Request body for updating a customer."""
-    
-    first_name: Optional[str] = None
-    last_name: Optional[str] = None
-    phone: Optional[str] = None
-    date_of_birth: Optional[str] = None
-    address: Optional[AddressDTO] = None
-
-
 class CustomerResponse(Struct):
     """Customer information response."""
     

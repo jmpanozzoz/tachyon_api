@@ -44,40 +44,6 @@ class VerificationNotFoundError(KYCException):
         self.verification_id = verification_id
 
 
-class DocumentNotFoundError(KYCException):
-    """Raised when a document is not found."""
-    
-    def __init__(self, document_id: str):
-        super().__init__(
-            status_code=404,
-            detail=f"Document '{document_id}' not found",
-            error_code="DOCUMENT_NOT_FOUND",
-        )
-        self.document_id = document_id
-
-
-class InvalidDocumentError(KYCException):
-    """Raised when a document is invalid."""
-    
-    def __init__(self, reason: str):
-        super().__init__(
-            status_code=400,
-            detail=f"Invalid document: {reason}",
-            error_code="INVALID_DOCUMENT",
-        )
-
-
-class VerificationAlreadyCompletedError(KYCException):
-    """Raised when trying to modify a completed verification."""
-    
-    def __init__(self, verification_id: str):
-        super().__init__(
-            status_code=409,
-            detail=f"Verification '{verification_id}' is already completed",
-            error_code="VERIFICATION_COMPLETED",
-        )
-
-
 class UnauthorizedError(KYCException):
     """Raised when authentication fails."""
     
@@ -86,15 +52,4 @@ class UnauthorizedError(KYCException):
             status_code=401,
             detail=detail,
             error_code="UNAUTHORIZED",
-        )
-
-
-class ForbiddenError(KYCException):
-    """Raised when access is denied."""
-    
-    def __init__(self, detail: str = "Access denied"):
-        super().__init__(
-            status_code=403,
-            detail=detail,
-            error_code="FORBIDDEN",
         )

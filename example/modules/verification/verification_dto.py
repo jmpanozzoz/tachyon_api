@@ -41,13 +41,3 @@ class VerificationListResponse(Struct):
     
     verifications: List[VerificationResponse]
     total: int
-
-
-class VerificationSummary(Struct):
-    """Summary of verification status."""
-    
-    verification_id: str
-    status: str
-    checks_passed: int
-    checks_failed: int
-    checks_pending: int

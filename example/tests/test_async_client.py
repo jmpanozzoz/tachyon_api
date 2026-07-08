@@ -44,7 +44,7 @@ async def test_health_endpoint_async():
 
         body = response.json()
         assert body["status"] == "healthy"
-        assert body["version"] == "1.2.0"
+        assert body["version"] == "1.3.0"
 
 
 @pytest.mark.asyncio
