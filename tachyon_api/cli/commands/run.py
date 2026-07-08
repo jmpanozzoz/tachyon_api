@@ -2,10 +2,8 @@
 tachyon run - Start the development or production server.
 """
 
-import sys
 import typer
 from pathlib import Path
-from typing import Optional
 
 
 def run_server(
