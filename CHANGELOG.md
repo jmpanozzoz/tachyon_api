@@ -7,7 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [Unreleased]
+## [1.3.1] — 2026-07-08
+
+**Security release + full codebase cleanup ahead of the 1.4.0 roadmap.**
+
+Resolves all 13 known security advisories in the dependency tree (starlette
+1.3.1, python-multipart 0.0.32), fixes a compiled-mode DI scope bug the
+parity tooling could not catch, and completes a repo-wide dead-code /
+deduplication sweep: core modules consolidated, the example pruned to its
+tested surface, the test suite reorganized by theme with identical coverage,
+internal work artifacts removed, and the release pipeline unified so the
+cibuildwheel artifacts are what actually reaches PyPI.
 
 ### Security
 
