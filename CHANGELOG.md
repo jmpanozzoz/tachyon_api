@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased]
+
+### Fixed
+
+- **Compiled mode: request-scoped class DI degraded to transient within a
+  request.** `parameters.pyx` was calling `resolve_dependency(p.annotation)`
+  without forwarding the per-request `dependency_cache`, while `parameters.py`
+  forwarded it correctly.  In compiled mode, two parameters annotated with the
+  same `@injectable(scope=SCOPE_REQUEST)` class received two different
+  instances in the same request, and `ScopeCache.store` never persisted them.
+  The API-level parity check could not catch this (same public surface); a new
+  regression test (`test_request_scoped_class_di_shares_instance_within_request`)
+  now guards the behavior in both modes.
+
+---
+
 ## [1.3.0] — 2026-05-27
 
 **Precompiled wheels: `pip install tachyon-api` now ships compiled Cython

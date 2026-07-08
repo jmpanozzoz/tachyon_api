@@ -124,7 +124,9 @@ cdef class ParameterProcessor:
                 )
 
             elif kind == _KIND_DEP_CLASS:
-                args[i] = self.app._dependency_resolver.resolve_dependency(p.annotation)
+                args[i] = self.app._dependency_resolver.resolve_dependency(
+                    p.annotation, dependency_cache
+                )
 
             elif kind == _KIND_BODY:
                 val, err = await self._body.extract(p, request)
