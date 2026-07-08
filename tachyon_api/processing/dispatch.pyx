@@ -77,13 +77,14 @@ cdef class TachyonDispatcher:
             return
 
         # _FOUND
-        scope["path_params"] = path_params
+        # F6: no `scope["path_params"] = ...` write here — the no-param fast
+        # path never reads it, and TachyonScope receives it directly below.
 
         # C-level type pointer comparison — faster than isinstance for exact types
         if type(handler) is self._asgi_handler_class:
             await handler.fn(scope, receive, send)
         else:
-            ts = TachyonScope(scope, receive, send)
+            ts = TachyonScope(scope, receive, send, path_params)
             response = await handler(ts)
             # F12a: direct sends — skip response.__call__ coroutine (~0.05µs saved)
             if type(response) is TachyonBytesResponse or type(response) is TachyonJSONResponse:
