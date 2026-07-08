@@ -4,6 +4,7 @@ Release 0.6.3 - Exception Handling
 """
 
 import pytest
+from tachyon_api import HTTPException
 from tests.helpers import create_client
 
 
@@ -262,3 +263,89 @@ async def test_unhandled_exception_returns_500():
     async with create_client(app) as client:
         response = await client.get("/crash")
         assert response.status_code == 500
+
+
+# =============================================================================
+# HTTPException subclass handler dispatch (v1.2.811 regression guard)
+# =============================================================================
+
+
+class _DomainError(HTTPException):
+    """Domain-specific subclass of HTTPException."""
+
+    def __init__(self, detail: str):
+        super().__init__(status_code=418, detail=detail)
+        self.error_code = "TEAPOT"
+
+
+@pytest.mark.asyncio
+async def test_exception_handler_subclass_of_http_exception():
+    """A handler registered for an HTTPException subclass must be invoked."""
+    from tachyon_api import Tachyon
+    from starlette.responses import JSONResponse
+
+    app = Tachyon()
+
+    @app.exception_handler(_DomainError)
+    async def handle_domain_error(request, exc):
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"success": False, "code": exc.error_code, "msg": exc.detail},
+        )
+
+    @app.get("/teapot")
+    def raise_teapot():
+        raise _DomainError("Short and stout")
+
+    async with create_client(app) as client:
+        response = await client.get("/teapot")
+
+    assert response.status_code == 418
+    assert response.json() == {
+        "success": False,
+        "code": "TEAPOT",
+        "msg": "Short and stout",
+    }
+
+
+@pytest.mark.asyncio
+async def test_plain_http_exception_still_returns_default_body():
+    """When no subclass handler matches, plain HTTPException keeps its default body."""
+    from tachyon_api import Tachyon
+
+    app = Tachyon()
+
+    @app.get("/notfound")
+    def raise_404():
+        raise HTTPException(status_code=404, detail="missing")
+
+    async with create_client(app) as client:
+        response = await client.get("/notfound")
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "missing"}
+
+
+@pytest.mark.asyncio
+async def test_http_exception_explicit_handler_still_wins_over_default():
+    """A handler explicitly registered for HTTPException itself runs first."""
+    from tachyon_api import Tachyon
+    from starlette.responses import JSONResponse
+
+    app = Tachyon()
+
+    @app.exception_handler(HTTPException)
+    async def http_handler(request, exc):
+        return JSONResponse(
+            status_code=exc.status_code, content={"caught": exc.detail}
+        )
+
+    @app.get("/explicit")
+    def raise_400():
+        raise HTTPException(status_code=400, detail="bad")
+
+    async with create_client(app) as client:
+        response = await client.get("/explicit")
+
+    assert response.status_code == 400
+    assert response.json() == {"caught": "bad"}

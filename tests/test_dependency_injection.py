@@ -2,7 +2,7 @@ import pytest
 from tachyon_api import Tachyon
 from tests.helpers import create_client
 from tachyon_api.di import injectable, Depends
-from tests.shared import MockRepository, MockUserService
+from tests.shared import MockUserService
 
 
 @pytest.mark.asyncio
@@ -148,3 +148,43 @@ def test_circular_dependency_raises_type_error():
             resolver.resolve_dependency(CycleA)
     finally:
         del CycleB.__init__  # type: ignore[attr-defined]
+
+
+def test_resolve_non_injectable_class_no_args():
+    from tachyon_api.processing.dependencies import DependencyResolver
+    app = Tachyon()
+    resolver = DependencyResolver(app)
+
+    class Plain:
+        pass
+
+    result = resolver.resolve_dependency(Plain)
+    assert isinstance(result, Plain)
+
+
+def test_resolve_non_injectable_class_with_required_args_raises():
+    from tachyon_api.processing.dependencies import DependencyResolver
+    app = Tachyon()
+    resolver = DependencyResolver(app)
+
+    class RequiresArgs:
+        def __init__(self, x):
+            self.x = x
+
+    with pytest.raises(TypeError, match="injectable"):
+        resolver.resolve_dependency(RequiresArgs)
+
+
+def test_dependency_unannotated_param_raises():
+    """Cover the param.annotation is inspect.Parameter.empty branch."""
+    from tachyon_api.processing.dependencies import DependencyResolver
+
+    @injectable
+    class BadService:
+        def __init__(self, x):  # no annotation on x
+            self.x = x
+
+    app = Tachyon()
+    resolver = DependencyResolver(app)
+    with pytest.raises(TypeError, match="no type annotation"):
+        resolver.resolve_dependency(BadService)

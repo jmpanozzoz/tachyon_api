@@ -57,6 +57,9 @@ def test_orjson_encode_decode_roundtrip(complex_data):
     # Decode the JSON back to a dict
     decoded_data = decode_json(json_data)
 
+    # str input is accepted too (encoded to utf-8 internally)
+    assert decode_json(json_data.decode("utf-8")) == decoded_data
+
     # Verify the round trip worked correctly
     assert decoded_data["id"] == complex_data["id"]
     assert decoded_data["name"] == complex_data["name"]
@@ -175,3 +178,58 @@ def test_orjson_decode_from_json():
     assert str(decoded_model.uuid_field) == str(TEST_UUID)
     assert decoded_model.tags == ["decoded", "object"]
     assert decoded_model.metadata == {"source": "json"}
+
+
+def test_struct_is_reexported_from_msgspec():
+    from tachyon_api.models import Struct as TachyonStruct
+    from msgspec import Struct as MsgspecStruct
+
+    assert TachyonStruct is MsgspecStruct, (
+        "TachyonStruct should be the same as msgspec.Struct"
+    )
+
+
+class TestOrjsonDefault:
+    def test_encode_date(self):
+        from tachyon_api.models import encode_json
+        import datetime
+        d = datetime.date(2026, 1, 15)
+        result = json.loads(encode_json({"d": d}))
+        assert result["d"] == "2026-01-15"
+
+    def test_encode_datetime(self):
+        from tachyon_api.models import encode_json
+        dt = datetime.datetime(2026, 1, 15, 12, 0, 0)
+        result = json.loads(encode_json({"dt": dt}))
+        assert "2026-01-15" in result["dt"]
+
+    def test_encode_uuid(self):
+        from tachyon_api.models import encode_json
+        u = uuid.UUID("12345678-1234-5678-1234-567812345678")
+        result = json.loads(encode_json({"u": u}))
+        assert result["u"] == "12345678-1234-5678-1234-567812345678"
+
+    def test_encode_struct_nested_in_dict(self):
+        from tachyon_api.models import encode_json, Struct
+        class Inner(Struct):
+            x: int
+        result = json.loads(encode_json({"inner": Inner(x=42)}))
+        assert result["inner"]["x"] == 42
+
+    def test_orjson_default_struct_directly(self):
+        from tachyon_api.models import _orjson_default, Struct
+
+        class S(Struct):
+            x: int
+
+        result = _orjson_default(S(x=5))
+        assert result == {"x": 5}
+
+    def test_orjson_default_unknown_type_raises(self):
+        from tachyon_api.models import _orjson_default
+
+        class Unknown:
+            pass
+
+        with pytest.raises(TypeError, match="not JSON serializable"):
+            _orjson_default(Unknown())

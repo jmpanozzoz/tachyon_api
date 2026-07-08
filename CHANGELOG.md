@@ -68,6 +68,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Test suite consolidated: 45 → 37 files, 371 → 359 tests, coverage
+  unchanged (69%, verified per-file against the pre-consolidation report).**
+  `test_coverage_gaps.py` (1,140 lines) and `test_v1_2_811_fixes.py` were
+  dissolved into their thematic suites (cache, security, orjson, DI, openapi,
+  logger, background, lifecycle, cors, CLI, body-validation, exceptions);
+  single-test files (`test_openapi_params_optional_items`,
+  `test_openapi_error_responses`, `test_model_abstraction`) and the
+  overlapping param-runtime files (`test_param_types_advanced`,
+  `test_list_optional_runtime`) were merged into their parent suites,
+  rewriting the forbidden `TestClient(app._router)` pattern to
+  `create_client` in the process.  12 genuinely duplicated tests were
+  deleted; `tests/conftest.py` disappeared (its only real content, the
+  path-params fixture, moved next to its single consumer).
 - **`example/` pruned to what its test suite exercises.** The demo is now a
   minimal, fully verified showcase: removed the untested `documents/` and
   `admin/` modules, the untested endpoints (`GET+PUT+DELETE /customers/…`

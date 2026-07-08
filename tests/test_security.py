@@ -280,3 +280,115 @@ async def test_oauth2_password_bearer_missing():
     async with create_client(app) as client:
         response = await client.get("/users/me")
         assert response.status_code == 401
+
+
+# =============================================================================
+# auto_error=False paths
+# =============================================================================
+
+
+class TestSecurityAutoErrorFalse:
+    @pytest.mark.asyncio
+    async def test_http_basic_missing_header_no_error(self):
+        from tachyon_api.security import HTTPBasic
+        from starlette.requests import Request
+        from unittest.mock import MagicMock
+        scheme = HTTPBasic(auto_error=False)
+        scope = {"type": "http", "headers": []}
+        request = Request(scope, MagicMock())
+        result = await scheme(request)
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_http_basic_invalid_scheme_no_error(self):
+        from tachyon_api.security import HTTPBasic
+        from starlette.requests import Request
+        from unittest.mock import MagicMock
+        import base64
+        scheme = HTTPBasic(auto_error=False)
+        creds = base64.b64encode(b"user:pass").decode()
+        scope = {"type": "http", "headers": [(b"authorization", f"Bearer {creds}".encode())]}
+        request = Request(scope, MagicMock())
+        result = await scheme(request)
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_http_basic_invalid_b64_no_error(self):
+        from tachyon_api.security import HTTPBasic
+        from starlette.requests import Request
+        from unittest.mock import MagicMock
+        scheme = HTTPBasic(auto_error=False)
+        scope = {"type": "http", "headers": [(b"authorization", b"Basic not-valid-b64!!!")]}
+        request = Request(scope, MagicMock())
+        result = await scheme(request)
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_api_key_no_key_no_error(self):
+        from tachyon_api.security import APIKeyHeader
+        from starlette.requests import Request
+        from unittest.mock import MagicMock
+        scheme = APIKeyHeader(name="X-API-Key", auto_error=False)
+        scope = {"type": "http", "headers": []}
+        request = Request(scope, MagicMock())
+        result = await scheme(request)
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_oauth2_missing_token_no_error(self):
+        from tachyon_api.security import OAuth2PasswordBearer
+        from starlette.requests import Request
+        from unittest.mock import MagicMock
+        scheme = OAuth2PasswordBearer(tokenUrl="/token", auto_error=False)
+        scope = {"type": "http", "headers": []}
+        request = Request(scope, MagicMock())
+        result = await scheme(request)
+        assert result is None
+
+
+@pytest.mark.asyncio
+async def test_http_basic_invalid_scheme_with_auto_error():
+    """Cover the 'not Basic scheme' auto_error path."""
+    from tachyon_api.security import HTTPBasic
+    from tachyon_api.exceptions import HTTPException
+    from starlette.requests import Request
+    from unittest.mock import MagicMock
+    scheme = HTTPBasic(auto_error=True)
+    scope = {"type": "http", "headers": [(b"authorization", b"Token abc123")]}
+    request = Request(scope, MagicMock())
+    with pytest.raises(HTTPException) as exc:
+        await scheme(request)
+    assert exc.value.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_http_basic_invalid_b64_with_auto_error():
+    """Cover the auto_error=True path for invalid b64 credentials."""
+    from tachyon_api.security import HTTPBasic
+    from tachyon_api.exceptions import HTTPException
+    from starlette.requests import Request
+    from unittest.mock import MagicMock
+    scheme = HTTPBasic(auto_error=True)
+    scope = {"type": "http", "headers": [(b"authorization", b"Basic !!invalid!!")]}
+    request = Request(scope, MagicMock())
+    with pytest.raises(HTTPException) as exc:
+        await scheme(request)
+    assert exc.value.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_http_basic_missing_colon_auto_error():
+    """Cover ValueError('Missing colon') path."""
+    import base64
+    from tachyon_api.security import HTTPBasic
+    from tachyon_api.exceptions import HTTPException
+    from starlette.requests import Request
+    from unittest.mock import MagicMock
+    scheme = HTTPBasic(auto_error=True)
+    # Valid base64 but no colon in decoded value
+    encoded = base64.b64encode(b"usernopassword").decode()
+    scope = {"type": "http", "headers": [(b"authorization", f"Basic {encoded}".encode())]}
+    request = Request(scope, MagicMock())
+    with pytest.raises(HTTPException) as exc:
+        await scheme(request)
+    assert exc.value.status_code == 401

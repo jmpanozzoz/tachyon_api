@@ -5,6 +5,7 @@ This module tests the router grouping functionality similar to FastAPI's APIRout
 allowing for better organization of routes with common prefixes, tags, and dependencies.
 """
 
+import pytest
 from starlette.testclient import TestClient
 
 from tachyon_api import Tachyon
@@ -12,6 +13,7 @@ from tachyon_api.router import Router
 from tachyon_api.models import Struct
 from tachyon_api.params import Query, Path, Body
 from tachyon_api.di import injectable, Depends
+from tests.helpers import create_client
 
 
 class TestBasicRouter:
@@ -325,3 +327,58 @@ class TestRouterErrorHandling:
 
         # Should allow duplicate routes (last one wins, like FastAPI)
         assert len(router.routes) == 2
+
+
+@pytest.mark.asyncio
+async def test_include_router_with_dependencies_popped():
+    """Cover the route_kwargs.pop('dependencies', None) path in include_router."""
+    @injectable
+    class Svc:
+        def get(self):
+            return {"from": "svc"}
+
+    app = Tachyon()
+    router = Router(prefix="/v1", dependencies=[Depends()])
+
+    @router.get("/items")
+    def get_items(svc: Svc = Depends()):
+        return svc.get()
+
+    app.include_router(router)
+
+    async with create_client(app) as client:
+        r = await client.get("/v1/items")
+
+    assert r.status_code == 200
+
+
+def test_include_router_type_error():
+    """Cover the TypeError check in include_router."""
+    app = Tachyon()
+    with pytest.raises(TypeError, match="Router"):
+        app.include_router("not-a-router")
+
+
+def test_router_extends_tags_when_already_list():
+    router = Router(tags=["global"])
+
+    @router.get("/ep", tags=["local"])
+    def ep():
+        return {}
+
+    route = router.routes[0]
+    assert "global" in route["tags"]
+    assert "local" in route["tags"]
+
+
+def test_router_appends_string_tag():
+    """Cover the `else: route_tags.append(kwargs["tags"])` branch (single string tag)."""
+    router = Router(tags=["global"])
+
+    @router.get("/ep", tags="single-tag")
+    def ep():
+        return {}
+
+    route = router.routes[0]
+    assert "single-tag" in route["tags"]
+    assert "global" in route["tags"]
