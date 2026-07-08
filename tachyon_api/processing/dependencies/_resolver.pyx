@@ -29,9 +29,6 @@ cdef class DependencyResolver:
     cdef object _circular
     cdef object _class_factory
     cdef object _callable_factory
-    # legacy attribute — was a set used by the old monolithic resolver; some
-    # external code (and at least one test) introspected it
-    cdef public set _resolving
 
     def __init__(self, app_instance):
         self.app = app_instance
@@ -42,7 +39,6 @@ cdef class DependencyResolver:
         self._callable_factory = CallableFactory(
             self.resolve_dependency, self.resolve_callable_dependency
         )
-        self._resolving = self._circular._resolving
 
     def resolve_dependency(self, cls, request_cache=None):
         override = self._overrides.lookup(cls)

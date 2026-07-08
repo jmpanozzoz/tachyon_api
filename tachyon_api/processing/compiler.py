@@ -4,12 +4,11 @@ from __future__ import annotations
 
 import asyncio
 import inspect
-from typing import Any, Callable, List, Optional, Type
+from typing import Any, Callable, List, Optional
 
 import msgspec
 
 from ..params import Body, Query, Path, Header, Cookie, Form, File
-from ..models import Struct
 from ..background import BackgroundTasks
 from ..di import Depends, _registry
 from ..utils import TypeUtils
@@ -44,24 +43,22 @@ _MARKER_TO_KIND = {
 
 class ParamDescriptor:
     __slots__ = (
-        "name", "kind", "annotation", "marker", "effective_name", "default",
-        "is_list", "item_type", "item_is_optional", "base_type", "is_optional",
+        "name", "kind", "annotation", "effective_name", "default",
+        "is_list", "item_type", "item_is_optional", "base_type",
         "decoder", "dependency", "dep_is_async",
     )
 
     def __init__(
         self,
         name: str,
-        kind: str,
+        kind: int,
         annotation: Any = None,
-        marker: Any = None,
         effective_name: str = "",
         default: Any = inspect.Parameter.empty,
         is_list: bool = False,
         item_type: Any = str,        # unwrapped item base type (Optional already stripped)
         item_is_optional: bool = False,
         base_type: Any = str,
-        is_optional: bool = False,
         decoder: Any = None,
         dependency: Optional[Callable] = None,
         dep_is_async: bool = False,
@@ -69,14 +66,12 @@ class ParamDescriptor:
         self.name = name
         self.kind = kind
         self.annotation = annotation
-        self.marker = marker
         self.effective_name = effective_name if effective_name else name
         self.default = default
         self.is_list = is_list
         self.item_type = item_type
         self.item_is_optional = item_is_optional
         self.base_type = base_type
-        self.is_optional = is_optional
         self.decoder = decoder
         self.dependency = dependency
         self.dep_is_async = dep_is_async
@@ -85,7 +80,7 @@ class ParamDescriptor:
 class CompiledEndpoint:
     __slots__ = (
         "func", "is_async", "params", "has_params", "has_callable_deps",
-        "has_path_params", "param_count",
+        "param_count",
     )
 
     def __init__(self, func: Callable, is_async: bool, params: List[ParamDescriptor]):
@@ -100,7 +95,6 @@ class CompiledEndpoint:
             or (p.kind == KIND_DEP_CLASS and _scopes.get(p.annotation, SCOPE_SINGLETON) != SCOPE_SINGLETON)
             for p in params
         )
-        self.has_path_params = any(p.kind in (KIND_PATH, KIND_PATH_IMPLICIT) for p in params)
         # Pre-computed length — used to pre-allocate the args list in process_parameters
         self.param_count = len(params)
 
@@ -164,7 +158,7 @@ def compile_endpoint(func: Callable, path: str) -> CompiledEndpoint:
 
         # 6. Implicit path param (no default, name in path template)
         if default is inspect.Parameter.empty and f"{{{param.name}}}" in path:
-            base_type, is_opt = TypeUtils.unwrap_optional(ann)
+            base_type, _ = TypeUtils.unwrap_optional(ann)
             is_list, raw_item = TypeUtils.is_list_type(base_type)
             item_base, item_is_opt = TypeUtils.unwrap_optional(raw_item) if is_list else (raw_item, False)
             params.append(ParamDescriptor(
@@ -172,7 +166,6 @@ def compile_endpoint(func: Callable, path: str) -> CompiledEndpoint:
                 kind=KIND_PATH_IMPLICIT,
                 annotation=ann,
                 base_type=base_type,
-                is_optional=is_opt,
                 is_list=is_list,
                 item_type=item_base,
                 item_is_optional=item_is_opt,
@@ -184,8 +177,8 @@ def compile_endpoint(func: Callable, path: str) -> CompiledEndpoint:
     return compiled
 
 
-def _build_typed_descriptor(name: str, kind: str, ann: Any, marker: Any) -> ParamDescriptor:
-    base_type, is_opt = TypeUtils.unwrap_optional(ann)
+def _build_typed_descriptor(name: str, kind: int, ann: Any, marker: Any) -> ParamDescriptor:
+    base_type, _ = TypeUtils.unwrap_optional(ann)
     is_list, raw_item_type = TypeUtils.is_list_type(base_type)
     # Unwrap Optional from item type too (e.g. List[Optional[int]] → item=int, item_is_opt=True)
     item_type, item_is_opt = TypeUtils.unwrap_optional(raw_item_type) if is_list else (raw_item_type, False)
@@ -215,13 +208,11 @@ def _build_typed_descriptor(name: str, kind: str, ann: Any, marker: Any) -> Para
         name=name,
         kind=kind,
         annotation=ann,
-        marker=marker,
         effective_name=effective_name,
         default=marker.default if hasattr(marker, "default") else inspect.Parameter.empty,
         is_list=is_list,
         item_type=item_type,       # already unwrapped from Optional
         item_is_optional=item_is_opt,
         base_type=base_type,
-        is_optional=is_opt,
         decoder=decoder,
     )

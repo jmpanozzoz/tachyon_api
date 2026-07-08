@@ -18,8 +18,7 @@ from ..processing.dispatch import TachyonDispatcher
 from ..processing.parameters import ParameterProcessor
 from ..routing.trie import RadixTrie
 
-from ._404 import _404_BODY_MSG, _404_START
-from ._405 import _405_BODY, _405_PLAIN_CT, _CL_405
+from ._error_static import _404_BODY_MSG, _404_START, _405_BODY, _405_PLAIN_CT, _CL_405
 from ._asgi_entry import ASGIEntry
 from ._asgi_handler import _ASGIHandler
 from ._docs_routes import DocsRoutes
@@ -159,10 +158,6 @@ class Tachyon:
     @property
     def routes(self) -> List[Dict[str, Any]]:
         return self._registry.routes
-
-    @property
-    def middleware_stack(self) -> List[Dict[str, Any]]:
-        return self._mw_stack.middlewares
 
     def register_instance(self, cls: Type, instance: Any) -> None:
         """Register a pre-built instance for a class in the DI singleton cache."""

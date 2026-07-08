@@ -1,11 +1,19 @@
 # Schema generation for query / path / header / cookie parameter types.
 # Handles scalars, lists, Optional, Enum, and datetime/UUID format hints.
 
+import datetime
+import uuid
 from enum import Enum
-from typing import Any, Dict, Type
+from typing import Any, Dict, Tuple, Type
 
 from ..utils import TypeUtils
-from ._format_map import _OPENAPI_FORMAT_MAP
+
+# Python types that map to a specific OpenAPI `string` format.
+_OPENAPI_FORMAT_MAP: Dict[Type, Tuple[str, str]] = {
+    datetime.datetime: ("string", "date-time"),
+    datetime.date: ("string", "date"),
+    uuid.UUID: ("string", "uuid"),
+}
 
 
 def _scalar_schema(t: Type) -> Dict[str, Any]:

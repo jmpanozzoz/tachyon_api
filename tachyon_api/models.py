@@ -1,24 +1,26 @@
 """msgspec Struct + orjson-powered JSON encoding/decoding."""
 
-import datetime
 import uuid
 from typing import Any, Dict, Type, TypeVar, Optional, Union
 
 import msgspec
 import orjson
-from msgspec import Struct, Meta
+from msgspec import Struct
 
-__all__ = ["Struct", "Meta", "encode_json", "decode_json"]
+__all__ = ["Struct", "encode_json", "decode_json"]
 
 T = TypeVar("T")
 
 
 def _orjson_default(obj: Any) -> Any:
-    """Default function for orjson to serialize types it doesn't support natively."""
-    if isinstance(obj, (datetime.date, datetime.datetime)):
-        return obj.isoformat()  # pragma: no cover — orjson handles natively with _ORJSON_OPTS
+    """Default function for orjson to serialize types it doesn't support natively.
+
+    datetime/date need no branch here — orjson serializes them natively under
+    every option set.  UUID stays: it is only native with OPT_SERIALIZE_UUID,
+    and callers may pass a custom `option` to encode_json without it.
+    """
     if isinstance(obj, uuid.UUID):
-        return str(obj)  # pragma: no cover — orjson handles natively with OPT_SERIALIZE_UUID
+        return str(obj)  # pragma: no cover — default opts include OPT_SERIALIZE_UUID
     if isinstance(obj, Struct):
         return msgspec.to_builtins(obj)
     raise TypeError(f"Object of type {type(obj)} is not JSON serializable")

@@ -1,4 +1,4 @@
-# HOT PATH — cdef migration target for v1.3.x.
+# HOT PATH — compiled sibling exists (.pyx wins import resolution when built).
 # Registers user exception handlers and dispatches an exception to its handler.
 
 import asyncio

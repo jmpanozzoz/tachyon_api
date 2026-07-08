@@ -5,10 +5,8 @@
 from typing import Any, Callable, Dict, Optional
 
 from ._config import OpenAPIConfig
-from ._redoc_html import RedocRenderer
+from ._html_renderers import RedocRenderer, ScalarRenderer, SwaggerUIRenderer
 from ._route_builder import RouteOperationBuilder
-from ._scalar_html import ScalarRenderer
-from ._swagger_html import SwaggerUIRenderer
 
 
 class OpenAPIGenerator:

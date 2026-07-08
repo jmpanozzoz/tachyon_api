@@ -10,7 +10,7 @@ Path format: /users/{user_id}/profile  (Starlette / FastAPI convention)
 from __future__ import annotations
 
 from types import MappingProxyType
-from typing import Callable, Dict, Optional, Set, Tuple, Any
+from typing import Callable, Dict, Optional, Set, Tuple
 
 
 _NOT_FOUND          = 0

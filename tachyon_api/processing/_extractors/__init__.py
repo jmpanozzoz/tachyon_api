@@ -1,6 +1,5 @@
 """Atomic parameter extractors. Each class answers a single extraction question."""
 
-from ._base import ExtractorResult, OK_NONE
 from ._missing import missing
 from .body import BodyExtractor
 from .body_limit import BodySizeChecker
@@ -13,8 +12,6 @@ from .query import QueryExtractor
 from .query_list import QueryListExtractor
 
 __all__ = [
-    "ExtractorResult",
-    "OK_NONE",
     "missing",
     "BodyExtractor",
     "BodySizeChecker",

@@ -47,6 +47,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `pyproject.toml` (missing `httptools`, included dev-only packages).  Nothing
   in CI consumed it; `pyproject.toml` + `poetry.lock` are the single source of
   truth.
+- **Dead code swept from the core** (never read at runtime, by tests, or by
+  the example — verified by call-graph + grep):
+  - `processing/_extractors/_base.py` (`ExtractorResult`, `OK_NONE`) — every
+    extractor returns plain tuples by design; the NamedTuple was never
+    constructed.
+  - `CompiledEndpoint.has_path_params` — computed at startup, never read.
+  - `ParamDescriptor.marker` / `ParamDescriptor.is_optional` slots — stored,
+    never read (`item_is_optional` remains, it is used).
+  - `DependencyResolver._resolving` — legacy shim from the pre-SRP monolithic
+    resolver; nothing introspects it anymore.
+  - `TachyonJSONResponse.render()` override — bypassed by our `__init__`;
+    the inherited Starlette method remains available.
+  - `_SIG_CACHE` re-export in `processing/dependencies/__init__.py` and
+    `Meta` re-export in `models` — zero importers.
+  - `Tachyon.middleware_stack` property — unused public introspection.
+  - The unreachable datetime/date branch in `models._orjson_default`
+    (orjson serializes them natively under every option set; the UUID branch
+    stays because a caller-supplied `option` may omit `OPT_SERIALIZE_UUID`).
+
+### Changed
+
+- **Module consolidation (cold path only — no hot-path shape changed):**
+  - `security/_api_key_{base,header,query,cookie}.py` → `security/_api_keys.py`;
+    `security/_{basic,bearer}_credentials.py` → `security/_credentials.py`.
+    All public class names unchanged.
+  - `app/_404.py` + `app/_405.py` → `app/_error_static.py`.
+  - `openapi/_info.py`, `_server.py`, `_factory.py` → merged into
+    `openapi/_config.py`; `_safe_json.py` and `_format_map.py` inlined into
+    their single consumers; the three HTML renderers
+    (`_swagger_html`, `_redoc_html`, `_scalar_html`) → `openapi/_html_renderers.py`.
+  - Deliberately **not** deduplicated (measured trade-off): the
+    `_send_start`/`_send_body` construction in the three response classes
+    (a shared helper adds a per-response call in the hot path) and the
+    `request.form()` guards in `parameters.{py,pyx}` (merging the FORM/FILE
+    branches would break the typed `cdef` extractor dispatch in the compiled
+    version).
 
 ### Fixed
 

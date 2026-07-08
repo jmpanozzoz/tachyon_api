@@ -1,10 +1,68 @@
-# Top-level OpenAPI configuration — info + servers + docs URLs + UI asset URLs.
+# OpenAPI configuration — info/servers dataclasses, top-level config, and the
+# flat-kwargs convenience factory.
 
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
-from ._info import Info
-from ._server import Server
+
+@dataclass
+class Contact:
+    name: Optional[str] = None
+    url: Optional[str] = None
+    email: Optional[str] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            k: v
+            for k, v in {"name": self.name, "url": self.url, "email": self.email}.items()
+            if v
+        }
+
+
+@dataclass
+class License:
+    name: str
+    url: Optional[str] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        result: Dict[str, Any] = {"name": self.name}
+        if self.url:
+            result["url"] = self.url
+        return result
+
+
+@dataclass
+class Info:
+    title: str = "Tachyon API"
+    description: Optional[str] = "A fast API built with Tachyon"
+    version: str = "0.1.0"
+    terms_of_service: Optional[str] = None
+    contact: Optional[Contact] = None
+    license: Optional[License] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        result: Dict[str, Any] = {"title": self.title, "version": self.version}
+        if self.description:
+            result["description"] = self.description
+        if self.terms_of_service:
+            result["termsOfService"] = self.terms_of_service
+        if self.contact:
+            result["contact"] = self.contact.to_dict()
+        if self.license:
+            result["license"] = self.license.to_dict()
+        return result
+
+
+@dataclass
+class Server:
+    url: str
+    description: Optional[str] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        result: Dict[str, Any] = {"url": self.url}
+        if self.description:
+            result["description"] = self.description
+        return result
 
 
 @dataclass
@@ -49,3 +107,52 @@ class OpenAPIConfig:
         if self.servers:
             openapi_dict["servers"] = [server.to_dict() for server in self.servers]
         return openapi_dict
+
+
+def create_openapi_config(
+    title: str = "Tachyon API",
+    description: Optional[str] = "A fast API built with Tachyon",
+    version: str = "0.1.0",
+    openapi_version: str = "3.0.0",
+    docs_url: str = "/docs",
+    redoc_url: str = "/redoc",
+    openapi_url: str = "/openapi.json",
+    contact: Optional[Contact] = None,
+    license: Optional[License] = None,
+    servers: Optional[List[Server]] = None,
+    terms_of_service: Optional[str] = None,
+    scalar_js_url: Optional[str] = None,
+    scalar_favicon_url: Optional[str] = None,
+    swagger_ui_parameters: Optional[Dict[str, Any]] = None,
+    swagger_favicon_url: Optional[str] = None,
+    swagger_js_url: Optional[str] = None,
+    swagger_css_url: Optional[str] = None,
+    redoc_js_url: Optional[str] = None,
+) -> OpenAPIConfig:
+    """Build an OpenAPIConfig from flat parameters (Info is assembled internally)."""
+    info = Info(
+        title=title,
+        description=description,
+        version=version,
+        terms_of_service=terms_of_service,
+        contact=contact,
+        license=license,
+    )
+
+    # Use config defaults when individual URL overrides are not provided
+    defaults = OpenAPIConfig()
+    return OpenAPIConfig(
+        info=info,
+        servers=servers or [],
+        openapi_version=openapi_version,
+        docs_url=docs_url,
+        redoc_url=redoc_url,
+        openapi_url=openapi_url,
+        scalar_js_url=scalar_js_url or defaults.scalar_js_url,
+        scalar_favicon_url=scalar_favicon_url or defaults.scalar_favicon_url,
+        swagger_ui_parameters=swagger_ui_parameters,
+        swagger_favicon_url=swagger_favicon_url or defaults.swagger_favicon_url,
+        swagger_js_url=swagger_js_url or defaults.swagger_js_url,
+        swagger_css_url=swagger_css_url or defaults.swagger_css_url,
+        redoc_js_url=redoc_js_url or defaults.redoc_js_url,
+    )

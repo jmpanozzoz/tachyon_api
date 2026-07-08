@@ -8,7 +8,7 @@ from typing import Optional
 from starlette.requests import Request
 
 from ..exceptions import HTTPException
-from ._basic_credentials import HTTPBasicCredentials
+from ._credentials import HTTPBasicCredentials
 
 
 class HTTPBasic:
