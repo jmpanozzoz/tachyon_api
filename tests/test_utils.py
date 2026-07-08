@@ -101,3 +101,13 @@ class TestTypeConverter:
         result = TypeConverter.convert_list_values(values, int, "test_param")
         assert isinstance(result, JSONResponse)
         assert result.status_code == 422
+
+
+def test_type_utils_get_origin():
+    origin = TypeUtils.get_origin(List[int])
+    assert origin is list
+
+
+def test_type_utils_get_args():
+    args = TypeUtils.get_args(List[int])
+    assert int in args

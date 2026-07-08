@@ -5,7 +5,7 @@ from typing import Optional
 from starlette.requests import Request
 
 from ..exceptions import HTTPException
-from ._bearer_credentials import HTTPAuthorizationCredentials
+from ._credentials import HTTPAuthorizationCredentials
 from ._bearer_parser import parse_bearer_header
 
 

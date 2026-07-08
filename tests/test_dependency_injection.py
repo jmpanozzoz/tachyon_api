@@ -2,7 +2,7 @@ import pytest
 from tachyon_api import Tachyon
 from tests.helpers import create_client
 from tachyon_api.di import injectable, Depends
-from tests.shared import MockRepository, MockUserService
+from tests.shared import MockUserService
 
 
 @pytest.mark.asyncio
@@ -80,6 +80,46 @@ async def test_request_scoped_class_di_creates_new_instance_per_request():
     )
 
 
+@pytest.mark.asyncio
+async def test_request_scoped_class_di_shares_instance_within_request():
+    """Parity guard — the KIND_DEP_CLASS branch must forward dependency_cache.
+
+    Two parameters annotated with the same request-scoped class must receive
+    the SAME instance within a single request, and fresh instances across
+    requests.  If the parameter processor resolves class deps without the
+    per-request cache, each parameter constructs its own instance and
+    request scope silently degrades to transient.
+    """
+    from tachyon_api.di import SCOPE_REQUEST
+
+    @injectable(scope=SCOPE_REQUEST)
+    class RequestScopedSession:
+        construction_count = 0
+
+        def __init__(self):
+            RequestScopedSession.construction_count += 1
+            self.id = RequestScopedSession.construction_count
+
+    app = Tachyon()
+
+    @app.get("/scoped-pair")
+    def hit(a: RequestScopedSession, b: RequestScopedSession):
+        return {"a": a.id, "b": b.id}
+
+    async with create_client(app) as client:
+        r1 = await client.get("/scoped-pair")
+        r2 = await client.get("/scoped-pair")
+
+    body1, body2 = r1.json(), r2.json()
+    assert body1["a"] == body1["b"], (
+        f"request-scoped DI constructed two instances in one request — {body1}. "
+        "Likely the parameter processor is not forwarding dependency_cache "
+        "to resolve_dependency (parameters.pyx parity drift)."
+    )
+    assert body2["a"] == body2["b"]
+    assert body1["a"] != body2["a"], "instances must not leak across requests"
+
+
 def test_circular_dependency_raises_type_error():
     from tachyon_api import Tachyon
     from tachyon_api.di import injectable
@@ -108,3 +148,43 @@ def test_circular_dependency_raises_type_error():
             resolver.resolve_dependency(CycleA)
     finally:
         del CycleB.__init__  # type: ignore[attr-defined]
+
+
+def test_resolve_non_injectable_class_no_args():
+    from tachyon_api.processing.dependencies import DependencyResolver
+    app = Tachyon()
+    resolver = DependencyResolver(app)
+
+    class Plain:
+        pass
+
+    result = resolver.resolve_dependency(Plain)
+    assert isinstance(result, Plain)
+
+
+def test_resolve_non_injectable_class_with_required_args_raises():
+    from tachyon_api.processing.dependencies import DependencyResolver
+    app = Tachyon()
+    resolver = DependencyResolver(app)
+
+    class RequiresArgs:
+        def __init__(self, x):
+            self.x = x
+
+    with pytest.raises(TypeError, match="injectable"):
+        resolver.resolve_dependency(RequiresArgs)
+
+
+def test_dependency_unannotated_param_raises():
+    """Cover the param.annotation is inspect.Parameter.empty branch."""
+    from tachyon_api.processing.dependencies import DependencyResolver
+
+    @injectable
+    class BadService:
+        def __init__(self, x):  # no annotation on x
+            self.x = x
+
+    app = Tachyon()
+    resolver = DependencyResolver(app)
+    with pytest.raises(TypeError, match="no type annotation"):
+        resolver.resolve_dependency(BadService)

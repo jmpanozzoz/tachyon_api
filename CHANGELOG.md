@@ -7,6 +7,155 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.3.1] — 2026-07-08
+
+**Security release + full codebase cleanup ahead of the 1.4.0 roadmap.**
+
+Resolves all 13 known security advisories in the dependency tree (starlette
+1.3.1, python-multipart 0.0.32), fixes a compiled-mode DI scope bug the
+parity tooling could not catch, and completes a repo-wide dead-code /
+deduplication sweep: core modules consolidated, the example pruned to its
+tested surface, the test suite reorganized by theme with identical coverage,
+internal work artifacts removed, and the release pipeline unified so the
+cibuildwheel artifacts are what actually reaches PyPI.
+
+### Security
+
+- **Bumped `starlette` `^0.47.2` → `^1.3.1`**, resolving the 6 advisories
+  reported against starlette 0.47.3:
+  - GHSA-7f5h-v6xp-fcq8 / CVE-2025-62727 (CVSS 7.5) — O(n²) DoS via Range
+    header merging in `starlette.responses` (fixed 0.49.1).
+  - GHSA-82w8-qh3p-5jfq / CVE-2026-54283 (CVSS 7.5) — `request.form()` limits
+    silently ignored for `application/x-www-form-urlencoded` (fixed 1.3.1).
+  - GHSA-86qp-5c8j-p5mr / CVE-2026-48710 (CVSS 6.5) — missing Host header
+    validation poisons `request.url.path` (fixed 1.0.1).
+  - GHSA-wqp7-x3pw-xc5r / CVE-2026-48818 (CVSS 7.5) — SSRF / NTLM credential
+    theft via UNC paths in `StaticFiles` on Windows (fixed 1.1.0).
+  - GHSA-x746-7m8f-x49c / CVE-2026-48817 (CVSS 5.3) — arbitrary HTTP method
+    dispatched to `HTTPEndpoint` attributes (fixed 1.1.0).
+  - GHSA-jp82-jpqv-5vv3 / CVE-2026-54282 (CVSS 3.7) — unvalidated request path
+    concatenated into authority poisons `request.url` (fixed 1.3.0).
+- **Bumped `python-multipart` `^0.0.20` → `^0.0.32`**, resolving the 7
+  advisories reported against python-multipart 0.0.20, most notably
+  GHSA-wp53-j4wj-2cfg / CVE-2026-24486 (CVSS 8.6, arbitrary file write via
+  non-default configuration, fixed 0.0.22) and the DoS pair
+  GHSA-pp6c-gr5w-3c5g / CVE-2026-42561 (CVSS 7.5, unbounded multipart part
+  headers, fixed 0.0.27) and GHSA-5rvq-cxj2-64vf / CVE-2026-53539 (CVSS 7.5,
+  quadratic-time querystring parsing, fixed 0.0.30); plus
+  GHSA-mj87-hwqh-73pj, GHSA-6jv3-5f52-599m, GHSA-vffw-93wf-4j4q and
+  GHSA-v9pg-7xvm-68hf (fixed ≤ 0.0.31).
+
+  With both bumps, `tachyon-api` reports **zero known advisories** across its
+  full dependency tree (verified against deps.dev / OSV).  Full test suite
+  green in both runtime modes; `benchmark/profile_breakdown.py` A/B shows no
+  hot-path regression (response-class cost unchanged at ~0.27 µs — Tachyon
+  bypasses the starlette `Response.__init__` that got slower in 1.x).
+
+### Removed
+
+- `requirements.txt` — stale Poetry export that had drifted from
+  `pyproject.toml` (missing `httptools`, included dev-only packages).  Nothing
+  in CI consumed it; `pyproject.toml` + `poetry.lock` are the single source of
+  truth.
+- **Dead code swept from the core** (never read at runtime, by tests, or by
+  the example — verified by call-graph + grep):
+  - `processing/_extractors/_base.py` (`ExtractorResult`, `OK_NONE`) — every
+    extractor returns plain tuples by design; the NamedTuple was never
+    constructed.
+  - `CompiledEndpoint.has_path_params` — computed at startup, never read.
+  - `ParamDescriptor.marker` / `ParamDescriptor.is_optional` slots — stored,
+    never read (`item_is_optional` remains, it is used).
+  - `DependencyResolver._resolving` — legacy shim from the pre-SRP monolithic
+    resolver; nothing introspects it anymore.
+  - `TachyonJSONResponse.render()` override — bypassed by our `__init__`;
+    the inherited Starlette method remains available.
+  - `_SIG_CACHE` re-export in `processing/dependencies/__init__.py` and
+    `Meta` re-export in `models` — zero importers.
+  - `Tachyon.middleware_stack` property — unused public introspection.
+  - The unreachable datetime/date branch in `models._orjson_default`
+    (orjson serializes them natively under every option set; the UUID branch
+    stays because a caller-supplied `option` may omit `OPT_SERIALIZE_UUID`).
+
+### Changed
+
+- **Test suite consolidated: 45 → 37 files, 371 → 359 tests, coverage
+  unchanged (69%, verified per-file against the pre-consolidation report).**
+  `test_coverage_gaps.py` (1,140 lines) and `test_v1_2_811_fixes.py` were
+  dissolved into their thematic suites (cache, security, orjson, DI, openapi,
+  logger, background, lifecycle, cors, CLI, body-validation, exceptions);
+  single-test files (`test_openapi_params_optional_items`,
+  `test_openapi_error_responses`, `test_model_abstraction`) and the
+  overlapping param-runtime files (`test_param_types_advanced`,
+  `test_list_optional_runtime`) were merged into their parent suites,
+  rewriting the forbidden `TestClient(app._router)` pattern to
+  `create_client` in the process.  12 genuinely duplicated tests were
+  deleted; `tests/conftest.py` disappeared (its only real content, the
+  path-params fixture, moved next to its single consumer).
+- **`example/` pruned to what its test suite exercises.** The demo is now a
+  minimal, fully verified showcase: removed the untested `documents/` and
+  `admin/` modules, the untested endpoints (`GET+PUT+DELETE /customers/…`
+  variants, `POST /customers/bulk`, `verification summary/list/retry`,
+  `GET /auth/status`) with their orphaned service/repository/DTO members, the
+  never-injected `get_current_customer`/`require_api_key`/`get_optional_user`
+  dependencies, `shared/id_generator.py`, the document/forbidden exception
+  classes, and the unused admin JWT fixtures.  The customer-notification
+  WebSocket stays: it is the consumer side of the tested verification flow
+  (`process_verification` broadcasts through it).  Versions and README
+  updated; ~900 lines removed, 17 example tests green.
+- **Module consolidation (cold path only — no hot-path shape changed):**
+  - `security/_api_key_{base,header,query,cookie}.py` → `security/_api_keys.py`;
+    `security/_{basic,bearer}_credentials.py` → `security/_credentials.py`.
+    All public class names unchanged.
+  - `app/_404.py` + `app/_405.py` → `app/_error_static.py`.
+  - `openapi/_info.py`, `_server.py`, `_factory.py` → merged into
+    `openapi/_config.py`; `_safe_json.py` and `_format_map.py` inlined into
+    their single consumers; the three HTML renderers
+    (`_swagger_html`, `_redoc_html`, `_scalar_html`) → `openapi/_html_renderers.py`.
+  - Deliberately **not** deduplicated (measured trade-off): the
+    `_send_start`/`_send_body` construction in the three response classes
+    (a shared helper adds a per-response call in the hot path) and the
+    `request.form()` guards in `parameters.{py,pyx}` (merging the FORM/FILE
+    branches would break the typed `cdef` extractor dispatch in the compiled
+    version).
+- **Release pipeline unified.** `pypi.yml` published a generic
+  `poetry build` wheel with no compiled extensions, racing against the real
+  cibuildwheel artifacts.  `build-wheels.yml` now has a `publish` job that
+  uploads the 27-wheel matrix + sdist to PyPI on `v*` tags; `pypi.yml` was
+  removed.
+- `fastapi`/`pydantic` moved from dev dependencies to the `[benchmark]`
+  extra (they are only needed by `benchmark/run_benchmark.sh`), as mandated
+  by the project rules.
+- Internal work artifacts removed from the repo: `docs/audit-v1.2.83.md`,
+  `docs/cython-plan-v1.2.9.md`, and the one-off v1.2.9-sprint profilers
+  (`benchmark/profile_{di,exc,extractors,tachyon}.py` — `profile_tachyon`
+  also duplicated `run_benchmark.sh`).  They remain in git history.
+- CLI housekeeping: `commands/__init__.py` no longer eagerly imports
+  submodules (main.py imports them directly), project template now pins
+  `tachyon-api>=1.3.0`, and the AI-skill CLI reference includes the
+  `openapi` and `install-skill` commands it was missing.
+- Docs refreshed: `docs/README.md` version/deps/ratio corrected; stale
+  "v1.2.x" current-state seals reworded in architecture and migration guides.
+
+### Fixed
+
+- **Compiled mode: request-scoped class DI degraded to transient within a
+  request.** `parameters.pyx` was calling `resolve_dependency(p.annotation)`
+  without forwarding the per-request `dependency_cache`, while `parameters.py`
+  forwarded it correctly.  In compiled mode, two parameters annotated with the
+  same `@injectable(scope=SCOPE_REQUEST)` class received two different
+  instances in the same request, and `ScopeCache.store` never persisted them.
+  The API-level parity check could not catch this (same public surface); a new
+  regression test (`test_request_scoped_class_di_shares_instance_within_request`)
+  now guards the behavior in both modes.
+- **Example test isolation.** The KYC demo repositories keep module-global
+  in-memory dicts; a pending "standard" verification created by one test was
+  returned to the next test requesting an "enhanced" one
+  (`test_start_enhanced_verification` failed when run after
+  `test_start_verification`).  The autouse fixture in `example/tests/conftest.py`
+  now resets the in-memory stores between tests.
+
+---
+
 ## [1.3.0] — 2026-05-27
 
 **Precompiled wheels: `pip install tachyon-api` now ships compiled Cython

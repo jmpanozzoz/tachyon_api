@@ -268,7 +268,10 @@ tachyon run --prod --workers 4  # production
 tachyon routes                  # list all routes
 tachyon g service users --crud  # generate full CRUD module
 tachyon g middleware auth       # generate ASGI middleware
+tachyon openapi export          # dump openapi.json from the app
+tachyon openapi validate <file> # validate an exported schema
 tachyon lint all                # lint + format
+tachyon install-skill           # generate AI-assistant context files
 tachyon version                 # show version
 ```
 

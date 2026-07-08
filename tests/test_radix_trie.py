@@ -2,7 +2,6 @@
 HF-06: Unit tests for RadixTrie — covers edge cases not exercised by integration tests.
 """
 
-import pytest
 from tachyon_api.routing.trie import RadixTrie, _NOT_FOUND, _METHOD_NOT_ALLOWED, _FOUND
 
 

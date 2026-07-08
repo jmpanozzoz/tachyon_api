@@ -112,3 +112,23 @@ jobs:
           name: dist-all
           path: dist/*
           if-no-files-found: error
+
+  publish:
+    name: Publish to PyPI
+    # Only on version tags — never for PRs or manual runs against branches.
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: collect
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist-all
+          path: dist
+
+      - name: List artifacts to publish
+        run: ls -la dist/
+
+      - name: Publish wheels + sdist to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          password: ${{ secrets.PYPI_API_TOKEN }}

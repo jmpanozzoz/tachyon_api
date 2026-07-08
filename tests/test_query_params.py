@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 
 import pytest
 from tachyon_api import Tachyon
@@ -101,3 +101,56 @@ async def test_query_list_over_cap_rejected_with_422():
     assert response.status_code == 422
     assert "exceeds maximum list size" in response.text
     assert str(MAX_QUERY_LIST_SIZE) in response.text
+
+
+@pytest.mark.asyncio
+async def test_optional_query_param_absent_and_present():
+    app = Tachyon()
+
+    @app.get("/opt")
+    def opt(q: Optional[str] = Query(None)):
+        return {"q": q}
+
+    async with create_client(app) as client:
+        r1 = (await client.get("/opt")).json()
+        assert r1 == {"q": None}
+
+        r2 = (await client.get("/opt?q=hello")).json()
+        assert r2 == {"q": "hello"}
+
+
+@pytest.mark.asyncio
+async def test_list_query_param_csv_and_repeated():
+    app = Tachyon()
+
+    @app.get("/ids")
+    def ids(ids: List[int] = Query(...)):
+        return {"ids": ids}
+
+    async with create_client(app) as client:
+        r1 = (await client.get("/ids?ids=1,2,3")).json()
+        assert r1 == {"ids": [1, 2, 3]}
+
+        # Repeated params
+        r2 = (await client.get("/ids?ids=4&ids=5")).json()
+        assert r2 == {"ids": [4, 5]}
+
+
+@pytest.mark.asyncio
+async def test_query_list_of_optional_items_runtime():
+    app = Tachyon()
+
+    @app.get("/q")
+    def get_q(items: List[Optional[int]] = Query(...)):
+        return {"items": items}
+
+    async with create_client(app) as client:
+        # mix of values: number, empty, number, null keyword, repeated param
+        resp = await client.get("/q?items=1,,3,null&items=5&items=")
+        assert resp.status_code == 200
+        assert resp.json() == {"items": [1, None, 3, None, 5, None]}
+
+        # invalid value should yield 422
+        bad = await client.get("/q?items=1,x,3")
+        assert bad.status_code == 422
+        assert "Invalid value for integer conversion" in bad.text

@@ -55,3 +55,18 @@ async def test_openapi_path_list_param():
     assert p_ids["required"] is True
     assert p_ids["schema"]["type"] == "array"
     assert p_ids["schema"]["items"]["type"] == "integer"
+
+
+@pytest.mark.asyncio
+async def test_openapi_query_list_of_optional_items():
+    app = Tachyon()
+
+    @app.get("/opt")
+    def get_opt(items: List[Optional[int]] = Query(...)):
+        return {"items": items}
+
+    schema = await _get_openapi(app)
+    p = _find_param(schema, "/opt", "get", "items", "query")
+    assert p["schema"]["type"] == "array"
+    assert p["schema"]["items"]["type"] == "integer"
+    assert p["schema"]["items"]["nullable"] is True

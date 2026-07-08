@@ -9,7 +9,7 @@ Request() object creation.
 import pytest
 from starlette.responses import JSONResponse
 from tests.helpers import create_client
-from tachyon_api import Tachyon, Struct, Body
+from tachyon_api import Tachyon
 from tachyon_api.exceptions import HTTPException
 
 

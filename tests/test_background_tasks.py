@@ -179,3 +179,19 @@ async def test_background_task_error_handling():
         assert response.status_code == 200
         # Success task should have run despite failing task
         assert "success" in results
+
+
+def test_background_tasks_len():
+    from tachyon_api.background import BackgroundTasks
+    bg = BackgroundTasks()
+    assert len(bg) == 0
+    bg.add_task(lambda: None)
+    assert len(bg) == 1
+
+
+def test_background_tasks_bool():
+    from tachyon_api.background import BackgroundTasks
+    bg = BackgroundTasks()
+    assert not bg  # empty → False
+    bg.add_task(lambda: None)
+    assert bg  # non-empty → True

@@ -21,7 +21,6 @@ from __future__ import annotations
 
 from uvicorn.protocols.http.httptools_impl import (
     HttpToolsProtocol,
-    RequestResponseCycle,
 )
 
 from .responses import (

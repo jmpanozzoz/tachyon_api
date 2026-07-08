@@ -11,9 +11,11 @@ This feature adds support for:
 """
 
 import pytest
+from unittest.mock import MagicMock
 from tachyon_api import Tachyon, Depends
 from tests.helpers import create_client
 from tachyon_api.params import Header
+from tachyon_api.processing.dependencies import DependencyResolver
 
 
 # --- Test fixtures (functions to be used as dependencies) ---
@@ -206,3 +208,48 @@ async def test_depends_callable_caching():
     # Same dependency should be called only once and reused
     assert data["dep1"] == data["dep2"]
     assert call_count == 1  # Called only once, not twice
+
+
+@pytest.mark.asyncio
+async def test_callable_dependency_with_override_value():
+    app = Tachyon()
+    resolver = DependencyResolver(app)
+
+    def factory():
+        return "from_factory"
+
+    app.dependency_overrides[factory] = "override_value"
+    result = await resolver.resolve_callable_dependency(factory, {}, MagicMock())
+    assert result == "override_value"
+
+
+@pytest.mark.asyncio
+async def test_callable_dependency_with_async_override():
+    app = Tachyon()
+    resolver = DependencyResolver(app)
+
+    def factory():
+        return "original"
+
+    async def async_override():
+        return "async_result"
+
+    app.dependency_overrides[factory] = async_override
+    result = await resolver.resolve_callable_dependency(factory, {}, MagicMock())
+    assert result == "async_result"
+
+
+@pytest.mark.asyncio
+async def test_callable_dep_nested_depends_resolves():
+    """Cover the Depends branch inside resolve_callable_dependency."""
+    app = Tachyon()
+    resolver = DependencyResolver(app)
+
+    def inner():
+        return "inner"
+
+    async def outer(inner_val=Depends(inner)):
+        return f"outer:{inner_val}"
+
+    result = await resolver.resolve_callable_dependency(outer, {}, MagicMock())
+    assert result == "outer:inner"

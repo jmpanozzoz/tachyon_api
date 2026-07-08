@@ -16,7 +16,6 @@ from .auth_dto import (
     RegisterRequest,
     TokenResponse,
     UserResponse,
-    AuthStatusResponse,
 )
 
 
@@ -85,21 +84,3 @@ def get_current_user_info(
         )
     
     return user_info
-
-
-@router.get("/status", response_model=AuthStatusResponse)
-def check_auth_status(
-    user: dict = Depends(get_current_user),
-    service: AuthService = Depends(),
-):
-    """
-    Check current authentication status.
-    
-    Returns whether the user is authenticated and their info.
-    """
-    user_info = service.get_user_by_id(user["user_id"])
-    
-    return AuthStatusResponse(
-        authenticated=True,
-        user=user_info,
-    )

@@ -15,8 +15,6 @@ Body size limit is captured in BodyExtractor at construction time.
 
 import cython
 
-from starlette.responses import JSONResponse
-
 from ..responses import validation_error_response
 from ..background import BackgroundTasks
 
@@ -124,7 +122,9 @@ cdef class ParameterProcessor:
                 )
 
             elif kind == _KIND_DEP_CLASS:
-                args[i] = self.app._dependency_resolver.resolve_dependency(p.annotation)
+                args[i] = self.app._dependency_resolver.resolve_dependency(
+                    p.annotation, dependency_cache
+                )
 
             elif kind == _KIND_BODY:
                 val, err = await self._body.extract(p, request)
