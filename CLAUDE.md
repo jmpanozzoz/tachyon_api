@@ -28,9 +28,9 @@ El target son **aplicaciones p99**: sistemas donde la latencia en el percentil 9
 
 **Stack central (6 dependencias runtime):** Starlette (ASGI), msgspec (validación/serialización), orjson (JSON), uvicorn (server), Typer (CLI), python-multipart (form/file).
 
-**Estado actual:** v1.3.0 publicada en PyPI con 27 wheels Cython precompiladas — **5.61× FastAPI**, 370+ tests verdes en pure-Python y compilado.
+**Estado actual:** v1.3.1 publicada en PyPI (seguridad + cleanup completo) con 27 wheels Cython precompiladas — **5.61× FastAPI**, 376 tests verdes en pure-Python y compilado.
 
-**Target 1.4.0:** ~12× FastAPI (ceiling Python/Cython) + CLI revamp + `tachyon migrate` + AI skills dinámicas. Plan completo en `ROADMAP.md` (sección "v1.3.x → v1.4.0 — Plan maestro").
+**Target 1.4.0:** solo performance + mínima expresión — ~10–12× FastAPI en modo estándar (ceiling Python/Cython), turbo server opt-in (~15–20×, transport directo sin ASGI send), compile sweep de todo módulo que justifique su delta, y spike de single-source Cython para eliminar la dualidad `.py`/`.pyx`. CLI revamp, `tachyon migrate` y AI skills pasan a la línea **1.5.x**. Plan completo en `ROADMAP.md` (sección "v1.4.0 — Plan revisado").
 
 ---
 
@@ -229,22 +229,22 @@ Estas son las que **rompen performance si no se respetan**. Aplican a `routing/`
 
 ## Mapa por bloque de trabajo (1.3.x → 1.4.0)
 
-Para cualquier rama del plan, este es el entry point + qué no romper. Detalle completo en `ROADMAP.md`.
+Para cualquier rama del plan, este es el entry point + qué no romper. Detalle completo en `ROADMAP.md` ("v1.4.0 — Plan revisado"). **Nota 2026-07-08:** la 1.4.0 es solo el Bloque A ampliado (performance + mínima expresión); los Bloques B/C/D pasan a 1.5.x — sus entry points siguen abajo como referencia.
 
-### Bloque A — Performance ceiling (v1.3.1 → v1.3.6)
+### Bloque A — Performance ceiling + mínima expresión (v1.3.2 → v1.3.9)
 
-- **Entry points:** `routing/trie.pyx`, `processing/compiler.{py,pyx}`, `processing/parameters.{py,pyx}`, `processing/dispatch.{py,pyx}`.
-- **No romper:** API pública de `CompiledEndpoint` y `ParamDescriptor`, comportamiento de DI scopes, semántica de trailing slash.
-- **Validar con:** `benchmark/profile_breakdown.py` (delta µs por fase), `bash benchmark/run_benchmark.sh` (× vs FastAPI), `scripts/check_py_pyx_parity.py`.
-- **Pre-trabajo:** resolver HF-01 (`_EMPTY_PARAMS` singleton en `trie.py`) antes de F6.
+- **Entry points:** `routing/trie.pyx`, `processing/compiler.{py,pyx}`, `processing/parameters.{py,pyx}`, `processing/dispatch.{py,pyx}`, `responses/`, `server.py` + `_server_fast.pyx` (turbo), y en el compile sweep: `app/_asgi_entry`, `app/_asgi_handler`, `app/_*_factory`, `dependencies/_callable_factory`.
+- **No romper:** API pública de `CompiledEndpoint` y `ParamDescriptor`, comportamiento de DI scopes, semántica de trailing slash, y el modo ASGI estándar (el turbo server es opt-in con fallback automático).
+- **Validar con:** `benchmark/profile_breakdown.py` (delta µs por fase), `bash benchmark/run_benchmark.sh` (× vs FastAPI), `scripts/check_py_pyx_parity.py` (mientras exista la dualidad — v1.3.8 evalúa eliminarla).
+- **Pre-trabajo:** verificar HF-01 (`_EMPTY_PARAMS` singleton en `trie.py`) antes de v1.3.2. Recordar que `has_path_params` se eliminó en el cleanup v1.3.1 — v1.3.2 lo reintroduce con su lector.
 
-### Bloque B — CLI revamp (v1.3.7 → v1.3.9)
+### Bloque B — CLI revamp (→ 1.5.x)
 
 - **Entry points:** `cli/commands/*.py`, `cli/main.py`. Nuevos: `cli/commands/doctor.py`, `cli/commands/dev.py`.
 - **No romper:** signatures actuales de `tachyon new`, `tachyon run`, `tachyon generate`, `tachyon routes`. Funcionar en TTY sin color.
 - **Dependencias nuevas:** `rich` ya transitiva de typer (sin agregar). `textual` solo en extra `[dev-tui]`. Importar bajo `try/except ImportError` con mensaje claro.
 
-### Bloque C — Migrate FastAPI/Starlette (v1.3.10 → v1.3.11)
+### Bloque C — Migrate FastAPI/Starlette (→ 1.5.x)
 
 - **Entry points:** `cli/commands/migrate.py` (nuevo). Lógica de AST en `cli/migrate/` (nuevo módulo).
 - **Auto-detección de proyecto:** sin argumentos, escanea cwd buscando imports `fastapi`/`starlette`, `pyproject.toml` con esas deps, o `app.py`/`main.py`/`application.py` con `FastAPI(...)`/`Starlette(...)`. Si no detecta, pide path explícito — no asume.
@@ -255,13 +255,13 @@ Para cualquier rama del plan, este es el entry point + qué no romper. Detalle c
   - Patrones no portables (Pydantic validators, `dependency_overrides` con scopes custom, etc.) se marcan como TODO, **nunca** se tocan.
 - **Dependencias nuevas:** `libcst` en extra `[migrate]`.
 
-### Bloque D — AI integration (v1.3.12 → v1.3.13)
+### Bloque D — AI integration (→ 1.5.x)
 
 - **Entry points:** `cli/commands/skill.py` (rediseño), `cli/commands/ai.py` (nuevo con `explain` y `context`).
 - **No romper:** los archivos que `install-skill` ya genera (`.cursorrules`, `CLAUDE.md` snippet, `copilot-instructions.md`, `opencode/rules.md`, `AGENTS.md`) siguen existiendo igual; se **agregan** formatos nuevos (`.claude/skills/tachyon/SKILL.md`, `.cursor/skills/tachyon.md`).
 - **Source of truth:** introspección del paquete instalado. Ver regla "AI / Skills" arriba.
 
-### Bloque E — Cierre (v1.3.14 → v1.3.15 → v1.4.0)
+### Bloque E — Cierre (v1.3.9 → v1.4.0)
 
 - HF-01, HF-04, audit imports. (Ya hechos en el cleanup pre-1.4: refactor `tests/test_coverage_gaps.py` por tema y `fastapi`/`pydantic` movidos al extra `[benchmark]`.)
 - RC interno `v1.4.0rc1` en `dev`, una semana de uso, tag final en `main`.
@@ -379,14 +379,21 @@ python -m tachyon_api.cli.main --help
 
 Ver `ROADMAP.md` (gitignored — no se commitea, es documento de trabajo interno).
 
-**Resumen v1.3.x → v1.4.0:**
-- **Bloque A** (1.3.1–1.3.6): F6–F11 performance, ~5.61× → ~12× FastAPI.
-- **Bloque B** (1.3.7–1.3.9): CLI Rich, `doctor`, `dev` (TUI).
-- **Bloque C** (1.3.10–1.3.11): `tachyon migrate scan` + `apply` con auto-detección de proyecto FastAPI/Starlette.
-- **Bloque D** (1.3.12–1.3.13): skills dinámicas + `tachyon ai explain/context`.
-- **Bloque E** (1.3.14–1.3.15 → 1.4.0): cleanup, RC, release.
+**Resumen v1.3.x → v1.4.0 (revisado 2026-07-08 — solo performance + mínima expresión):**
+- **1.3.1** ✅ seguridad (13 advisories → 0) + cleanup completo del codebase.
+- **1.3.2** F6 cierre: zero-alloc `path_params` (reintroduce `has_path_params` con lector).
+- **1.3.3** F10: pooled response buffers / wire cache.
+- **1.3.4** F11: `nogil` + conversores C (`str→int/float`).
+- **1.3.5** compile sweep: compilar todo módulo del request path que justifique ≥ ~30ns/req.
+- **1.3.6** F7 residual + dispatch polish (stubs posicionales, cdef inline).
+- **1.3.7** turbo server opt-in (`tachyon run --turbo`): transport directo, rompe el piso ASGI.
+- **1.3.8** single-source Cython (spike con gate): un archivo por módulo, chau parity script.
+- **1.3.9 → 1.4.0**: benchmark limpio final, números publicados en README/docs/web, RC, release.
+- Cada fase: rama propia, micro-benchmark antes/después obligatorio, release a PyPI si cierra verde.
 
-**Más allá de 1.4.0 (v2.x):** server binding en C, Rust core con PyO3, ABI no-ASGI. Out of scope hasta cerrar 1.4.0.
+**Movido a 1.5.x:** CLI revamp (Rich/TUI, `doctor`, `dev`), `tachyon migrate`, AI skills dinámicas.
+
+**Más allá de 1.4.0 (v2.x):** Rust core con PyO3, ABI no-ASGI completa. Out of scope hasta cerrar 1.4.0.
 
 ---
 
