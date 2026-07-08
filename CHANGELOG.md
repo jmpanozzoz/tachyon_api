@@ -107,6 +107,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     `request.form()` guards in `parameters.{py,pyx}` (merging the FORM/FILE
     branches would break the typed `cdef` extractor dispatch in the compiled
     version).
+- **Release pipeline unified.** `pypi.yml` published a generic
+  `poetry build` wheel with no compiled extensions, racing against the real
+  cibuildwheel artifacts.  `build-wheels.yml` now has a `publish` job that
+  uploads the 27-wheel matrix + sdist to PyPI on `v*` tags; `pypi.yml` was
+  removed.
+- `fastapi`/`pydantic` moved from dev dependencies to the `[benchmark]`
+  extra (they are only needed by `benchmark/run_benchmark.sh`), as mandated
+  by the project rules.
+- Internal work artifacts removed from the repo: `docs/audit-v1.2.83.md`,
+  `docs/cython-plan-v1.2.9.md`, and the one-off v1.2.9-sprint profilers
+  (`benchmark/profile_{di,exc,extractors,tachyon}.py` — `profile_tachyon`
+  also duplicated `run_benchmark.sh`).  They remain in git history.
+- CLI housekeeping: `commands/__init__.py` no longer eagerly imports
+  submodules (main.py imports them directly), project template now pins
+  `tachyon-api>=1.3.0`, and the AI-skill CLI reference includes the
+  `openapi` and `install-skill` commands it was missing.
+- Docs refreshed: `docs/README.md` version/deps/ratio corrected; stale
+  "v1.2.x" current-state seals reworded in architecture and migration guides.
 
 ### Fixed
 

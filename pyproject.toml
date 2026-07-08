@@ -21,12 +21,17 @@ msgspec = "^0.19.0"
 typer = "^0.16.0"
 orjson = "^3.11.1"
 python-multipart = "^0.0.32"
+# Optional — only pulled in via the [benchmark] extra:
+fastapi = { version = "^0.136.1", optional = true }
+pydantic = { version = "^2.13.4", optional = true }
 
 [tool.poetry.extras]
 # Precompiled wheels published to PyPI already include the Cython extensions
 # as `.so` files. This extra is only useful when building from sdist on a
 # platform without a published wheel — pip will then compile from .pyx.
 fast = ["cython"]
+# Only needed to run benchmark/run_benchmark.sh (Tachyon vs FastAPI).
+benchmark = ["fastapi", "pydantic"]
 
 [tool.poetry.build]
 # Required so poetry-core's wheel builder enters the build-extensions branch
@@ -44,8 +49,6 @@ pytest-asyncio = "^1.1.0"
 httpx = "^0.28.1"
 ruff = "0.14.9"
 cython = ">=3.0"
-fastapi = "^0.136.1"
-pydantic = "^2.13.4"
 
 [tool.poetry.scripts]
 tachyon = "tachyon_api.cli:app"

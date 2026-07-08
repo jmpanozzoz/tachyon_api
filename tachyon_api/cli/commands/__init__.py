@@ -1,5 +1,1 @@
-"""CLI Commands"""
-
-from . import new, generate, openapi, lint
-
-__all__ = ["new", "generate", "openapi", "lint"]
+"""CLI Commands — submodules are imported directly by main.py (eager or lazy)."""
