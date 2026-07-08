@@ -1,10 +1,14 @@
 """OpenAPI spec generation, configuration dataclasses, and HTML doc renderers."""
 
 # Configuration dataclasses
-from ._config import OpenAPIConfig
-from ._factory import create_openapi_config
-from ._info import Contact, Info, License
-from ._server import Server
+from ._config import (
+    Contact,
+    Info,
+    License,
+    OpenAPIConfig,
+    Server,
+    create_openapi_config,
+)
 
 # Generator + builders
 from ._generator import OpenAPIGenerator

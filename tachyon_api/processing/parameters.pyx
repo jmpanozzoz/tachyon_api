@@ -15,8 +15,6 @@ Body size limit is captured in BodyExtractor at construction time.
 
 import cython
 
-from starlette.responses import JSONResponse
-
 from ..responses import validation_error_response
 from ..background import BackgroundTasks
 

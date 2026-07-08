@@ -33,8 +33,6 @@ class DependencyResolver:
         "_circular",
         "_class_factory",
         "_callable_factory",
-        # kept for backward compatibility with code that introspected the resolver
-        "_resolving",
     )
 
     def __init__(self, app_instance: Any) -> None:
@@ -46,8 +44,6 @@ class DependencyResolver:
         self._callable_factory = CallableFactory(
             self.resolve_dependency, self.resolve_callable_dependency
         )
-        # legacy attribute — was a set used by the old monolithic resolver
-        self._resolving = self._circular._resolving
 
     def resolve_dependency(
         self, cls: Type, request_cache: Optional[Dict] = None

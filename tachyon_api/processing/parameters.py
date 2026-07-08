@@ -8,7 +8,7 @@ output for the same input.
 
 from __future__ import annotations
 
-from typing import Any, Optional, Tuple
+from typing import Optional, Tuple
 
 from starlette.responses import JSONResponse
 

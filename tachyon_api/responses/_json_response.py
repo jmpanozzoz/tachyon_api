@@ -1,4 +1,4 @@
-# HOT PATH — cdef migration target for v1.3.x.
+# HOT PATH — compiled sibling exists (.pyx wins import resolution when built).
 #
 # Bypasses `Response.__init__` (which costs ~0.96µs on Starlette and builds a
 # MutableHeaders).  Sets attributes directly and pre-builds both ASGI send dicts
@@ -35,9 +35,6 @@ class TachyonJSONResponse(JSONResponse):
         self.raw_headers = headers
         self._send_start = {"type": _ASGI_START, "status": status_code, "headers": headers}
         self._send_body = {"type": _ASGI_BODY, "body": body}
-
-    def render(self, content) -> bytes:  # pragma: no cover — bypassed by our __init__
-        return encode_json(content)
 
     async def __call__(self, scope, receive, send) -> None:
         await send(self._send_start)

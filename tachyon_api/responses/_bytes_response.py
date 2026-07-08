@@ -1,4 +1,4 @@
-# HOT PATH — cdef migration target for v1.3.x.
+# HOT PATH — compiled sibling exists (.pyx wins import resolution when built).
 # Like TachyonJSONResponse but accepts pre-encoded bytes (msgspec output).
 
 from starlette.responses import JSONResponse
