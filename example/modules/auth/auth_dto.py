@@ -2,7 +2,6 @@
 Auth DTOs - Data Transfer Objects for authentication.
 """
 
-from typing import Optional
 from tachyon_api import Struct
 
 
@@ -37,10 +36,3 @@ class UserResponse(Struct):
     full_name: str
     role: str = "user"
     is_verified: bool = False
-
-
-class AuthStatusResponse(Struct):
-    """Current authentication status."""
-    
-    authenticated: bool
-    user: Optional[UserResponse] = None

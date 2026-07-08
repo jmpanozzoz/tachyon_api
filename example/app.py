@@ -1,15 +1,14 @@
 """
-KYC Demo API — full Tachyon v1.2.x showcase.
+KYC Demo API — Tachyon showcase, fully exercised by its test suite.
 
-Demonstrates every feature added through the v1.2.x cycle:
+Demonstrates:
 
-  - DI scopes: singleton (default), request, transient
-  - WebSocket DI + typed UUID path params (see `modules/admin/admin_ws.py`)
-  - OpenAPI `List[Struct]` body + response (see `customers_controller.py`)
-  - `multipart/form-data` request body (see `documents_controller.py`)
+  - Dependency injection with `@injectable` + `Depends(callable)`
+  - JWT auth via a callable dependency (see `auth_controller.py`)
   - `SecurityHeadersMiddleware` opt-in (this file)
   - `@app.exception_handler` with custom error type (this file)
   - `BackgroundTasks` for fire-and-forget work (see `verification_controller.py`)
+  - WebSocket notifications fed by the verification flow (this file)
   - Lifespan startup/shutdown (this file)
   - Async test client `create_client` (see `tests/test_async_client.py`)
 
@@ -35,10 +34,8 @@ from .shared.exceptions import KYCException
 from .shared.websocket_manager import manager as ws_manager
 
 # Module routers
-from .modules.admin import router as admin_router
 from .modules.auth import router as auth_router
 from .modules.customers import router as customers_router
-from .modules.documents import router as documents_router
 from .modules.verification import router as verification_router
 
 
@@ -69,11 +66,11 @@ openapi_config = OpenAPIConfig(
     info=Info(
         title="KYC Demo API",
         description=(
-            "Know Your Customer verification system — built on Tachyon v1.2.x. "
-            "Showcases DI scopes, WebSocket DI, OpenAPI List[Struct], security headers, "
-            "background tasks, custom exception handlers, and the testing helpers."
+            "Know Your Customer verification system — built on Tachyon. "
+            "Showcases DI, JWT auth, security headers, background tasks, "
+            "custom exception handlers, WebSockets, and the testing helpers."
         ),
-        version="1.2.0",
+        version="1.3.0",
     )
 )
 
@@ -139,8 +136,6 @@ async def kyc_exception_handler(request: Request, exc: KYCException) -> JSONResp
 app.include_router(auth_router)
 app.include_router(customers_router)
 app.include_router(verification_router)
-app.include_router(documents_router)
-app.include_router(admin_router)
 
 
 # ── Top-level health endpoints ────────────────────────────────────────────────
@@ -150,7 +145,7 @@ def health_check():
     return {
         "status": "healthy",
         "service": "KYC Demo API",
-        "version": "1.2.0",
+        "version": "1.3.0",
         "framework": "tachyon-api",
     }
 
@@ -169,9 +164,9 @@ def detailed_health():
     }
 
 
-# ── Customer notification WebSocket (legacy plain-string path param) ──────────
-# Kept as-is for backward compatibility with the customer-facing app.
-# For the modern WS pattern (DI + typed UUID), see modules/admin/admin_ws.py.
+# ── Customer notification WebSocket ──────────────────────────────────────────
+# Consumer side of the verification flow: process_verification() broadcasts
+# status updates through ws_manager to clients connected here.
 
 @app.websocket("/ws/notifications/{customer_id}")
 async def websocket_notifications(websocket, customer_id: str):

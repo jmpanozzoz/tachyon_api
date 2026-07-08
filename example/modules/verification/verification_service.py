@@ -10,7 +10,6 @@ This service:
 
 import asyncio
 import random
-from typing import List
 
 from tachyon_api import injectable, cache
 
@@ -23,7 +22,6 @@ from ..customers.customers_repository import CustomersRepository
 from .verification_repository import VerificationRepository
 from .verification_dto import (
     VerificationResponse,
-    VerificationSummary,
 )
 
 
@@ -187,30 +185,3 @@ class VerificationService:
             raise VerificationNotFoundError(verification_id)
         
         return verification
-    
-    def get_verifications_for_customer(
-        self,
-        customer_id: str,
-        limit: int = 10,
-    ) -> List[VerificationResponse]:
-        """Get all verifications for a customer."""
-        return self.repository.find_by_customer(customer_id, limit)
-    
-    def get_verification_summary(
-        self,
-        verification_id: str,
-    ) -> VerificationSummary:
-        """Get a summary of verification status."""
-        verification = self.get_verification(verification_id)
-        
-        passed = sum(1 for c in verification.checks if c.status == "passed")
-        failed = sum(1 for c in verification.checks if c.status == "failed")
-        pending = sum(1 for c in verification.checks if c.status == "pending")
-        
-        return VerificationSummary(
-            verification_id=verification_id,
-            status=verification.status,
-            checks_passed=passed,
-            checks_failed=failed,
-            checks_pending=pending,
-        )

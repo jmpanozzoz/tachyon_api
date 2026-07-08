@@ -3,28 +3,21 @@ Customers Controller - Customer management endpoints.
 
 Endpoints:
 - POST /customers - Create customer profile
-- POST /customers/bulk - Bulk create (showcases Body(List[Struct]))
 - GET /customers/me - Get current user's customer profile
 - GET /customers/recent - Recent customers (showcases response_model=List[Struct])
 - GET /customers/{id} - Get customer by ID
-- PUT /customers/{id} - Update customer
-- DELETE /customers/{id} - Delete customer
-- GET /customers - List all customers (admin)
 """
 
-from typing import List, Optional
+from typing import List
 
 from tachyon_api import Router, Depends, Body, Query
 
 from ...shared.dependencies import get_current_user
-from ...shared.id_generator import IdGenerator
 from ...shared.request_context import RequestContext
 from .customers_service import CustomersService
 from .customers_dto import (
     CustomerCreate,
-    CustomerUpdate,
     CustomerResponse,
-    CustomerListResponse,
 )
 
 
@@ -76,27 +69,6 @@ def get_my_customer_profile(
     return customer
 
 
-@router.get("/", response_model=CustomerListResponse)
-def list_customers(
-    page: int = Query(1),
-    limit: int = Query(10),
-    status: Optional[str] = Query(None),
-    user: dict = Depends(get_current_user),
-    service: CustomersService = Depends(),
-):
-    """
-    List all customers (admin only).
-    
-    **Query parameters:**
-    - `page`: Page number (default: 1)
-    - `limit`: Items per page (default: 10)
-    - `status`: Filter by KYC status (pending, in_progress, verified, rejected)
-    """
-    # In production, check if user is admin
-    # For demo, we allow all authenticated users
-    return service.list_customers(page, limit, status)
-
-
 @router.get("/{customer_id}", response_model=CustomerResponse)
 def get_customer(
     customer_id: str,
@@ -110,67 +82,6 @@ def get_customer(
     Admins can access any customer.
     """
     return service.get_customer(customer_id)
-
-
-@router.put("/{customer_id}", response_model=CustomerResponse)
-def update_customer(
-    customer_id: str,
-    data: CustomerUpdate = Body(...),
-    user: dict = Depends(get_current_user),
-    service: CustomersService = Depends(),
-):
-    """
-    Update customer information.
-    
-    All fields are optional - only provided fields are updated.
-    """
-    return service.update_customer(customer_id, data)
-
-
-@router.delete("/{customer_id}")
-def delete_customer(
-    customer_id: str,
-    user: dict = Depends(get_current_user),
-    service: CustomersService = Depends(),
-):
-    """
-    Delete a customer profile.
-
-    This also deletes all associated verifications and documents.
-    """
-    service.delete_customer(customer_id)
-    return {"deleted": True, "customer_id": customer_id}
-
-
-# ── Bulk + recent endpoints — showcase v1.2.0 features ────────────────────────
-
-@router.post("/bulk", response_model=List[CustomerResponse])
-def bulk_create_customers(
-    customers: List[CustomerCreate] = Body(...),
-    user: dict = Depends(get_current_user),
-    service: CustomersService = Depends(),
-    ctx: RequestContext = Depends(),     # request-scoped — same instance for whole request
-    id_gen: IdGenerator = Depends(),     # transient — fresh instance per injection
-):
-    """
-    Bulk-create multiple customer profiles in a single request.
-
-    Showcases:
-    - `Body(List[CustomerCreate])` → `array` request body in OpenAPI + runtime decode
-    - `response_model=List[CustomerResponse]` → array response schema
-    - `@injectable(scope="request")` RequestContext for correlation tracking
-    - `@injectable(scope="transient")` IdGenerator (a fresh sequence per call)
-    """
-    ctx.set("operation", "bulk_create")
-    ctx.set("count", len(customers))
-
-    results: List[CustomerResponse] = []
-    for data in customers:
-        batch_id = id_gen.next_id()
-        created = service.create_customer(user["user_id"], data)
-        created.customer_id = f"{batch_id}-{created.customer_id}"
-        results.append(created)
-    return results
 
 
 @router.get("/recent", response_model=List[CustomerResponse])
