@@ -201,7 +201,7 @@ Esto crea automáticamente:
 
 ---
 
-## 🧩 Tachyon's Internal Architecture (v1.2.x SRP refactor)
+## 🧩 Tachyon's Internal Architecture (SRP refactor, v1.2.x+)
 
 Tu *application* sigue el layout de arriba.  El **framework mismo** está
 organizado por SRP — 63 módulos atómicos repartidos en paquetes con una

@@ -91,7 +91,7 @@ settings = Settings()
 '''
 
     REQUIREMENTS = """# Tachyon API Framework
-tachyon-api>=1.2.0
+tachyon-api>=1.3.0
 
 # Server
 uvicorn[standard]>=0.35.0

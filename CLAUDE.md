@@ -64,7 +64,7 @@ tachyon_api/
 ├── __init__.py                  # API pública (Tachyon, Struct, Body, Query, ...)
 ├── app/                         # Fachada + colaboradores del app object
 │   ├── __init__.py              # class Tachyon — compone todo, ASGI entry
-│   ├── _404.py / _405.py        # bodies + start dicts para errores
+│   ├── _error_static.py         # bodies + start dicts pre-built para 404/405
 │   ├── _asgi_entry.py           # dispatch HTTP/WebSocket/lifespan
 │   ├── _asgi_handler.py         # fast-path para endpoints sin params
 │   ├── _docs_routes.py          # /docs, /redoc, /openapi.json
@@ -263,7 +263,7 @@ Para cualquier rama del plan, este es el entry point + qué no romper. Detalle c
 
 ### Bloque E — Cierre (v1.3.14 → v1.3.15 → v1.4.0)
 
-- HF-01, HF-04, refactor `tests/test_coverage_gaps.py` por tema, mover `fastapi`/`pydantic` a extra `[benchmark]`, audit imports.
+- HF-01, HF-04, audit imports. (Ya hechos en el cleanup pre-1.4: refactor `tests/test_coverage_gaps.py` por tema y `fastapi`/`pydantic` movidos al extra `[benchmark]`.)
 - RC interno `v1.4.0rc1` en `dev`, una semana de uso, tag final en `main`.
 
 ---

@@ -150,9 +150,9 @@ See [Dependency Injection](./03-dependency-injection.md) for when to use each.
 
 ---
 
-## 🚨 v1.2.x Gotchas (after first migration)
+## 🚨 Gotchas (after first migration)
 
-Items to keep in mind if you migrate to v1.2.x specifically:
+Items to keep in mind after migrating:
 
 ### CORS is opt-in *(v1.2.0+)*
 

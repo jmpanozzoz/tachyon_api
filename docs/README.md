@@ -37,9 +37,9 @@
 | Feature | Tachyon | FastAPI |
 |---------|---------|---------|
 | **Serialization** | msgspec + orjson | pydantic |
-| **Performance** | ⚡ ~5.5x throughput on the published benchmarks | Fast |
+| **Performance** | ⚡ ~5.6x throughput on the published benchmarks | Fast |
 | **Routing** | Radix trie O(k), Cython-compiled | Regex scan O(N) |
-| **Bundle Size** | 4 core deps | ~15 deps |
+| **Bundle Size** | 7 runtime deps (starlette, msgspec, orjson, uvicorn, httptools, typer, python-multipart) | ~15 deps |
 | **DI scopes** | 3 (singleton / request / transient) | 1 |
 | **Learning Curve** | Easy (FastAPI-like decorators) | Easy |
 | **Type Safety** | Full (msgspec Struct) | Full (Pydantic) |
@@ -81,7 +81,7 @@ Visit: http://localhost:8000/docs
 
 ## 📖 Version
 
-Current: **1.2.x** — see [CHANGELOG](../CHANGELOG.md) for full history.
+Current: **1.3.x** — see [CHANGELOG](../CHANGELOG.md) for full history.
 
 ## 📄 License
 
