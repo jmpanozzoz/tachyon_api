@@ -7,6 +7,8 @@ Demonstrates:
 - Fixture composition
 """
 
+import copy
+
 import pytest
 import jwt
 from datetime import datetime, timedelta
@@ -15,6 +17,11 @@ from tachyon_api.testing import TachyonTestClient
 
 from example.app import app
 from example.config import settings
+from example.modules.auth import auth_service
+from example.modules.customers import customers_repository
+from example.modules.verification import verification_repository
+
+_initial_users = copy.deepcopy(auth_service._users_db)
 
 
 @pytest.fixture
@@ -84,9 +91,17 @@ def admin_headers(admin_token):
 
 
 @pytest.fixture(autouse=True)
-def clean_overrides():
+def clean_state():
     """
-    Clean dependency overrides after each test.
+    Reset dependency overrides and in-memory stores after each test.
+
+    The demo repositories keep module-global dicts; without this reset a
+    verification created in one test leaks into the next (e.g. an in-progress
+    "standard" verification being returned to a test requesting "enhanced").
     """
     yield
     app.dependency_overrides.clear()
+    customers_repository._customers_db.clear()
+    verification_repository._verifications_db.clear()
+    auth_service._users_db.clear()
+    auth_service._users_db.update(copy.deepcopy(_initial_users))

@@ -9,6 +9,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- **Bumped `starlette` `^0.47.2` → `^1.3.1`**, resolving the 6 advisories
+  reported against starlette 0.47.3:
+  - GHSA-7f5h-v6xp-fcq8 / CVE-2025-62727 (CVSS 7.5) — O(n²) DoS via Range
+    header merging in `starlette.responses` (fixed 0.49.1).
+  - GHSA-82w8-qh3p-5jfq / CVE-2026-54283 (CVSS 7.5) — `request.form()` limits
+    silently ignored for `application/x-www-form-urlencoded` (fixed 1.3.1).
+  - GHSA-86qp-5c8j-p5mr / CVE-2026-48710 (CVSS 6.5) — missing Host header
+    validation poisons `request.url.path` (fixed 1.0.1).
+  - GHSA-wqp7-x3pw-xc5r / CVE-2026-48818 (CVSS 7.5) — SSRF / NTLM credential
+    theft via UNC paths in `StaticFiles` on Windows (fixed 1.1.0).
+  - GHSA-x746-7m8f-x49c / CVE-2026-48817 (CVSS 5.3) — arbitrary HTTP method
+    dispatched to `HTTPEndpoint` attributes (fixed 1.1.0).
+  - GHSA-jp82-jpqv-5vv3 / CVE-2026-54282 (CVSS 3.7) — unvalidated request path
+    concatenated into authority poisons `request.url` (fixed 1.3.0).
+- **Bumped `python-multipart` `^0.0.20` → `^0.0.32`**, resolving the 7
+  advisories reported against python-multipart 0.0.20, most notably
+  GHSA-wp53-j4wj-2cfg / CVE-2026-24486 (CVSS 8.6, arbitrary file write via
+  non-default configuration, fixed 0.0.22) and the DoS pair
+  GHSA-pp6c-gr5w-3c5g / CVE-2026-42561 (CVSS 7.5, unbounded multipart part
+  headers, fixed 0.0.27) and GHSA-5rvq-cxj2-64vf / CVE-2026-53539 (CVSS 7.5,
+  quadratic-time querystring parsing, fixed 0.0.30); plus
+  GHSA-mj87-hwqh-73pj, GHSA-6jv3-5f52-599m, GHSA-vffw-93wf-4j4q and
+  GHSA-v9pg-7xvm-68hf (fixed ≤ 0.0.31).
+
+  With both bumps, `tachyon-api` reports **zero known advisories** across its
+  full dependency tree (verified against deps.dev / OSV).  Full test suite
+  green in both runtime modes; `benchmark/profile_breakdown.py` A/B shows no
+  hot-path regression (response-class cost unchanged at ~0.27 µs — Tachyon
+  bypasses the starlette `Response.__init__` that got slower in 1.x).
+
+### Removed
+
+- `requirements.txt` — stale Poetry export that had drifted from
+  `pyproject.toml` (missing `httptools`, included dev-only packages).  Nothing
+  in CI consumed it; `pyproject.toml` + `poetry.lock` are the single source of
+  truth.
+
 ### Fixed
 
 - **Compiled mode: request-scoped class DI degraded to transient within a
@@ -20,6 +59,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   The API-level parity check could not catch this (same public surface); a new
   regression test (`test_request_scoped_class_di_shares_instance_within_request`)
   now guards the behavior in both modes.
+- **Example test isolation.** The KYC demo repositories keep module-global
+  in-memory dicts; a pending "standard" verification created by one test was
+  returned to the next test requesting an "enhanced" one
+  (`test_start_enhanced_verification` failed when run after
+  `test_start_verification`).  The autouse fixture in `example/tests/conftest.py`
+  now resets the in-memory stores between tests.
 
 ---
 
