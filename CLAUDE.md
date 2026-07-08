@@ -30,7 +30,23 @@ El target son **aplicaciones p99**: sistemas donde la latencia en el percentil 9
 
 **Estado actual:** v1.3.1 publicada en PyPI (seguridad + cleanup completo) con 27 wheels Cython precompiladas — **5.61× FastAPI**, 376 tests verdes en pure-Python y compilado.
 
-**Target 1.4.0:** solo performance + mínima expresión — ~10–12× FastAPI en modo estándar (ceiling Python/Cython), turbo server opt-in (~15–20×, transport directo sin ASGI send), compile sweep de todo módulo que justifique su delta, y spike de single-source Cython para eliminar la dualidad `.py`/`.pyx`. CLI revamp, `tachyon migrate` y AI skills pasan a la línea **1.5.x**. Plan completo en `ROADMAP.md` (sección "v1.4.0 — Plan revisado").
+**Target 1.4.0 — mínima expresión / simplificación (NO es release de velocidad).**
+Hallazgo medido 2026-07-08: el path ASGI estándar ya está en el **techo del stack
+Python/asyncio/uvicorn** (~5× FastAPI, ~48k req/s single-worker). Ese techo es del
+stack, no del framework — a 48k req/s el ciclo interno que controlamos con Cython es
+~2% del request; el 98% es uvicorn + scheduling asyncio + networking del kernel, nada
+optimizable desde nuestro código. Se verificó exhaustivamente:
+- **F6/F10/F11/compile-sweep: todos flat** (A/B back-to-back). Revertidos/descartados.
+- **Turbo server (`transport.write()` directo): descartado.** No mueve el throughput
+  (el ahorro de 2×`send` es 0.7% del request) y **empeora el p99 ~2-3×** (rompe la
+  equidad del event loop) mientras baja el p50 ~9% — un tradeoff que sacrifica
+  justamente la métrica p99 que es la razón de ser del framework.
+
+Por eso la 1.4.0 se reenfoca a **simplificación**: el spike de single-source Cython
+(colapsar la dualidad `.py`/`.pyx`, eliminar el parity script y su clase de bugs de
+drift). CLI revamp, `migrate` y AI skills → **1.5.x**. El salto de throughput real
+requiere otro runtime (core Rust/PyO3, reactor no-asyncio) → **v2.x**. Detalle y
+evidencia en `ROADMAP.md` (sección "v1.4.0 — Plan revisado").
 
 ---
 
@@ -379,19 +395,20 @@ python -m tachyon_api.cli.main --help
 
 Ver `ROADMAP.md` (gitignored — no se commitea, es documento de trabajo interno).
 
-**Resumen v1.3.x → v1.4.0 (revisado 2026-07-08 — solo performance + mínima expresión):**
+**Resumen v1.3.x → v1.4.0 (revisado 2026-07-08):**
 - **1.3.1** ✅ seguridad (13 advisories → 0) + cleanup completo del codebase.
-- **1.3.2** F6 cierre: zero-alloc `path_params` (reintroduce `has_path_params` con lector).
-- **1.3.3** F10: pooled response buffers / wire cache.
-- **1.3.4** F11: `nogil` + conversores C (`str→int/float`).
-- **1.3.5** compile sweep: compilar todo módulo del request path que justifique ≥ ~30ns/req.
-- **1.3.6** F7 residual + dispatch polish (stubs posicionales, cdef inline).
-- **1.3.7** turbo server opt-in (`tachyon run --turbo`): transport directo, rompe el piso ASGI.
-- **1.3.8** single-source Cython (spike con gate): un archivo por módulo, chau parity script.
-- **1.3.9 → 1.4.0**: benchmark limpio final, números publicados en README/docs/web, RC, release.
-- Cada fase: rama propia, micro-benchmark antes/después obligatorio, release a PyPI si cierra verde.
+- **Bloque perf F6–F11 + compile-sweep + turbo: EVALUADO Y CERRADO SIN CAMBIOS.**
+  Todo medido flat o dañino (ver el bloque "Target 1.4.0" arriba y `ROADMAP.md`).
+  El framework está en el techo del stack. dev quedó idéntico a 1.3.1.
+- **1.4.0 = simplificación (mínima expresión):** spike single-source Cython
+  (colapsar dualidad `.py`/`.pyx`, eliminar parity script). Es el único trabajo
+  vivo del ciclo. Si el spike no rinde sin regresión, se documenta y se cierra.
+- **1.4.0 release:** cuando el spike cierre (o se descarte), tag + PyPI.
 
 **Movido a 1.5.x:** CLI revamp (Rich/TUI, `doctor`, `dev`), `tachyon migrate`, AI skills dinámicas.
+
+**Throughput real / romper el techo → v2.x:** requiere core Rust/PyO3 o reactor
+no-asyncio. Ninguna optimización Python/Cython/ASGI lo mueve (medido).
 
 **Más allá de 1.4.0 (v2.x):** Rust core con PyO3, ABI no-ASGI completa. Out of scope hasta cerrar 1.4.0.
 
