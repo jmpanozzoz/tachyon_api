@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased]
+
+### Performance
+
+- **F6 — zero-allocation `path_params` on the dispatch path.** The dispatcher
+  no longer writes `scope["path_params"]` on every matched request; the trie's
+  matched params flow straight into the `TachyonScope` constructor, and the
+  no-param fast path (`_ASGIHandler`, e.g. hello-world) never touches
+  `path_params` at all. `TachyonScope.path_params` now reads a C-level field
+  instead of a scope dict lookup; `as_request()` lazily mirrors the params
+  into `scope` so Starlette's `Request.path_params` still sees them.
+  - Dispatcher-isolated micro-benchmark (min of 8×300k, compiled): no-param
+    path **1.352µs → 1.315µs (−2.7%)**; path-param path neutral (1.826 →
+    1.821µs — the trie still allocates the dict, F6 only removes the scope
+    write and swaps a dict read for a field read).
+  - Suite green in both modes (376 tests), parity OK. No public API change.
+  - Note: `has_path_params` on `CompiledEndpoint` was **not** reintroduced —
+    the trie already allocates the params dict lazily (only when a route has
+    param segments), so the flag would be dead weight. The remaining waste was
+    purely the scope write, now removed.
+
+---
+
 ## [1.3.1] — 2026-07-08
 
 **Security release + full codebase cleanup ahead of the 1.4.0 roadmap.**

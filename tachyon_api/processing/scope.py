@@ -21,15 +21,19 @@ from starlette.requests import Request
 
 class TachyonScope:
     __slots__ = (
-        "_scope", "_receive", "_send",
+        "_scope", "_receive", "_send", "_path_params",
         "_body", "_query_params", "_headers", "_cookies",
         "_form_data", "_request",
     )
 
-    def __init__(self, scope: dict, receive: Any, send: Any) -> None:
+    def __init__(self, scope: dict, receive: Any, send: Any, path_params: dict) -> None:
         self._scope = scope
         self._receive = receive
         self._send = send
+        # F6: path_params is passed straight from the trie match — never written
+        # into `scope` on the hot path (the dispatcher no longer does the dict
+        # store).  as_request() lazily mirrors it into scope for Starlette.
+        self._path_params = path_params
         self._body: bytes | None = None
         self._query_params = None
         self._headers = None
@@ -41,7 +45,7 @@ class TachyonScope:
 
     @property
     def path_params(self) -> dict:
-        return self._scope["path_params"]
+        return self._path_params
 
     @property
     def query_params(self) -> QueryParams:
@@ -96,5 +100,9 @@ class TachyonScope:
     def as_request(self) -> Request:
         """Lazily materialise a full Starlette Request — only when needed."""
         if self._request is None:
+            # Mirror path_params into scope so Starlette's Request.path_params
+            # (scope.get("path_params", {})) sees them — the dispatcher skips
+            # this write on the hot path.
+            self._scope["path_params"] = self._path_params
             self._request = Request(self._scope, self._receive, self._send)
         return self._request

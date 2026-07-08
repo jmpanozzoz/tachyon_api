@@ -11,7 +11,8 @@ from unittest.mock import MagicMock, AsyncMock
 
 
 async def make_mock_request(path: str, method: str = "GET",
-                             body: bytes = b"", query: str = ""):
+                             body: bytes = b"", query: str = "",
+                             path_params: dict = None):
     from tachyon_api.processing.scope import TachyonScope
     scope = {
         "type": "http",
@@ -22,11 +23,11 @@ async def make_mock_request(path: str, method: str = "GET",
             (b"content-type", b"application/json"),
             (b"content-length", str(len(body)).encode()),
         ],
-        "path_params": {},
         "app": None,
     }
     receive = AsyncMock(return_value={"type": "http.request", "body": body, "more_body": False})
-    req = TachyonScope(scope, receive, None)
+    # F6: path_params is passed straight to the constructor, not via scope.
+    req = TachyonScope(scope, receive, None, path_params if path_params is not None else {})
     # Pre-warm the body cache so profiling measures processing not I/O
     if body:
         await req.body()
@@ -71,8 +72,7 @@ async def main():
 
     proc   = ParameterProcessor(app)
     req_hello  = await make_mock_request("/hello")
-    req_item   = await make_mock_request("/items/42", query="q=test")
-    req_item._scope["path_params"] = {"item_id": "42"}
+    req_item   = await make_mock_request("/items/42", query="q=test", path_params={"item_id": "42"})
     req_body   = await make_mock_request("/items", "POST", b'{"name":"Widget","price":9.99}')
 
     print("\n" + "═"*65)
