@@ -10,7 +10,9 @@ Tachyon API combines decorator-based routing, msgspec validation, and ASGI integ
 
 [1.4.0 is published on PyPI](https://pypi.org/project/tachyon-api/1.4.0/): four macOS ARM64 native wheels for CPython 3.10–3.13, one portable Python wheel and one source distribution. The [local release record](docs/audits/1.4.0/LOCAL_RELEASE.md) describes validation on this Mac; it does not establish Linux or Windows validation.
 
-[Source repository](https://github.com/jmpanozzoz/tachyon_api/tree/feature/v1.4.0-audit-cleanup) · [Documentation](https://github.com/jmpanozzoz/tachyon_api/tree/feature/v1.4.0-audit-cleanup/docs). These links point to the release preparation branch; no release tag or merge to `main` is implied.
+[Source repository](https://github.com/jmpanozzoz/tachyon_api) · [Documentation](docs/README.md).
+
+This checkout prepares **1.4.1 (unreleased)**: a single Python implementation, portable packaging and a corrected orjson minimum. The published 1.4.0 artifacts above remain unchanged.
 
 The [1.4 migration guide](docs/17-migration-1.4.md) describes execution, body limits, resource lifetime, schema support and packaging changes.
 
@@ -50,22 +52,15 @@ tachyon run                 # reload on; optional uvloop/httptools detected, ser
 
 ## ⚡ Performance and builds
 
-Tachyon precompiles endpoint metadata and provides optional native Cython
-extensions. Performance depends on the application, workload, and deployment.
-Benchmarks must compare equivalent handler execution and dependency scopes. See
-[`benchmark/`](./benchmark/) for the benchmark harness and its limitations.
+Tachyon prepares endpoint metadata at registration. Starting with the unreleased
+1.4.1 source, its own package uses one Python implementation and no Cython build.
+The deprecated `[fast]` extra remains accepted as an empty compatibility alias.
+Third-party native libraries retain their own platform requirements.
 
-Published native wheels cover macOS arm64 and CPython 3.10–3.13. On other platforms, pip can select the published portable wheel, subject to dependency compatibility. A source build with native extensions requires a C compiler; compilation errors fail explicitly. Linux and Windows native wheels are not part of this local release.
-For a portable pure Python installation from source:
-
-```bash
-TACHYON_SKIP_CYTHON=1 pip install --no-binary=tachyon-api tachyon-api
-```
-
-The environment variable controls builds; it does not disable native modules
-already installed. `[fast]` supplies Cython for development; isolated source
-builds already install Cython as a build dependency. See the
-[Cython build guide](./docs/16-cython-build.md).
+Performance depends on workload and deployment. See [the measured assessment](docs/quality/framework-review.md)
+and [benchmark methodology](benchmark/README.md); no universal multiplier is promised.
+See [portable builds and upgrades](docs/16-cython-build.md) and
+[local release checks](docs/quality/local-release.md) before upgrading old native or editable installs.
 
 ## ✨ Features
 
@@ -77,7 +72,7 @@ builds already install Cython as a build dependency. See the
 | **DI** | `@injectable` (3 scopes: singleton / **request** / **transient**), `Depends()` (sync + async), circular dep detection |
 | **Security** | HTTPBearer, HTTPBasic, OAuth2, API Keys (Header / Query / Cookie), `SecurityHeadersMiddleware` (X-Frame-Options, CSP, HSTS, …) |
 | **Async** | Background Tasks (failures logged, not silenced), WebSockets with **typed path params + DI** |
-| **Performance** | orjson serialization, `@cache` decorator, endpoint pre-compilation, optional Cython extensions |
+| **Performance** | orjson serialization, `@cache` decorator, endpoint metadata prepared at registration |
 | **Docs** | OpenAPI 3.0 (incl. `List[Struct]` arrays + `multipart/form-data`), Scalar UI, Swagger, ReDoc (XSS-safe HTML generation) |
 | **CLI** | Project scaffolding, code generation, linting, AI-agent skill installer |
 | **Testing** | `TachyonTestClient` (sync), `create_client()` (async, full httpx kwargs), `dependency_overrides` |
@@ -104,7 +99,7 @@ builds already install Cython as a build dependency. See the
 | [Request Lifecycle](./docs/13-request-lifecycle.md) | How requests are processed |
 | [Migration from FastAPI](./docs/14-migration-fastapi.md) | Migration guide |
 | [Best Practices](./docs/15-best-practices.md) | Recommended patterns |
-| [Cython Build](./docs/16-cython-build.md) | Precompiled wheels, source builds, and the `.py`/`.pyx` fallback model |
+| [Portable builds](./docs/16-cython-build.md) | Python packaging and upgrade from native 1.4.0 installations |
 
 ---
 
@@ -162,9 +157,9 @@ alternative branches when a static prefix reaches a dead end. Error responses
 are created per call; immutable payload bytes and bounded header tables may be
 shared. Response messages and mutable headers belong to each send.
 
-The hot path has Python implementations with optional native Cython siblings.
-Python prefers native modules when installed. See the build guide for explicit
-pure Python builds.
+The hot path uses one Python implementation in the 1.4.1 preparation.
+The build guide explains upgrades from old native installations and checks for
+residual binaries.
 
 👉 [Full architecture documentation](./docs/02-architecture.md)
 

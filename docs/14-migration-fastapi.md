@@ -24,11 +24,9 @@ pip uninstall fastapi pydantic
 # Install Tachyon
 pip install tachyon-api
 
-# 1.4.0 publishes macOS ARM64 native wheels for CPython 3.10-3.13,
-# plus a portable Python wheel for platforms without a native match.
-# Linux/Windows native builds were not validated by the local Mac release.
-# Source builds require a compiler and install Cython in isolation.
-# [fast] does not recompile an installed wheel; see docs/16-cython-build.md.
+# 1.4.0 remains the published version with native and portable wheels.
+# The unreleased 1.4.1 source uses one Python implementation and portable builds.
+# [fast] becomes an empty compatibility alias; see docs/16-cython-build.md.
 ```
 
 ---
@@ -428,7 +426,7 @@ pip install tachyon-api==1.4.0
 tachyon run app:app --prod
 ```
 
-The CLI detects optional uvloop and httptools when available. See the [build guide](16-cython-build.md) for the published native/portable wheel scope.
+The CLI detects optional uvloop and httptools when available. See the [build guide](16-cython-build.md) for versioned packaging and upgrade instructions.
 
 ---
 

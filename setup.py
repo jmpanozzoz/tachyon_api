@@ -1,40 +1,10 @@
-"""Build native extensions, or a portable wheel with TACHYON_SKIP_CYTHON=1.
-
-Poetry remains the single metadata source; setuptools determines wheel tags
-from the actual extension list. Compilation failures are reported, never hidden.
-"""
-
-import os
+"""Build the portable Python package using Poetry as the metadata source."""
 from pathlib import Path
 
 from poetry.core.factory import Factory
-from setuptools import Extension, find_packages, setup
+from setuptools import find_packages, setup
 
 package = Factory().create_poetry(Path(__file__).parent).package
-extensions = []
-if os.environ.get("TACHYON_SKIP_CYTHON") != "1":
-    from Cython.Build import cythonize
-
-    sources = sorted(Path("tachyon_api").rglob("*.pyx"))
-    extensions = cythonize(
-        [
-            Extension(
-                ".".join(source.with_suffix("").parts),
-                [str(source)],
-                extra_compile_args=["-O2"],
-            )
-            for source in sources
-        ],
-        compiler_directives={
-            "language_level": "3",
-            "boundscheck": False,
-            "wraparound": False,
-            "nonecheck": False,
-            "cdivision": True,
-            "embedsignature": False,
-        },
-        annotate=False,
-    )
 
 setup(
     name=package.pretty_name,
@@ -58,5 +28,4 @@ setup(
         ]
     },
     include_package_data=False,
-    ext_modules=extensions,
 )

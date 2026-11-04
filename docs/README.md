@@ -25,7 +25,7 @@ and [changelog](../CHANGELOG.md) for scope and history.
 | [13. Request lifecycle](13-request-lifecycle.md) | Registration, dispatch, validation and cleanup |
 | [14. FastAPI migration](14-migration-fastapi.md) | API and execution differences |
 | [15. Best practices](15-best-practices.md) | Application design and deployment considerations |
-| [16. Cython builds](16-cython-build.md) | Source compilation, fallback and installed-wheel checks |
+| [16. Portable builds](16-cython-build.md) | Python packaging, installed checks and upgrade from Cython |
 | [17. Migration to 1.4](17-migration-1.4.md) | Changed behavior and explicit limitations |
 
 ## Start an application
@@ -52,12 +52,13 @@ Interactive documentation is available at `/docs`.
 - [Executable example](../example/README.md): demonstration application and test scope.
 - [Benchmark methodology](../benchmark/README.md): validated measurements and limits.
 - [Continuous improvement](quality/continuous-improvement.md): repair/review gates.
+- [Framework assessment](quality/framework-review.md): maintainability, production limits, refreshed FastAPI measurements, Cython removal experiments and Rust research dated 2026-11-04.
 - [Local release](quality/local-release.md): builds and publication without Actions.
 - [Documentation maintenance](quality/documentation.md): source comparisons, links and executable examples.
 - [Historical audits](audits/1.4.0/AUDITORIA.md): dated findings with current-status links.
 
 The framework uses Starlette ASGI integration, msgspec validation, a radix trie
-with optional Cython implementations, and bounded request/cache behavior. The
+and bounded request/cache behavior. The unreleased 1.4.1 source uses one Python implementation. The
 supported OpenAPI subset and API differences are described in the migration
 guides. Performance results are workload-specific; no universal multiplier or
 competitor dependency-count comparison is asserted.

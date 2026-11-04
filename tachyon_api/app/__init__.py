@@ -94,7 +94,7 @@ class Tachyon:
         # Radix trie replaces Starlette's O(N) regex route scan
         self._trie = RadixTrie()
 
-        # Cython dispatcher reads C-level struct fields per request
+        # Dispatch HTTP requests through the registered trie
         self._dispatcher = TachyonDispatcher(
             trie=self._trie,
             _404_start=_404_START,

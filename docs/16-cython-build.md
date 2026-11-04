@@ -1,49 +1,38 @@
-# 16. Cython builds
+# 16. Portable builds and upgrading from Cython
 
-Tachyon provides `.py` implementations and optional `.pyx` native extensions.
-Python automatically prefers an installed native extension over its `.py`
-sibling. The supported interpreter range is CPython 3.10–3.13; Python 3.14 is
-excluded until the pinned msgspec release and both engines are validated.
+The source tree targets **1.4.1, not yet published**. Tachyon now has one Python
+implementation and produces one `py3-none-any` wheel plus an sdist. Python
+3.10–3.13 remains supported. Building Tachyon itself needs neither Cython nor a
+C/Rust compiler; dependencies such as msgspec, orjson and httptools may still need
+native wheels or their own build tools. The older filename preserves documentation links.
 
-The configured native build targets are Linux x86_64/aarch64, macOS arm64 and Windows AMD64. The 1.4.0 local publication contains macOS arm64 native wheels for all four supported CPython ABIs, a portable wheel and an sdist; the Linux/Windows native matrix was not executed for that publication. Use the portable wheel when no matching native wheel exists, or build from source. Source builds install Cython in the isolated
-build environment and require a C compiler. `[fast]` also installs Cython in
-the caller's environment for development. Installing it alongside a prebuilt
-wheel does not rebuild that wheel.
+## Build and verify
 
-```bash
-pip install tachyon-api
-
-# Development from a source checkout (setup.py must exist here):
-cd /path/to/tachyon_api
-python -m pip install -e '.[fast]' poetry-core setuptools
-python setup.py build_ext --inplace
+```sh
+python -m build
+python scripts/quality_cycle.py --output quality-python.json
+python scripts/test_installed_wheel.py --engine python
 ```
 
-Compilation errors fail explicitly. There is no automatic retry after a compiler
-error. To build a portable `py3-none-any` wheel or install pure Python from source:
+Run the installed-package check after installing the candidate wheel. It copies
+contracts into a separate directory, clears PYTHONPATH, verifies every expected
+Python module outside the checkout and rejects leftover native files. The release
+process also rebuilds the sdist and tests that installed package on each supplied
+interpreter. See [local release](quality/local-release.md).
 
-```bash
-TACHYON_SKIP_CYTHON=1 python -m build --wheel
-TACHYON_SKIP_CYTHON=1 pip install --no-binary=tachyon-api tachyon-api
-```
+`[fast]` remains a deprecated empty compatibility extra. It no longer installs
+Cython or enables a different engine. `TACHYON_SKIP_CYTHON` is no longer needed and
+has no effect. Requests keep the Python behavior tested in the previous release.
 
-Use a clean checkout/build directory for these commands. The variable controls
-building, not imports: it cannot disable `.so`/`.pyd` modules already present.
-Remove old native artifacts or use a clean environment before testing fallback.
-The pure Python wheel still requires its normal dependencies (some include their
-own native extensions).
+## Upgrade from 1.4.0
 
-`setup.py` discovers the checked-in `.pyx` modules and uses setuptools for wheel
-tags, while reading metadata from `pyproject.toml` through poetry-core. The sdist
-includes Python, Cython and declaration (`.pxd`) sources and regression tests.
-The ordinary CI workflow is configured to test the lowest/highest supported Python versions (3.10 and 3.13) in both modes. The wheel workflow is configured for all four ABIs on its target platforms, installed-wheel contracts outside the checkout, and a native rebuild from the sdist. Workflow configuration is not evidence that those hosted jobs ran.
+Use the normal package manager upgrade when 1.4.1 is published, and restart worker
+processes. For editable installations or manually compiled checkouts, prefer a
+fresh environment or clean checkout: old `.so`/`.pyd` files can shadow `.py` files.
+Do not delete third-party native dependencies. The verification command above
+rejects stale native modules inside Tachyon itself.
 
-The [dated local 1.4.0 evidence](audits/1.4.0/LOCAL_RELEASE.md) records 809 full-suite tests for each of eight interpreter/engine combinations (3.10–3.13 × Python/native), and 174 installed-wheel contracts for each portable/native installation. That run exercised macOS arm64 only; its `macosx_11_0_arm64` deployment tag does not prove testing on macOS 11. See the [local release process](quality/local-release.md) for isolated snapshots, interpreter selection, artifact hashes and publication verification. Retain such counts as dated results, not permanent suite requirements.
-
-The experimental direct HTTP writer has been removed. The `--tachyon-server`
-compatibility flag uses standard Uvicorn h11; applications should normally use
-`tachyon run` or `uvicorn module:app`.
-
-Compiler optimizations disable some Cython runtime checks. That choice is not a
-general guarantee that arbitrary Cython code is safe: request semantics must be
-verified by shared behavior tests in both engines.
+The [1.4.0 record](audits/1.4.0/LOCAL_RELEASE.md) describes that historical native
+release. It is not the packaging policy for 1.4.1. Current validation must record
+actual interpreter/platform coverage; a portable wheel does not establish that
+Linux or Windows was tested.

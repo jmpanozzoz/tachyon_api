@@ -1,4 +1,4 @@
-# HOT PATH — routes HTTP scopes to the Cython trie dispatcher and non-HTTP
+# HOT PATH — routes HTTP scopes to the trie dispatcher and non-HTTP
 # scopes (WebSocket, lifespan) to the Starlette router fallback.
 
 from typing import Callable

@@ -5,7 +5,7 @@
 - Keep commit authorship with the project owner; do not add assistant co-author trailers.
 - Work on a feature/fix/performance branch. Never put in-progress feature work directly on main or dev. Merge features into dev, then releases into main.
 - Update CHANGELOG.md whenever the version changes, using dated Keep a Changelog categories.
-- Apply behavioral changes to Python and Cython counterparts together. Run `scripts/check_py_pyx_parity.py` and the same regression contracts in both import modes. API parity alone does not establish behavioral parity.
+- Maintain one Python implementation. Run `scripts/quality_cycle.py` with a nonempty module inventory; reject stale native binaries. Cython and parity gates were retired in 1.4.1 preparation.
 - Optional development/benchmark tools must not become runtime imports. Keep useful install errors in CLI entry points.
 - Treat this guide as repository policy, and code/tests as the source of actual behavior. User instructions take precedence.
 
@@ -14,11 +14,11 @@
 Tachyon is an ASGI framework using Starlette and msgspec, with FastAPI-inspired decorators. It targets predictable request cost and a small implementation. It does not promise full FastAPI compatibility or a fixed performance multiplier.
 
 - `app/`: registration, request execution, middleware composition and error handling.
-- `processing/compiler.{py,pyx}`: registration-time parameter metadata and argument binding.
-- `processing/scope.{py,pyx}`, `_request.py`: bounded receive, one Request cache, multipart lifetime.
-- `processing/dispatch.{py,pyx}`: HTTP routing relative to `root_path`, preserving inherited mount parameters and the original Request path.
+- `processing/compiler.py`: registration-time parameter metadata and argument binding.
+- `processing/scope.py`, `_request.py`: bounded receive, one Request cache, multipart lifetime.
+- `processing/dispatch.py`: HTTP routing relative to `root_path`, preserving inherited mount parameters and the original Request path.
 - `processing/dependencies/`: scopes, factories, overrides and resolved signatures. Async resolution offloads synchronous user factories.
-- `routing/trie.{py,pyx}`: terminal-specific path parameters and static-priority matching with dead-end fallback.
+- `routing/trie.py`: terminal-specific path parameters and static-priority matching with dead-end fallback.
 - `responses/`: JSON construction and request-owned ASGI messages. Share immutable bytes and small header tables, never mutable response singletons.
 - `core/`: lifecycle and WebSocket integration with Starlette.
 - `openapi/`: msgspec schema adaptation for the explicitly supported OpenAPI 3.0 subset. `app/_docs_routes.py` renders local schema URLs with the request root path and supplies an isolated default-server overlay; explicit configured servers take precedence.
@@ -32,16 +32,16 @@ Do introspection, annotation resolution and decoder construction at registration
 
 Prefer deleting redundant work to adding abstractions. A helper class is justified by state or a clear boundary, not its name. Keep public compatibility when simplifying internals, or provide an explicit registration error and migration note.
 
-Python integers and floats must have the same conversion semantics in both engines. Avoid unchecked C parsers that truncate or accept different input. Multipart and WebSocket protocols remain delegated to Starlette.
+Preserve Python integer and float conversion semantics when evaluating future native code. Avoid unchecked C parsers that truncate or accept different input. Multipart and WebSocket protocols remain delegated to Starlette.
 
 Do not claim a performance win without comparable before/after measurements. Separate async and sync/threadpool workloads, match dependency scopes and payloads, validate responses, record errors and percentiles, and retain raw data. Do not sum rates from separate scenarios as application capacity. Pydantic v2 has a native validation engine; comparisons must measure actual workloads.
 
 ## Validation and release
 
-Supported interpreters: Python 3.10–3.13. Run `pytest tests/ example/tests/` with test/example dependencies installed. Confirm the imported modules are `.py` for fallback tests and native extensions for compiled tests; the skip-build environment variable does not disable extensions already in the checkout.
+Supported interpreters: Python 3.10–3.13. Run `pytest tests/ example/tests/` with test/example dependencies installed. Verify all package modules load as `.py` inside the intended checkout or installed package. Never allow empty origin checks or residual native binaries.
 
-Build and install wheels outside the source checkout. Rebuild the sdist, then test its installed wheel. Portable wheels use `TACHYON_SKIP_CYTHON=1`; compilation failures must remain visible. The ordinary hosted test workflow is configured for Python 3.10/3.13 in both modes; the wheel workflow configures all four ABIs across its target platforms. Configuration is not an executed result.
+Build one portable wheel and one sdist without Cython. Rebuild the sdist and test its installed wheel outside the checkout on each available interpreter. Keep the deprecated empty `[fast]` extra for installation compatibility. Do not claim the prepared 1.4.1 is published before index verification. The safe orjson minimum is 3.11.6.
 
-When hosted CI is unavailable, use [the local release process](docs/quality/local-release.md) and retain interpreter/engine origins, full and installed-wheel results, platform limits, artifact hashes and publication verification. Supply each available supported interpreter and record gaps explicitly. The [2026-11-04 release evidence](docs/audits/1.4.0/LOCAL_RELEASE.md) covers all four interpreters in both engines on macOS arm64; it is not evidence of Linux/Windows execution. Keep historical counts and benchmark data dated rather than promoting them to current gates.
+Use [local release checks](docs/quality/local-release.md) when hosted CI is unavailable. Preserve source fingerprints, artifact hashes, installed origins and actual platform/interpreter limits. Historical [1.4.0 evidence](docs/audits/1.4.0/LOCAL_RELEASE.md) describes a different native release; do not rewrite its counts or claim that its configured platforms were exercised.
 
-Use [the audit](docs/audits/1.4.0/AUDITORIA.md), [implementation status](docs/audits/1.4.0/IMPLEMENTACION.md), [migration guide](docs/17-migration-1.4.md), and [benchmark method](benchmark/README.md) as the current release references. New TUI/migration subsystems are outside this cleanup release.
+The [assessment and staged Rust investigation](docs/quality/framework-review.md) record current decisions and dated benchmarks. Keep Starlette, msgspec and the public Python API during this cleanup. Granian can be evaluated as an optional server without silently replacing Uvicorn. No Rust core becomes production code without profiling, behavioral parity, release coverage and agreed performance budgets. New TUI/migration subsystems remain outside scope.
