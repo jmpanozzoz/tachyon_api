@@ -57,10 +57,10 @@ def run(
     port: int   = typer.Option(8000,      "--port", "-p", help="Bind port"),
     reload: bool = typer.Option(True,  "--reload/--no-reload", help="Auto-reload on code changes"),
     workers: int = typer.Option(1,     "--workers", "-w", help="Number of worker processes"),
-    prod: bool   = typer.Option(False, "--prod",           help="Production mode (no reload, workers=4)"),
+    prod: bool   = typer.Option(False, "--prod",           help="Production mode (no reload; workers default to 1)"),
     tachyon_server: bool = typer.Option(
         False, "--tachyon-server",
-        help="Use TachyonServer for direct transport writes (F12b)",
+        help="Legacy compatibility mode using standard Uvicorn h11",
     ),
 ):
     """

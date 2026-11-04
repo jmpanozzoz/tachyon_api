@@ -7,14 +7,14 @@ p.kind, p.name, p.base_type etc. become direct C struct field reads, not Python
 dict-based attribute lookups (~3-5x faster per access).
 """
 
-import asyncio
 import inspect
 import msgspec
 
 from ..params import Body, Query, Path, Header, Cookie, Form, File
 from ..background import BackgroundTasks
-from ..di import Depends, _registry, _scopes, SCOPE_SINGLETON
+from ..di import Depends, _registry
 from ..utils import TypeUtils
+from .dependencies._sig_cache import get_signature, is_async_callable, prepare_dependency
 
 # Integer kind constants — same values as compiler.py (pure Python fallback)
 KIND_REQUEST       = 0
@@ -40,7 +40,7 @@ _MARKER_TO_KIND = {
     Path:   KIND_PATH,
 }
 
-_COMPILED = {}  # func → CompiledEndpoint
+
 
 
 cdef class ParamDescriptor:
@@ -97,35 +97,25 @@ cdef class CompiledEndpoint:
     cdef public bint   has_params
     cdef public bint   has_callable_deps
     cdef public int    param_count
+    cdef public object keyword_names
 
-    def __init__(self, func, bint is_async, list params):
+    def __init__(self, func, bint is_async, list params, keyword_names=None):
+        self.keyword_names    = keyword_names
         self.func             = func
         self.is_async         = is_async
         self.params           = params
         self.has_params       = bool(params)
         self.param_count      = len(params)
-        # Allocate dependency_cache at request time iff any param needs it:
-        #   • KIND_DEP_CALLABLE (Depends(callable)) — always per-request
-        #   • KIND_DEP_CLASS with non-singleton scope — request- or transient-scoped
-        # MUST mirror compiler.py exactly — v1.2.85 / pre-v1.3.0 audit incident:
-        # missing the scope check here silently breaks non-singleton class DI in
-        # compiled mode while pure-Python users are unaffected.
+        # Class dependencies also need request caching for nested callable
+        # factories and overrides, even when their declared scope is singleton.
         self.has_callable_deps = any(
-            (<ParamDescriptor>p).kind == KIND_DEP_CALLABLE
-            or (
-                (<ParamDescriptor>p).kind == KIND_DEP_CLASS
-                and _scopes.get((<ParamDescriptor>p).annotation, SCOPE_SINGLETON) != SCOPE_SINGLETON
-            )
-            for p in params
+            p.kind in (KIND_DEP_CALLABLE, KIND_DEP_CLASS) for p in params
         )
 
 
 def compile_endpoint(func, str path):
-    if func in _COMPILED:
-        return _COMPILED[func]
-
-    cdef bint is_async = asyncio.iscoroutinefunction(func)
-    sig = inspect.signature(func)
+    cdef bint is_async = is_async_callable(func)
+    sig = get_signature(func)
     cdef list params = []
 
     for param in sig.parameters.values():
@@ -143,16 +133,18 @@ def compile_endpoint(func, str path):
 
         if isinstance(default, Depends) and default.dependency is not None:
             dep_fn = default.dependency
+            prepare_dependency(dep_fn)
             params.append(ParamDescriptor(
                 name=param.name, kind=KIND_DEP_CALLABLE,
                 dependency=dep_fn,
-                dep_is_async=asyncio.iscoroutinefunction(dep_fn),
+                dep_is_async=is_async_callable(dep_fn),
             ))
             continue
 
         is_implicit    = (default is inspect.Parameter.empty and ann in _registry)
         is_explicit_cls = isinstance(default, Depends) and default.dependency is None
         if is_implicit or is_explicit_cls:
+            prepare_dependency(ann)
             params.append(ParamDescriptor(
                 name=param.name, kind=KIND_DEP_CLASS, annotation=ann,
             ))
@@ -174,12 +166,20 @@ def compile_endpoint(func, str path):
             ))
             continue
 
-    compiled = CompiledEndpoint(func=func, is_async=is_async, params=params)
-    _COMPILED[func] = compiled
+    positional = [p.name for p in sig.parameters.values()
+                  if p.kind in (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD)]
+    names = [p.name for p in params]
+    keyword_names = None if names == positional[:len(names)] else tuple(names)
+    if keyword_names and any(sig.parameters[name].kind == inspect.Parameter.POSITIONAL_ONLY for name in names):
+        raise TypeError("Injected positional-only parameters cannot follow omitted defaults")
+    compiled = CompiledEndpoint(func=func, is_async=is_async, params=params, keyword_names=keyword_names)
     return compiled
 
 
-cdef _build_typed_descriptor(str name, int kind, object ann, object marker):
+cpdef _build_typed_descriptor(str name, int kind, object ann, object marker):
+    if kind == KIND_FILE:
+        from ..files import validate_file_parameter
+        validate_file_parameter(ann, marker.default)
     base_type, _ = TypeUtils.unwrap_optional(ann)
     is_list, raw_item = TypeUtils.is_list_type(base_type)
     item_type, item_is_opt = TypeUtils.unwrap_optional(raw_item) if is_list else (raw_item, False)
@@ -195,11 +195,8 @@ cdef _build_typed_descriptor(str name, int kind, object ann, object marker):
 
     decoder = None
     if kind == KIND_BODY:
-        # See compiler.py for rationale — try msgspec, accept any decodable type.
-        try:
-            decoder = msgspec.json.Decoder(ann)
-        except Exception:
-            decoder = None
+        # Reject unsupported body annotations during registration.
+        decoder = msgspec.json.Decoder(ann)
 
     return ParamDescriptor(
         name=name, kind=kind, annotation=ann,

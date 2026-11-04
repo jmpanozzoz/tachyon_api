@@ -16,7 +16,7 @@ def _check_ruff_installed() -> bool:
     return shutil.which("ruff") is not None
 
 
-def _run_ruff(args: List[str], check: bool = True) -> int:
+def _run_ruff(args: List[str]) -> int:
     """Run ruff with given arguments."""
     if not _check_ruff_installed():
         typer.secho(
@@ -174,6 +174,8 @@ def all(
     typer.echo("─" * 40)
 
     format_args = ["format", target]
+    if not fix:
+        format_args.append("--check")
     format_code = _run_ruff(format_args)
 
     # Summary

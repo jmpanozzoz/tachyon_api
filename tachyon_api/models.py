@@ -30,13 +30,10 @@ _ORJSON_OPTS = orjson.OPT_SERIALIZE_DATACLASS | orjson.OPT_SERIALIZE_UUID | orjs
 
 
 def encode_json(obj: Any, option: Optional[int] = None) -> bytes:
-    return orjson.dumps(obj, default=_orjson_default, option=option or _ORJSON_OPTS)
+    return orjson.dumps(obj, default=_orjson_default, option=_ORJSON_OPTS if option is None else option)
 
 
 def decode_json(data: Union[bytes, str], type_: Type[T] = Dict[str, Any]) -> T:
     if isinstance(data, str):
         data = data.encode("utf-8")
-    parsed_data = orjson.loads(data)
-    if isinstance(type_, type) and issubclass(type_, Struct):
-        return msgspec.convert(parsed_data, type_)
-    return parsed_data
+    return msgspec.json.decode(data, type=type_)

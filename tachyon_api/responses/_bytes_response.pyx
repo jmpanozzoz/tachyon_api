@@ -1,41 +1,27 @@
-# cython: language_level=3, boundscheck=False, wraparound=False
-"""HOT PATH — Cython-compiled bytes response.
-
-Sibling of `_bytes_response.py`. Compiled as a regular Python class
-(see `_json_response.pyx` for why `cdef class` is not viable).
-"""
-
+# cython: language_level=3
+"""JSON response with bounded header lookup and request-owned ASGI messages."""
 from starlette.responses import JSONResponse
 
 from ._caches import _CL_TUPLE_CACHE, _CT_TUPLE
-from ._constants import _ASGI_BODY, _ASGI_START, _CL_NAME
+from ._constants import _CL_NAME
 
 
 class TachyonBytesResponse(JSONResponse):
-    """JSON response that accepts pre-encoded bytes — no re-serialization."""
-
-    __slots__ = ("_send_start", "_send_body")
-
+    __slots__ = ()
     media_type = "application/json"
 
     def __init__(self, body: bytes, status_code: int = 200):
-        cdef Py_ssize_t n = len(body)
-        cdef object cl_tuple
-        cdef list headers
-
-        if n < 65536:
-            cl_tuple = _CL_TUPLE_CACHE[n]
-        else:
-            cl_tuple = (_CL_NAME, str(n).encode())
-        headers = [cl_tuple, _CT_TUPLE]
-
-        self.body = body
         self.status_code = status_code
         self.background = None
-        self.raw_headers = headers
-        self._send_start = {"type": _ASGI_START, "status": status_code, "headers": headers}
-        self._send_body = {"type": _ASGI_BODY, "body": body}
+        self.body = b"" if status_code < 200 or status_code in (204, 304) else body
+        n = len(self.body)
+        self.raw_headers = [_CT_TUPLE]
+        if status_code >= 200 and status_code not in (204, 304):
+            length_header = _CL_TUPLE_CACHE[n] if n < len(_CL_TUPLE_CACHE) else (_CL_NAME, str(n).encode())
+            self.raw_headers.insert(0, length_header)
 
-    async def __call__(self, scope, receive, send) -> None:
-        await send(self._send_start)
-        await send(self._send_body)
+    async def __call__(self, scope, receive, send):
+        await send({"type": "http.response.start", "status": self.status_code, "headers": list(self.raw_headers)})
+        await send({"type": "http.response.body", "body": b"" if scope.get("method") == "HEAD" else self.body})
+        if self.background is not None:
+            await self.background()

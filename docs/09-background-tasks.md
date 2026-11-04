@@ -5,7 +5,8 @@
 ## 🎯 Uso Básico
 
 ```python
-from tachyon_api import Tachyon
+from tachyon_api import Tachyon, Query, File
+from tachyon_api.files import UploadFile
 from tachyon_api.background import BackgroundTasks
 
 app = Tachyon()
@@ -23,15 +24,15 @@ def signup(background_tasks: BackgroundTasks):
     # Programar email para después
     background_tasks.add_task(send_email, user_email, "Welcome!")
     
-    # Respuesta inmediata (email se envía después)
+    # El cuerpo se transmite antes de ejecutar el email
     return {"message": "User created"}
 ```
 
 ### Flujo:
 1. Request llega
 2. Usuario se crea
-3. **Response se envía** (usuario no espera)
-4. Email se envía en background
+3. **Response se transmite**
+4. Email se envía; el callable ASGI termina después de las tareas
 
 ---
 
@@ -114,7 +115,7 @@ background_tasks.add_task(
 
 ## ⚠️ Manejo de Errores
 
-Los errores en tasks no afectan la respuesta:
+Las excepciones ordinarias de una tarea se registran después del envío y no cambian esa respuesta:
 
 ```python
 def risky_task():
@@ -131,7 +132,7 @@ def endpoint(background_tasks: BackgroundTasks):
     return {"status": "ok"}  # Response: 200 OK
 ```
 
-Para logging de errores, envuelve la tarea:
+Tachyon ya registra excepciones con `logger.exception` y continúa con la siguiente tarea. Un wrapper solo es necesario para una política propia, por ejemplo métricas o reintentos:
 
 ```python
 import logging
@@ -158,7 +159,7 @@ def safe_endpoint(background_tasks: BackgroundTasks):
 
 ```python
 @app.post("/reset-password")
-def reset_password(email: str, background_tasks: BackgroundTasks):
+def reset_password(background_tasks: BackgroundTasks, email: str = Query(...)):
     token = generate_reset_token(email)
     background_tasks.add_task(send_reset_email, email, token)
     return {"message": "Check your email"}
@@ -168,7 +169,7 @@ def reset_password(email: str, background_tasks: BackgroundTasks):
 
 ```python
 @app.post("/import")
-async def import_data(file: UploadFile, background_tasks: BackgroundTasks):
+async def import_data(background_tasks: BackgroundTasks, file: UploadFile = File(...)):
     file_path = save_temp_file(file)
     background_tasks.add_task(process_csv, file_path)
     return {"status": "import_started"}
@@ -205,7 +206,7 @@ from typing import Optional
 def get_data(background_tasks: BackgroundTasks = None):
     result = {"data": "value"}
     
-    if background_tasks:
+    if background_tasks is not None:
         background_tasks.add_task(log_access)
     
     return result
@@ -224,7 +225,7 @@ def get_data(background_tasks: BackgroundTasks = None):
 | Scheduling | No | Sí |
 | Uso | Tareas simples | Tareas pesadas |
 
-**Regla**: Usa BackgroundTasks para tareas rápidas (<30s). Para tareas pesadas o distribuidas, usa Celery/RQ.
+**Regla**: usar tareas breves y medir su costo. No existe un umbral garantizado de duración ni ejecución independiente del proceso; para trabajos largos, persistentes o distribuidos, usar una cola externa.
 
 ---
 
@@ -232,3 +233,5 @@ def get_data(background_tasks: BackgroundTasks = None):
 
 - [WebSockets](./10-websockets.md) - Comunicación en tiempo real
 - [Testing](./11-testing.md) - Testear background tasks
+
+Las tareas se awaitean dentro del proceso después de que termina el callable de respuesta y antes de cerrar los uploads. Las tareas síncronas usan el thread pool; las async usan el event loop. Los clientes ASGI de test esperan también esa finalización. Si el envío falla o la solicitud se cancela, no se garantiza ejecutar las tareas; el cierre de recursos del request se intenta igualmente. No hay cola persistente ni límite propio de concurrencia. Medir saturación antes de delegar trabajo; los trabajos largos requieren un sistema externo.

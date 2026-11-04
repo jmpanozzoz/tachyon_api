@@ -1,6 +1,7 @@
 """Drill down into specific bottlenecks found in profile_hotpath.py."""
-import asyncio, time, sys, os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+import asyncio
+import time
+import sys
 
 N = 100_000
 
@@ -8,10 +9,10 @@ def t(label, n, elapsed):
     print(f"  {label:<50} {(elapsed/n)*1e6:>7.3f} µs/req")
 
 async def main():
-    import msgspec, orjson
-    from starlette.responses import Response, JSONResponse
-    from tachyon_api.responses import TachyonJSONResponse
-    from tachyon_api.models import Struct, encode_json
+    import msgspec
+    import orjson
+    from starlette.responses import Response
+    from tachyon_api.models import Struct
     from tachyon_api.utils import TypeUtils, TypeConverter
 
     class Item(Struct):
@@ -123,6 +124,7 @@ async def main():
     print("\n═══ Event loop overhead (await cost) ═══════════════════════")
 
     async def noop(): return 1
+    def sync_noop(): return 1
     t0 = time.perf_counter()
     for _ in range(N):
         await noop()
@@ -130,7 +132,7 @@ async def main():
 
     t0 = time.perf_counter()
     for _ in range(N):
-        noop()  # sync call (not awaited, just measuring call overhead)
+        sync_noop()
     t("call sync noop()", N, time.perf_counter()-t0)
 
     print("\n═══ dict creation overhead ══════════════════════════════════")
@@ -147,9 +149,47 @@ async def main():
 
     t0 = time.perf_counter()
     for _ in range(N):
-        d2 = {}; d2["key"] = "val"
+        d2 = {}
+        d2["key"] = "val"
     t("{} + assignment", N, time.perf_counter()-t0)
 
     print()
 
-asyncio.run(main())
+def profile_router():
+    """Measure route lookup separately; optionally supply a pre-change Python file."""
+    import argparse
+    import importlib.util
+    import json
+    from tachyon_api.routing.trie import RadixTrie
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--router-only", action="store_true")
+    parser.add_argument("--router-baseline")
+    args = parser.parse_args()
+    implementations = [("current", RadixTrie)]
+    if args.router_baseline:
+        spec = importlib.util.spec_from_file_location("baseline_trie", args.router_baseline)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        implementations.insert(0, ("baseline", module.RadixTrie))
+    results = []
+    for label, trie_type in implementations:
+        trie = trie_type()
+        trie.add("/hello", "GET", main)
+        trie.add("/users/{id}/profile", "GET", main)
+        for path in ("/hello", "/users/42/profile"):
+            samples = []
+            for repeat in range(5):
+                start = time.perf_counter_ns()
+                for _ in range(N):
+                    trie.match(path, "GET")
+                samples.append((time.perf_counter_ns() - start) / N)
+            results.append({"implementation": label, "path": path, "ns_per_lookup": samples})
+    print(json.dumps(results, indent=2))
+
+
+if __name__ == "__main__":
+    if "--router-only" in sys.argv:
+        profile_router()
+    else:
+        asyncio.run(main())

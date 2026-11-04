@@ -82,8 +82,7 @@ class IdGenerator:
 | **`request`** | Estado por-request compartido entre deps | Correlation IDs, parsed auth claims, per-request feature flags |
 | **`transient`** | Builders / generadores que no deben compartir estado | UUID/ID generators, BulkRequestBuilder, EmailComposer |
 
-Sub-deps respetan el scope del padre: si `B` depende de `A` (request-scoped),
-`B.a` es **la misma instancia** que recibe el endpoint cuando depende de `A`.
+Una clase `request` que depende de otra clase `request` comparte su instancia dentro de la solicitud (o conexión WebSocket). Un constructor singleton solo puede capturar clases singleton: Request/WebSocket, clases request/transient y factories por request se rechazan al registrar para evitar retener contexto de la primera solicitud.
 
 ---
 
@@ -317,3 +316,17 @@ def protected(user: dict = Depends(get_current_user)):
 
 - [Parameters](./04-parameters.md) - Parámetros de entrada
 - [Security](./06-security.md) - Autenticación
+
+## Contrato de factories y lifetimes
+
+Las factories admiten Request/WebSocket tipados, Depends anidados, clases registradas, defaults Python y extracción HTTP con Header/Query. Body/Form/File/Cookie/Path dentro de factories se rechazan al registrar; usar Request y lectura explícita si hace falta. En WebSocket, usar WebSocket tipado para acceso a headers/query. Los scopes inválidos y generators (`yield`) se rechazan al registrar.
+
+Singleton se construye de forma lazy en su primer uso y se comparte en la aplicación. Debe soportar acceso concurrente desde los threads de handlers sync; no debe conservar datos de usuario. El scope request en WebSocket dura la conexión, no el mensaje.
+
+
+The low-level synchronous `DependencyResolver.resolve_dependency` entry point is
+for startup/bootstrap code before request serving. Concurrent synchronous calls
+are serialized per singleton, but do not mix it concurrently with the asynchronous
+resolver on the same application. HTTP and WebSocket dispatch use the asynchronous
+resolver. Configure overrides before serving; tests that change them must isolate
+their application and restore configuration before the next test.

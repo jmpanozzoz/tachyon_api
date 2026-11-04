@@ -1,0 +1,56 @@
+{
+  "openapi_parameters": [
+    {
+      "name": "x_api_key",
+      "in": "header",
+      "required": true,
+      "schema": {
+        "type": "string"
+      },
+      "description": null
+    },
+    {
+      "name": "session",
+      "in": "cookie",
+      "required": true,
+      "schema": {
+        "type": "string"
+      },
+      "description": null
+    }
+  ],
+  "optional_default_schema": {
+    "Example": {
+      "type": "object",
+      "properties": {
+        "nullable_required": {
+          "type": "integer",
+          "nullable": true
+        },
+        "has_default": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "has_default"
+      ]
+    }
+  },
+  "lint_all_no_fix_commands": [
+    [
+      "ruff",
+      "check",
+      "."
+    ],
+    [
+      "ruff",
+      "format",
+      "."
+    ]
+  ],
+  "install_skill_preserves_existing_agents": false,
+  "invalid_openapi_validation_exit_code": 0,
+  "decode_list_struct_item_type": "dict",
+  "encode_option_zero_utc": "\"2026-01-01T00:00:00Z\"",
+  "bool_banana": false
+}

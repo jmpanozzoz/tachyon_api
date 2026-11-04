@@ -20,7 +20,7 @@ modules/
 ```python
 # No pongas lógica de negocio en el controller
 @app.post("/users")
-def create_user(user: UserCreate):
+def create_user(user: UserCreate = Body()):
     # ❌ Validación de negocio aquí
     if "@" not in user.email:
         raise HTTPException(400, "Invalid email")
@@ -33,7 +33,7 @@ def create_user(user: UserCreate):
 
 ```python
 @app.post("/users")
-def create_user(user: UserCreate, service: UserService = Depends()):
+def create_user(user: UserCreate = Body(), service: UserService = Depends()):
     return service.create(user)  # ✅ Delegar al service
 ```
 
@@ -93,12 +93,12 @@ class UserResponse(Struct):
     # Sin password!
 ```
 
-### ✅ Validaciones en Service, no en Struct
+### ✅ Restricciones de modelo y reglas de negocio
 
 ```python
-# ❌ Struct no soporta validators
+# Restricciones de campos: Annotated/Meta; invariantes: __post_init__
 class User(Struct):
-    email: str  # No puedo validar formato aquí
+    email: str
 
 # ✅ Validar en service
 @injectable
@@ -160,11 +160,11 @@ class ConflictError(HTTPException):
 ### ✅ Custom exception handlers
 
 ```python
-@app.exception_handler(ValidationError)
-def handle_validation(request, exc):
+@app.exception_handler(ConflictError)
+def handle_conflict(request, exc):
     return JSONResponse(
-        status_code=422,
-        content={"errors": exc.errors}
+        status_code=exc.status_code,
+        content={"detail": exc.detail}
     )
 ```
 
@@ -181,12 +181,12 @@ class HeavyMLModel:
         self.model = load_model()  # Solo una vez
 ```
 
-### ✅ Background tasks para trabajo pesado
+### ✅ Background tasks para tareas breves dentro del proceso
 
 ```python
 @app.post("/process")
 def process(background_tasks: BackgroundTasks):
-    background_tasks.add_task(heavy_processing)
+    background_tasks.add_task(record_metrics)
     return {"status": "processing"}
 ```
 
@@ -194,7 +194,7 @@ def process(background_tasks: BackgroundTasks):
 
 ```python
 @app.get("/expensive")
-@cache(ttl=300)
+@cache(TTL=300)
 def expensive_operation():
     return compute_something()
 ```
@@ -238,8 +238,8 @@ def test_user_service():
 
 # Integration: API completa
 def test_create_user_api(client):
-    response = client.post("/users", json={...})
-    assert response.status_code == 201
+    response = client.post("/users", json={"email": "ada@example.com", "password": "password123"})
+    assert response.status_code == 200
 ```
 
 ---
@@ -281,31 +281,32 @@ my-api/
 
 ## ⚡ Production Performance
 
-### ✅ Use uvloop and httptools
+### ✅ Medir opciones disponibles de servidor
 
 ```bash
-uvicorn app:app --loop uvloop --http httptools --workers 4
+tachyon run app:app --prod --workers 4
 ```
 
-- `uvloop`: Cython-based event loop, ~20% faster than asyncio
-- `httptools`: C-based HTTP parser, faster than h11
+El CLI detecta uvloop/httptools opcionales; uvloop requiere una plataforma compatible. Ajustar workers con mediciones del deployment.
+
+- `uvloop`: event loop opcional; medir con el workload y versión desplegados
+- `httptools`: parser HTTP opcional; comparar con h11 en el deployment real
 - `--workers N`: multiple processes for CPU-bound workloads
 
 ### ✅ Install Cython extensions
 
 ```bash
-pip install tachyon-api[fast]
-python setup.py build_ext --inplace
+pip install tachyon-api
+# Para compilar un checkout: seguir docs/16-cython-build.md
 ```
 
-Compiles the radix trie router and parameter processor to C. Pure Python fallback if not compiled.
+1.4.0 publica wheels nativos macOS ARM64 para CPython 3.10–3.13 y un wheel portable para el fallback Python; [fast] no recompila un wheel instalado. Los builds de fuente usan Cython y requieren compilador; el fallback portable se solicita con TACHYON_SKIP_CYTHON=1 al construir.
 
-### ✅ Prefer `@injectable` over `Depends(factory)`
+### ✅ Elegir scope según el lifetime
 
-`@injectable` creates a singleton once at startup. `Depends(factory)` creates a new instance
-per request unless you add `@lru_cache`. Use `@injectable` for stateless services.
+`@injectable` crea su singleton de forma lazy en el primer uso. `Depends(factory)` se cachea por request. Elegir scope según lifetime: un singleton solo puede capturar clases singleton y debe soportar concurrencia desde varios threads. No usarlo para estado por usuario.
 
-### ✅ Return `Struct` from endpoints instead of plain dicts
+### ✅ Elegir el modelo de respuesta según su contrato
 
 ```python
 class UserResponse(Struct):
@@ -314,11 +315,10 @@ class UserResponse(Struct):
 
 @app.get("/users/{id}", response_model=UserResponse)
 def get_user(id: int) -> UserResponse:
-    return UserResponse(id=id, name="Alice")  # uses msgspec.json.encode directly
+    return UserResponse(id=id, name="Alice")  # response_model revalida el JSON
 ```
 
-Structs serialize via `msgspec.json.encode()` (pure C), avoiding the Python intermediate step
-that dict responses require.
+Struct se serializa con msgspec. Sin response_model, los dicts JSON simples van directamente a orjson; no requieren un paso Python intermedio. Los hooks intervienen para tipos no nativos. Comparar shapes equivalentes antes de recomendar uno por rendimiento.
 
 ### ✅ Minimize middleware
 
@@ -342,9 +342,9 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"])  # if you need CORS
 - [ ] Excepciones descriptivas
 - [ ] Tests por capas
 - [ ] Cache donde aplique
-- [ ] Background tasks para trabajo pesado
-- [ ] uvloop + httptools en producción
-- [ ] `pip install tachyon-api[fast]` para extensiones Cython
+- [ ] Background tasks breves; cola externa para tareas largas o persistentes
+- [ ] Medir uvloop/httptools si están disponibles en la plataforma
+- [ ] Verificar wheel o build según la guía de Cython
 
 ---
 
@@ -359,3 +359,5 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"])  # if you need CORS
 | dependency_overrides | Testing fácil |
 | Cache | Performance |
 | Background tasks | Respuestas rápidas |
+
+BackgroundTasks se espera después del envío y antes del cleanup; no aporta persistencia ni un límite propio de concurrencia. Medir saturación antes de usarlo. Las restricciones de campos y `__post_init__` complementan las reglas de negocio en services.

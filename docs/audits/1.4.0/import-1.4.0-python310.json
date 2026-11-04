@@ -1,0 +1,17 @@
+{
+  "python": "3.10.22",
+  "platform": "macOS-27.0.1-arm64-arm-64bit",
+  "import_ms_with_tracemalloc": 229.00474999914877,
+  "traced_current_bytes_after_import": 8423232,
+  "traced_peak_bytes_after_import": 8776059,
+  "uvicorn_imported": false,
+  "header_cache_shallow_bytes": 16464,
+  "largest_allocation_sources": [
+    "<frozen importlib._bootstrap_external>:0: size=4255 KiB, count=40377, average=108 B",
+    "<frozen importlib._bootstrap>:0: size=971 KiB, count=8827, average=113 B",
+    "/Users/juanmanuelpanozzozenere/.local/share/uv/python/cpython-3.10-macos-aarch64-none/lib/python3.10/typing.py:0: size=223 KiB, count=1854, average=123 B",
+    "/Users/juanmanuelpanozzozenere/.local/share/uv/python/cpython-3.10-macos-aarch64-none/lib/python3.10/abc.py:0: size=147 KiB, count=789, average=191 B",
+    "/tmp/tachyon-implementation-310/lib/python3.10/site-packages/typing_extensions.py:0: size=132 KiB, count=828, average=164 B",
+    "/Users/juanmanuelpanozzozenere/.local/share/uv/python/cpython-3.10-macos-aarch64-none/lib/python3.10/enum.py:0: size=131 KiB, count=1100, average=122 B"
+  ]
+}

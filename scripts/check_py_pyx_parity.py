@@ -33,9 +33,7 @@ ROOT = Path(__file__).resolve().parent.parent
 PKG = ROOT / "tachyon_api"
 
 # `.pyx` files that intentionally have no `.py` sibling.
-PYX_ONLY_WHITELIST = {
-    "tachyon_api/_server_fast.pyx",  # low-level perf module, Cython-only by design
-}
+PYX_ONLY_WHITELIST: set[str] = set()
 
 
 def public(name: str) -> bool:

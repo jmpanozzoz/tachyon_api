@@ -1,0 +1,321 @@
+{
+  "started": "2026-11-04T16:00:06.330739+00:00",
+  "complete": true,
+  "revision": "1b89bf134a1a418145c200162c4ca4d5dded46a6",
+  "checks": [
+    {
+      "name": "cp310-venv",
+      "exit_code": 0,
+      "log": "cp310-venv.log"
+    },
+    {
+      "name": "cp310-dependencies",
+      "exit_code": 0,
+      "log": "cp310-dependencies.log"
+    },
+    {
+      "name": "cp310-ruff",
+      "exit_code": 0,
+      "log": "cp310-ruff.log"
+    },
+    {
+      "name": "cp310-python",
+      "exit_code": 0,
+      "log": "cp310-python.log"
+    },
+    {
+      "name": "portable-sdist-build",
+      "exit_code": 0,
+      "log": "portable-sdist-build.log"
+    },
+    {
+      "name": "cp310-compile",
+      "exit_code": 0,
+      "log": "cp310-compile.log"
+    },
+    {
+      "name": "cp310-native",
+      "exit_code": 0,
+      "log": "cp310-native.log"
+    },
+    {
+      "name": "soak-python",
+      "exit_code": 0,
+      "log": "soak-python.log"
+    },
+    {
+      "name": "soak-native",
+      "exit_code": 0,
+      "log": "soak-native.log"
+    },
+    {
+      "name": "cp310-sdist-wheel",
+      "exit_code": 0,
+      "log": "cp310-sdist-wheel.log"
+    },
+    {
+      "name": "cp310-install-native",
+      "exit_code": 0,
+      "log": "cp310-install-native.log"
+    },
+    {
+      "name": "cp310-installed-native",
+      "exit_code": 0,
+      "log": "cp310-installed-native.log"
+    },
+    {
+      "name": "cp310-install-portable",
+      "exit_code": 0,
+      "log": "cp310-install-portable.log"
+    },
+    {
+      "name": "cp310-installed-portable",
+      "exit_code": 0,
+      "log": "cp310-installed-portable.log"
+    },
+    {
+      "name": "cp311-venv",
+      "exit_code": 0,
+      "log": "cp311-venv.log"
+    },
+    {
+      "name": "cp311-dependencies",
+      "exit_code": 0,
+      "log": "cp311-dependencies.log"
+    },
+    {
+      "name": "cp311-ruff",
+      "exit_code": 0,
+      "log": "cp311-ruff.log"
+    },
+    {
+      "name": "cp311-python",
+      "exit_code": 0,
+      "log": "cp311-python.log"
+    },
+    {
+      "name": "cp311-compile",
+      "exit_code": 0,
+      "log": "cp311-compile.log"
+    },
+    {
+      "name": "cp311-native",
+      "exit_code": 0,
+      "log": "cp311-native.log"
+    },
+    {
+      "name": "cp311-sdist-wheel",
+      "exit_code": 0,
+      "log": "cp311-sdist-wheel.log"
+    },
+    {
+      "name": "cp311-install-native",
+      "exit_code": 0,
+      "log": "cp311-install-native.log"
+    },
+    {
+      "name": "cp311-installed-native",
+      "exit_code": 0,
+      "log": "cp311-installed-native.log"
+    },
+    {
+      "name": "cp311-install-portable",
+      "exit_code": 0,
+      "log": "cp311-install-portable.log"
+    },
+    {
+      "name": "cp311-installed-portable",
+      "exit_code": 0,
+      "log": "cp311-installed-portable.log"
+    },
+    {
+      "name": "cp312-venv",
+      "exit_code": 0,
+      "log": "cp312-venv.log"
+    },
+    {
+      "name": "cp312-dependencies",
+      "exit_code": 0,
+      "log": "cp312-dependencies.log"
+    },
+    {
+      "name": "cp312-ruff",
+      "exit_code": 0,
+      "log": "cp312-ruff.log"
+    },
+    {
+      "name": "cp312-python",
+      "exit_code": 0,
+      "log": "cp312-python.log"
+    },
+    {
+      "name": "cp312-compile",
+      "exit_code": 0,
+      "log": "cp312-compile.log"
+    },
+    {
+      "name": "cp312-native",
+      "exit_code": 0,
+      "log": "cp312-native.log"
+    },
+    {
+      "name": "cp312-sdist-wheel",
+      "exit_code": 0,
+      "log": "cp312-sdist-wheel.log"
+    },
+    {
+      "name": "cp312-install-native",
+      "exit_code": 0,
+      "log": "cp312-install-native.log"
+    },
+    {
+      "name": "cp312-installed-native",
+      "exit_code": 0,
+      "log": "cp312-installed-native.log"
+    },
+    {
+      "name": "cp312-install-portable",
+      "exit_code": 0,
+      "log": "cp312-install-portable.log"
+    },
+    {
+      "name": "cp312-installed-portable",
+      "exit_code": 0,
+      "log": "cp312-installed-portable.log"
+    },
+    {
+      "name": "cp313-venv",
+      "exit_code": 0,
+      "log": "cp313-venv.log"
+    },
+    {
+      "name": "cp313-dependencies",
+      "exit_code": 0,
+      "log": "cp313-dependencies.log"
+    },
+    {
+      "name": "cp313-ruff",
+      "exit_code": 0,
+      "log": "cp313-ruff.log"
+    },
+    {
+      "name": "cp313-python",
+      "exit_code": 0,
+      "log": "cp313-python.log"
+    },
+    {
+      "name": "cp313-compile",
+      "exit_code": 0,
+      "log": "cp313-compile.log"
+    },
+    {
+      "name": "cp313-native",
+      "exit_code": 0,
+      "log": "cp313-native.log"
+    },
+    {
+      "name": "cp313-sdist-wheel",
+      "exit_code": 0,
+      "log": "cp313-sdist-wheel.log"
+    },
+    {
+      "name": "cp313-install-native",
+      "exit_code": 0,
+      "log": "cp313-install-native.log"
+    },
+    {
+      "name": "cp313-installed-native",
+      "exit_code": 0,
+      "log": "cp313-installed-native.log"
+    },
+    {
+      "name": "cp313-install-portable",
+      "exit_code": 0,
+      "log": "cp313-install-portable.log"
+    },
+    {
+      "name": "cp313-installed-portable",
+      "exit_code": 0,
+      "log": "cp313-installed-portable.log"
+    },
+    {
+      "name": "artifact-check",
+      "exit_code": 0,
+      "log": "artifact-check.log"
+    },
+    {
+      "name": "metadata-check",
+      "exit_code": 0,
+      "log": "metadata-check.log"
+    }
+  ],
+  "matrix": [
+    {
+      "python": "3.10",
+      "engines": [
+        "python",
+        "native"
+      ],
+      "wheel": "tachyon_api-1.4.0-cp310-cp310-macosx_11_0_arm64.whl"
+    },
+    {
+      "python": "3.11",
+      "engines": [
+        "python",
+        "native"
+      ],
+      "wheel": "tachyon_api-1.4.0-cp311-cp311-macosx_11_0_arm64.whl"
+    },
+    {
+      "python": "3.12",
+      "engines": [
+        "python",
+        "native"
+      ],
+      "wheel": "tachyon_api-1.4.0-cp312-cp312-macosx_11_0_arm64.whl"
+    },
+    {
+      "python": "3.13",
+      "engines": [
+        "python",
+        "native"
+      ],
+      "wheel": "tachyon_api-1.4.0-cp313-cp313-macosx_11_0_arm64.whl"
+    }
+  ],
+  "artifacts": [
+    {
+      "file": "dist/tachyon_api-1.4.0-cp310-cp310-macosx_11_0_arm64.whl",
+      "sha256": "aa673b2948f00750e9ed3803762bec52e8807cc3ca7c05fd8d38c45422081d21",
+      "bytes": 1050062
+    },
+    {
+      "file": "dist/tachyon_api-1.4.0-cp311-cp311-macosx_11_0_arm64.whl",
+      "sha256": "ba044c9a3a8f3e85de8a6c6f608c7adfbb43845ecb2bb49e9111a1b7c7fe7ec0",
+      "bytes": 1038326
+    },
+    {
+      "file": "dist/tachyon_api-1.4.0-cp312-cp312-macosx_11_0_arm64.whl",
+      "sha256": "af623681b224c987cf64bab74f9c2cf40302124a6863f22d45d0e3b0dac75d34",
+      "bytes": 1048572
+    },
+    {
+      "file": "dist/tachyon_api-1.4.0-cp313-cp313-macosx_11_0_arm64.whl",
+      "sha256": "09ef2aa78f1e28049d82a9777ba946e5ac230de2ec3c5e98d6f4b058b39924d4",
+      "bytes": 1030467
+    },
+    {
+      "file": "dist/tachyon_api-1.4.0-py3-none-any.whl",
+      "sha256": "1d689e5ed70d87d3265e97bf6da8606ae67552087a022340988ade38037fab8b",
+      "bytes": 110755
+    },
+    {
+      "file": "dist/tachyon_api-1.4.0.tar.gz",
+      "sha256": "f07035a2e348990be4e6260767bb3a27d56bc8c01c8a8e56de042cc5e14d4930",
+      "bytes": 153882
+    }
+  ],
+  "platform_limit": "Native wheels tested on this host only",
+  "version": "1.4.0",
+  "finished": "2026-11-04T16:06:19.006733+00:00"
+}

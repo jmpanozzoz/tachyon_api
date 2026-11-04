@@ -1,134 +1,146 @@
 # cython: language_level=3
 """
-Cython-compiled radix trie router.
+Path trie router with static priority and wildcard fallback.
 
-cdef class _Node: C struct fields — static/param_child/handlers are direct field
-reads rather than Python dict-based attribute lookups.
+Replaces Starlette's O(N × regex) linear route scan. Each static segment is
+a dict lookup. Ambiguous branches backtrack when a static path dead-ends.
 
-F6: match() inlines segment traversal — no _segments() list, no generator.
-    path_params dict lazily allocated.
-
-F11: PyUnicode_AsUTF8AndSize + memchr replace path.find() Python method call.
-     Saves ~67ns per path segment (Python method call overhead eliminated).
+Path format: /users/{user_id}/profile  (Starlette / FastAPI convention)
 """
-from libc.string cimport memchr
-from cpython.unicode cimport PyUnicode_AsUTF8AndSize
+
+
 from types import MappingProxyType
+
 
 _NOT_FOUND          = 0
 _METHOD_NOT_ALLOWED = 1
 _FOUND              = 2
 
-# Immutable empty sentinel — returned for static routes (no path params).
-# One allocation at module load; zero per request on static routes.
+# Immutable empty sentinel — returned for routes with no path params.
+# MappingProxyType prevents accidental mutation; safe because nobody writes to path_params.
 _EMPTY_PARAMS = MappingProxyType({})
 
 
 cdef class _Node:
-    """One trie node. cdef public fields give C-level field access."""
-
-    cdef public dict   static
+    cdef public dict static
     cdef public object param_child
-    cdef public object param_name
-    cdef public dict   handlers
-    cdef public object allowed       # set[str] — for add() bookkeeping
-    cdef public str    allow_header  # pre-sorted "GET, POST" string for 405 responses
+    cdef public dict param_names
+    cdef public dict handlers
+    cdef public object allowed
+    cdef public str allow_header
 
     def __init__(self):
-        self.static       = {}
-        self.param_child  = None
-        self.param_name   = None
-        self.handlers     = {}
-        self.allowed      = set()
+        self.static = {}
+        self.param_child = None
+        self.param_names = {}
+        self.handlers = {}
+        self.allowed = set()
         self.allow_header = ""
 
 
 cdef class RadixTrie:
-    """O(k) trie router — k = path segment count (typically 2–5)."""
+    """
+    Register routes at startup; prefer static paths with wildcard fallback.
+
+    Usage:
+        trie = RadixTrie()
+        trie.add("/users/{id}", "GET", handler)
+        status, handler, params, allowed = trie.match("/users/42", "GET")
+    """
 
     cdef public _Node _root
 
     def __init__(self):
         self._root = _Node()
 
-    def add(self, path, method, handler):
-        """Register (path, method) → handler at startup."""
-        cdef _Node node = self._root
-        cdef _Node child
+    # ── Registration ────────────────────────────────────────────────────────
 
+    def add(self, path, method, handler):
+        """Register a (path, method) → handler mapping."""
+        cdef _Node node = self._root
+        names = []
         for seg in _segments(path):
-            # Use Python string methods — avoids Cython str indexing quirks
-            if seg.startswith("{") and seg.endswith("}"):
+            if seg[0] == "{" and seg[-1] == "}":
+                # Param segment — create param child if needed
                 if node.param_child is None:
                     node.param_child = _Node()
-                    (<_Node>node.param_child).param_name = seg[1:-1]
-                node = <_Node>node.param_child
+                names.append(seg[1:-1])
+                node = node.param_child
             else:
-                existing = node.static.get(seg)
-                if existing is None:
+                # Static segment — O(1) dict lookup/insert
+                child = node.static.get(seg)
+                if child is None:
                     child = _Node()
                     node.static[seg] = child
-                    node = child
-                else:
-                    node = <_Node>existing
+                node = child
 
         m = method.upper()
         node.handlers[m] = handler
+        node.param_names[m] = tuple(names)
         node.allowed.add(m)
+        # Keep Allow header pre-sorted — avoids sorted() on every 405 response
         node.allow_header = ", ".join(sorted(node.allowed))
+
+    # ── Matching ─────────────────────────────────────────────────────────────
 
     def match(self, str path, str method):
         """
-        Match path + method in O(k).
+        Match path + method, backtracking only on ambiguous static branches.
 
-        F6: inline segment traversal, lazy path_params.
-        F11: PyUnicode_AsUTF8AndSize (O(1) ASCII ptr) + memchr (C-level slash scan)
-             replace path.find("/", pos) Python method call — ~67ns per segment.
+        Returns (status, handler, path_params, allow_header):
+        - status 0 (_NOT_FOUND):          no path match
+        - status 1 (_METHOD_NOT_ALLOWED): path matched, method not registered
+        - status 2 (_FOUND):              full match
+
+        path_params is _EMPTY_PARAMS (MappingProxyType) for routes with no path
+        parameters — avoids a dict allocation on every static-route request.
         """
+        # Prefer the first complete static path, regardless of HTTP method.
+        # A static dead end must not hide a complete wildcard route.
         cdef _Node node = self._root
-        cdef dict path_params = None
-        cdef Py_ssize_t path_len, seg_end
-        cdef Py_ssize_t pos
-        cdef str seg
-        cdef object existing
-        cdef const char* path_ptr
-        cdef const char* slash_ptr
-
-        # O(1) for ASCII paths — CPython caches the UTF-8 repr in the compact Unicode obj
-        path_ptr = PyUnicode_AsUTF8AndSize(path, &path_len)
-        pos = 1 if path_len > 0 and path_ptr[0] == b'/' else 0
-
-        while pos < path_len:
-            # memchr: C-level byte scan — replaces path.find("/", pos) (~67ns → ~3ns)
-            slash_ptr = <const char*>memchr(path_ptr + pos, b'/', path_len - pos)
-            if slash_ptr == NULL:
-                seg_end = path_len
+        cdef Py_ssize_t pos = 0
+        cdef _Node child
+        cdef object wildcard
+        values = ()
+        alternatives = None
+        length = len(path)
+        while True:
+            while pos < length and path[pos] == "/":
+                pos += 1
+            if pos == length:
+                if node.allowed:
+                    m = method.upper()
+                    handler = node.handlers.get(m)
+                    if handler is None:
+                        return _METHOD_NOT_ALLOWED, None, _EMPTY_PARAMS, node.allow_header
+                    names = node.param_names[m]
+                    params = dict(zip(names, values)) if names else _EMPTY_PARAMS
+                    return _FOUND, handler, params, None
             else:
-                seg_end = slash_ptr - path_ptr
+                slash = path.find("/", pos)
+                end = length if slash == -1 else slash
+                seg = path[pos:end]
+                child = node.static.get(seg)
+                wildcard = node.param_child
+                if child is not None:
+                    if wildcard is not None:
+                        if alternatives is None:
+                            alternatives = []
+                        alternatives.append((wildcard, end, values + (seg,)))
+                    node = child
+                    pos = end
+                    continue
+                if wildcard is not None:
+                    node = wildcard
+                    values = values + (seg,)
+                    pos = end
+                    continue
+            if not alternatives:
+                return _NOT_FOUND, None, _EMPTY_PARAMS, None
+            node, pos, values = alternatives.pop()
 
-            if seg_end > pos:
-                seg = path[pos:seg_end]  # Python slice still needed as dict key
-                existing = node.static.get(seg)
-                if existing is not None:
-                    node = <_Node>existing
-                elif node.param_child is not None:
-                    if path_params is None:
-                        path_params = {}
-                    path_params[(<_Node>node.param_child).param_name] = seg
-                    node = <_Node>node.param_child
-                else:
-                    return 0, None, _EMPTY_PARAMS, None  # _NOT_FOUND
-
-            pos = seg_end + 1
-
-        handler = node.handlers.get(method.upper())
-        if handler is not None:
-            return 2, handler, path_params if path_params is not None else _EMPTY_PARAMS, None  # _FOUND
-        if node.allowed:
-            return 1, None, path_params if path_params is not None else _EMPTY_PARAMS, node.allow_header  # _METHOD_NOT_ALLOWED
-        return 0, None, _EMPTY_PARAMS, None  # _NOT_FOUND
 
 
 def _segments(path):
-    """Split URL path into non-empty segments."""
+    """Split a URL path into non-empty segments."""
     return [s for s in path.split("/") if s]

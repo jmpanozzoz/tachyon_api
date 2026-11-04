@@ -1,11 +1,6 @@
 [run]
 source = tachyon_api
 omit =
-    # Cython-compiled modules — covered by .so at runtime, .py is fallback only
-    tachyon_api/processing/compiler.py
-    tachyon_api/processing/parameters.py
-    tachyon_api/processing/response_processor.py
-    tachyon_api/routing/trie.py
     # CLI entry point (not meaningful to test)
     tachyon_api/cli/__main__.py
 

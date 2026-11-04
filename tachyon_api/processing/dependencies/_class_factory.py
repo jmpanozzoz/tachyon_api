@@ -1,10 +1,10 @@
 # Construction-time — instantiates an @injectable class by resolving its
 # constructor dependencies recursively through the supplied resolver callback.
 
-import inspect
 from typing import Any, Callable, Dict, Optional, Type
 
-from ._sig_cache import get_signature
+from ...di import _registry
+from ._sig_cache import get_bindings
 
 
 class ClassFactory:
@@ -18,15 +18,19 @@ class ClassFactory:
         self._resolve_dep = resolve_dep
 
     def build(self, cls: Type, request_cache: Optional[Dict]) -> Any:
-        sig = get_signature(cls)
-        nested: Dict[str, Any] = {}
-        for param in sig.parameters.values():
-            if param.name == "self":
-                continue
-            if param.annotation is inspect.Parameter.empty:
-                raise TypeError(
-                    f"Parameter '{param.name}' in '{cls.__name__}' has no type annotation; "
-                    f"cannot resolve dependency."
-                )
-            nested[param.name] = self._resolve_dep(param.annotation, request_cache)
-        return cls(**nested)
+        args = []
+        kwargs = {}
+        for name, positional, kind, target in get_bindings(cls):
+            if kind == "dependency":
+                if target not in _registry:
+                    raise TypeError("Callable constructor dependencies require asynchronous resolution")
+                value = self._resolve_dep(target, request_cache)
+            elif kind in ("request", "marker"):
+                raise TypeError("Request constructor parameters require asynchronous resolution")
+            else:
+                value = target
+            if positional:
+                args.append(value)
+            else:
+                kwargs[name] = value
+        return cls(*args, **kwargs)

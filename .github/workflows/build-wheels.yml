@@ -7,6 +7,11 @@ on:
   workflow_dispatch:
   pull_request:
     paths:
+      - "tachyon_api/**"
+      - "tests/**"
+      - "scripts/**"
+      - "MANIFEST.in"
+      - "poetry.lock"
       - "setup.py"
       - "pyproject.toml"
       - ".github/workflows/build-wheels.yml"
@@ -23,15 +28,7 @@ jobs:
             arch: x86_64
           - os: ubuntu-latest
             arch: aarch64
-          # macOS is arm64-only.  Two attempts at x86_64 support failed:
-          # the `macos-13` (Intel) hosted runner pool stopped reliably
-          # allocating in May 2026, and cross-compiling x86_64 from a
-          # `macos-14` arm64 runner doesn't work — setuptools produces
-          # x86_64 binaries, but poetry-core's wheel packaging step doesn't
-          # honor `_PYTHON_HOST_PLATFORM` and tags the wheel with the host's
-          # arch (arm64), so `delocate-wheel --require-archs x86_64` aborts
-          # with "Failed to find any binary with the required architecture".
-          # macOS Intel users fall back to source build from sdist.
+          # macOS Intel users build from the sdist.
           - os: macos-14
             arch: arm64
           - os: windows-latest
@@ -73,20 +70,16 @@ jobs:
       - name: Build sdist
         run: python -m build --sdist
 
-      - name: Verify sdist contains .pyx sources
+      - name: Rebuild native wheel from sdist and test outside checkout
         run: |
-          set -euo pipefail
-          tarball=$(ls dist/*.tar.gz)
-          echo "Inspecting $tarball"
-          pyx_count=$(tar -tzf "$tarball" | grep -c '\.pyx$' || true)
-          echo "Found $pyx_count .pyx files in sdist"
-          if [ "$pyx_count" -lt 27 ]; then
-            echo "::error::Expected ≥27 .pyx files in sdist, found $pyx_count"
-            tar -tzf "$tarball" | grep '\.pyx$' || true
-            exit 1
-          fi
-          # setup.py must ship so sdist is recompilable
-          tar -tzf "$tarball" | grep -E '(^|/)setup\.py$' >/dev/null || { echo "::error::setup.py missing from sdist"; exit 1; }
+          mkdir -p /tmp/tachyon-sdist-source /tmp/tachyon-sdist-wheels /tmp/tachyon-sdist-tests
+          tar -xzf dist/*.tar.gz -C /tmp/tachyon-sdist-source
+          project_root="$PWD"
+          cd /tmp/tachyon-sdist-source/*
+          python -m build --wheel --outdir /tmp/tachyon-sdist-wheels
+          pip install /tmp/tachyon-sdist-wheels/*.whl pytest pytest-asyncio httpx
+          cd "$project_root"
+          python scripts/test_installed_wheel.py --engine native
 
       - uses: actions/upload-artifact@v4
         with:

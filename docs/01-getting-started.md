@@ -26,21 +26,23 @@ Tachyon instala automáticamente:
 
 ### Precompiled extensions
 
-`pip install tachyon-api` already ships **27 precompiled Cython extensions** for Linux (x86_64, aarch64), macOS (arm64), and Windows (x86_64) on CPython 3.10–3.13. No extra step required — the compiled hot path is active by default.
+La [versión 1.4.0 está publicada en PyPI](https://pypi.org/project/tachyon-api/1.4.0/). Incluye wheels nativos macOS ARM64 para CPython 3.10–3.13, un wheel portable y un sdist. La validación local se hizo en Mac; no acredita pruebas en Linux o Windows. En otras plataformas pip puede instalar el wheel portable, sujeto a compatibilidad de dependencias.
 
-On platforms without a published wheel (e.g. macOS Intel), `pip` builds from source. That path requires a C compiler and Cython:
-
-```bash
-pip install tachyon-api[fast]   # pulls in Cython for source builds
-```
-
-If compilation fails for any reason, Tachyon falls back to pure Python automatically — no code changes needed. The Cython extensions add ~14% throughput on top of the already-fast pure-Python baseline.
-
-For production servers, also use:
+Los builds nativos desde fuente requieren compilador. Para construir el fallback Python desde fuente:
 
 ```bash
-uvicorn app:app --loop uvloop --http httptools
+TACHYON_SKIP_CYTHON=1 pip install --no-binary=tachyon-api tachyon-api
 ```
+
+See the [build guide](./16-cython-build.md) for platform and fallback details.
+
+Para producción, desactivar reload:
+
+```bash
+tachyon run app:app --prod
+```
+
+El CLI detecta uvloop/httptools si están instalados y disponibles. uvloop es opcional y no está disponible en todas las plataformas.
 
 ---
 
@@ -84,7 +86,7 @@ Tachyon incluye un CLI para generar proyectos:
 tachyon new my-api
 
 # Entrar al proyecto
-cd my-api
+cd my_api
 
 # Instalar dependencias
 pip install -r requirements.txt
@@ -96,7 +98,7 @@ python app.py
 Estructura generada:
 
 ```
-my-api/
+my_api/
 ├── app.py              # Entry point
 ├── config.py           # Configuración
 ├── requirements.txt    # Dependencias
@@ -113,6 +115,7 @@ my-api/
 ## 📝 Ejemplo Completo
 
 ```python
+import msgspec
 from tachyon_api import Tachyon, Struct, Body, Query, HTTPException
 
 app = Tachyon()
@@ -145,11 +148,11 @@ def get_item(item_id: str):
     return items_db[item_id]
 
 @app.post("/items")
-def create_item(item: Item = Body(...)):
+def create_item(item: Item = Body()):
     """Crea un nuevo item."""
     import uuid
     item_id = str(uuid.uuid4())
-    items_db[item_id] = {"id": item_id, **item.__dict__}
+    items_db[item_id] = {"id": item_id, **msgspec.structs.asdict(item)}
     return items_db[item_id]
 
 @app.delete("/items/{item_id}")

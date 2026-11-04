@@ -9,17 +9,22 @@ This is the canonical knowledge base injected into each AI tool's context file.
 _HEADER = "# Tachyon API — AI Context"
 
 _OVERVIEW = """\
-Tachyon API is a high-performance Python web framework with FastAPI-compatible syntax,
+Tachyon API is a high-performance Python web framework with FastAPI-inspired decorator syntax,
 built on Starlette + msgspec + orjson. It is NOT a wrapper of FastAPI — it is an
 independent implementation with a different internal architecture.
 
 Key differences from FastAPI:
-- Uses `msgspec.Struct` instead of Pydantic BaseModel for validation (faster, different API)
+- Uses `msgspec.Struct` instead of Pydantic BaseModel for validation (different API)
 - Body parameters REQUIRE `= Body()` marker — not just a type annotation
 - `@injectable` for singleton services, `Depends()` for callable/class DI
 - `tachyon_api.Struct` is re-exported from msgspec — use it everywhere instead of BaseModel
+- Factories accept typed Request/WebSocket, Depends, injectable classes, Python defaults, Header and Query
+- Other parameter markers inside factories fail registration; use typed Request for explicit extraction
+- Singleton constructors may capture singleton classes only; use request scope for per-user state
+- Mutable Struct fields require deliberate sharing; constructors do not validate, response_model does
+- OAuth2PasswordBearer extracts tokens without JWT validation or automatic OpenAPI security schemes
 - Router uses `app.include_router(router)` just like FastAPI
-- No automatic coercion of query params — use `Query(default)` explicitly
+- Query extraction and type conversion require explicit `Query(default)` markers
 """
 
 _INSTALLATION = """\
@@ -207,6 +212,7 @@ async def me(credentials = Depends(bearer)):
 
 ### Background tasks
 ```python
+import asyncio
 from tachyon_api.background import BackgroundTasks
 
 @app.post("/notify")
@@ -223,7 +229,7 @@ _ANTIPATTERNS = """\
 ## Anti-patterns to avoid
 
 ```python
-# ❌ WRONG — Body param without Body() — will be treated as query param
+# ❌ WRONG — Body param without Body() — fails registration for an unbound required parameter
 @app.post("/users")
 def create_user(user: User):  # broken
     ...
@@ -248,43 +254,65 @@ item = {"id": id, **data.__dict__}  # AttributeError
 import msgspec
 item = {"id": id, **msgspec.structs.asdict(data)}
 
-# ❌ WRONG — async exception handlers (will block event loop)
+# ❌ WRONG — blocking work in an async exception handler
 @app.exception_handler(HTTPException)
-async def handler(request, exc): ...  # sync is correct
+async def handler(request, exc): time.sleep(1)  # blocks the event loop
 
 # ✅ CORRECT
 @app.exception_handler(HTTPException)
-def handler(request, exc): ...
+async def handler(request, exc):
+    return JSONResponse({"detail": str(exc)}, status_code=500)
 ```
 """
 
-_CLI_REFERENCE = """\
-## CLI Reference
 
-```bash
-tachyon new my-api              # create project
-tachyon run                     # start dev server (reload on, uvloop auto)
-tachyon run --prod --workers 4  # production
-tachyon routes                  # list all routes
-tachyon g service users --crud  # generate full CRUD module
-tachyon g middleware auth       # generate ASGI middleware
-tachyon openapi export          # dump openapi.json from the app
-tachyon openapi validate <file> # validate an exported schema
-tachyon lint all                # lint + format
-tachyon install-skill           # generate AI-assistant context files
-tachyon version                 # show version
-```
+def _cli_reference() -> str:
+    from typer.main import get_command
+    from ..main import app
 
-Generated service structure:
-```
-modules/users/
-├── users_controller.py   # Router with endpoints
-├── users_service.py      # @injectable business logic
-├── users_repository.py   # data access
-├── users_dto.py          # Struct models
-└── tests/
-```
-"""
+    root = get_command(app)
+    lines = [
+        "## CLI Reference",
+        "",
+        "Registered commands (run with --help for arguments):",
+        "",
+    ]
+
+    def walk(group, prefix: str) -> None:
+        for name, command in sorted(getattr(group, "commands", {}).items()):
+            target = f"{prefix} {name}"
+            lines.append(
+                f"- `{target}` — {(command.help or '').strip().splitlines()[0] if command.help else ''}"
+            )
+            walk(command, target)
+
+    walk(root, "tachyon")
+    return "\n".join(lines)
+
+
+def _installed_reference() -> str:
+    import inspect
+    import tachyon_api
+    from .service import ServiceTemplates
+
+    lines = ["## Installed public API", ""]
+    for name in tachyon_api.__all__:
+        value = getattr(tachyon_api, name)
+        try:
+            signature = str(inspect.signature(value))
+        except (TypeError, ValueError):
+            signature = ""
+        lines.append(f"- `tachyon_api.{name}{signature}`")
+    lines += [
+        "",
+        "## Service template example",
+        "",
+        "```python",
+        ServiceTemplates.controller("example", "Example").strip(),
+        "```",
+    ]
+    return "\n".join(lines)
+
 
 _FOOTER = """\
 ---
@@ -294,17 +322,21 @@ Full docs: https://github.com/jmpanozzoz/tachyon_api
 
 # ── Tool-specific wrappers ────────────────────────────────────────────────────
 
+
 def _full_content() -> str:
-    return "\n\n".join([
-        _HEADER,
-        _OVERVIEW.strip(),
-        _INSTALLATION.strip(),
-        _QUICK_REFERENCE.strip(),
-        _PATTERNS.strip(),
-        _ANTIPATTERNS.strip(),
-        _CLI_REFERENCE.strip(),
-        _FOOTER.strip(),
-    ])
+    return "\n\n".join(
+        [
+            _HEADER,
+            _OVERVIEW.strip(),
+            _INSTALLATION.strip(),
+            _QUICK_REFERENCE.strip(),
+            _PATTERNS.strip(),
+            _ANTIPATTERNS.strip(),
+            _cli_reference(),
+            _installed_reference(),
+            _FOOTER.strip(),
+        ]
+    )
 
 
 def cursor_rules() -> str:
@@ -321,7 +353,9 @@ with Tachyon API projects.
 
 {_ANTIPATTERNS.strip()}
 
-{_CLI_REFERENCE.strip()}
+{_cli_reference()}
+
+{_installed_reference()}
 """
 
 
@@ -338,7 +372,9 @@ This project uses **Tachyon API** — a high-performance FastAPI-alternative fra
 
 {_ANTIPATTERNS.strip()}
 
-{_CLI_REFERENCE.strip()}
+{_cli_reference()}
+
+{_installed_reference()}
 """
 
 

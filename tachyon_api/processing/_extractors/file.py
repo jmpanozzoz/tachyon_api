@@ -1,12 +1,14 @@
 # HOT PATH — extracts an uploaded file from form data.
 
 from ..compiler import ParamDescriptor
+from starlette.datastructures import UploadFile as StarletteUploadFile
+from ...files import UploadFile
 from ...responses import validation_error_response
 from ._missing import missing
 
 
 class FileExtractor:
-    """Extracts an UploadFile from form data and validates it has a filename attribute."""
+    """Extracts an UploadFile from form data and validates all repeated multipart values."""
 
     __slots__ = ()
 
@@ -14,13 +16,15 @@ class FileExtractor:
         """Returns `(value, error)` plain tuple."""
         name = descriptor.effective_name
         if name not in form_data:
+            if descriptor.is_list and isinstance(descriptor.default, list):
+                return (descriptor.default.copy(), None)
             return missing(descriptor, "file", name)
 
-        uploaded = form_data[name]
-        if hasattr(uploaded, "filename"):
-            return (uploaded, None)
-
-        # Value is present but not a file — fall back to default or 422
-        if descriptor.default is not ...:
-            return (descriptor.default, None)
-        return (None, validation_error_response(f"Invalid file upload for: {name}"))
+        uploads = form_data.getlist(name)
+        if not descriptor.is_list and len(uploads) != 1:
+            return (None, validation_error_response(f"Invalid file upload for: {name}"))
+        for upload in uploads:
+            if not isinstance(upload, StarletteUploadFile):
+                return (None, validation_error_response(f"Invalid file upload for: {name}"))
+        uploads = [UploadFile.from_starlette(upload) for upload in uploads]
+        return (uploads if descriptor.is_list else uploads[0], None)

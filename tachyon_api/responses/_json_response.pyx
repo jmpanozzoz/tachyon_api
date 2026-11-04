@@ -1,52 +1,29 @@
-# cython: language_level=3, boundscheck=False, wraparound=False
-"""HOT PATH — Cython-compiled high-performance JSON response.
-
-Sibling of `_json_response.py`. When compiled to `.so`, this version wins
-the import resolution; pure-Python users fall back to the .py module,
-which produces identical behavior.
-
-**Why not `cdef class`?** Cython's `cdef class` cannot inherit from a
-regular Python class like Starlette's `JSONResponse`.  Subclassing is
-required by the `isinstance(x, JSONResponse)` check in
-`processing/response_processor.py` (and any third-party middleware that
-does the same).  We compile this module as a regular Python class — the
-gain comes from method-body byte-code compilation, typed C ints for the
-size check, and direct C-level dict construction.
-"""
-
+# cython: language_level=3
+"""JSON response with bounded header lookup and request-owned ASGI messages."""
 from starlette.responses import JSONResponse
 
 from ..models import encode_json
 from ._caches import _CL_TUPLE_CACHE, _CT_TUPLE
-from ._constants import _ASGI_BODY, _ASGI_START, _CL_NAME
+from ._constants import _CL_NAME
 
 
 class TachyonJSONResponse(JSONResponse):
-    """High-performance JSON response — builds ASGI dicts once at construction."""
-
-    __slots__ = ("_send_start", "_send_body")
-
+    __slots__ = ()
     media_type = "application/json"
 
     def __init__(self, content, status_code: int = 200):
-        cdef bytes body = encode_json(content)
-        cdef Py_ssize_t n = len(body)
-        cdef object cl_tuple
-        cdef list headers
-
-        if n < 65536:
-            cl_tuple = _CL_TUPLE_CACHE[n]
-        else:
-            cl_tuple = (_CL_NAME, str(n).encode())
-        headers = [cl_tuple, _CT_TUPLE]
-
-        self.body = body
+        body = encode_json(content)
         self.status_code = status_code
         self.background = None
-        self.raw_headers = headers
-        self._send_start = {"type": _ASGI_START, "status": status_code, "headers": headers}
-        self._send_body = {"type": _ASGI_BODY, "body": body}
+        self.body = b"" if status_code < 200 or status_code in (204, 304) else body
+        n = len(self.body)
+        self.raw_headers = [_CT_TUPLE]
+        if status_code >= 200 and status_code not in (204, 304):
+            length_header = _CL_TUPLE_CACHE[n] if n < len(_CL_TUPLE_CACHE) else (_CL_NAME, str(n).encode())
+            self.raw_headers.insert(0, length_header)
 
-    async def __call__(self, scope, receive, send) -> None:
-        await send(self._send_start)
-        await send(self._send_body)
+    async def __call__(self, scope, receive, send):
+        await send({"type": "http.response.start", "status": self.status_code, "headers": list(self.raw_headers)})
+        await send({"type": "http.response.body", "body": b"" if scope.get("method") == "HEAD" else self.body})
+        if self.background is not None:
+            await self.background()

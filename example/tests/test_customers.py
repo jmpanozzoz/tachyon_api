@@ -93,7 +93,7 @@ class TestCustomersEndpoints:
         """Should create a new customer."""
         # Use mock repository
         mock_repo = MockCustomersRepository()
-        app.dependency_overrides[CustomersRepository] = lambda: mock_repo
+        app.dependency_overrides[CustomersRepository] = mock_repo
 
         response = client.post(
             "/customers/",
@@ -113,7 +113,7 @@ class TestCustomersEndpoints:
     def test_create_and_get_customer(self, client, auth_headers):
         """Should create and retrieve a customer."""
         mock_repo = MockCustomersRepository()
-        app.dependency_overrides[CustomersRepository] = lambda: mock_repo
+        app.dependency_overrides[CustomersRepository] = mock_repo
 
         # Create
         create_response = client.post(
@@ -139,7 +139,7 @@ class TestCustomersEndpoints:
     def test_get_customer_not_found(self, client, auth_headers):
         """Should return 404 for non-existent customer."""
         mock_repo = MockCustomersRepository()
-        app.dependency_overrides[CustomersRepository] = lambda: mock_repo
+        app.dependency_overrides[CustomersRepository] = mock_repo
 
         response = client.get("/customers/nonexistent", headers=auth_headers)
 

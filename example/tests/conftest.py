@@ -11,7 +11,7 @@ import copy
 
 import pytest
 import jwt
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from tachyon_api.testing import TachyonTestClient
 
@@ -43,8 +43,8 @@ def auth_token():
         "sub": "test_user_001",
         "email": "test@example.com",
         "role": "user",
-        "exp": datetime.utcnow() + timedelta(hours=1),
-        "iat": datetime.utcnow(),
+        "exp": datetime.now(timezone.utc) + timedelta(hours=1),
+        "iat": datetime.now(timezone.utc),
     }
     
     return jwt.encode(
@@ -71,7 +71,11 @@ def clean_state():
     verification created in one test leaks into the next (e.g. an in-progress
     "standard" verification being returned to a test requesting "enhanced").
     """
+    # Singleton services capture repository overrides when first constructed.
+    # Rebuild them for each test so one mock cannot leak into another test.
+    app._instances_cache.clear()
     yield
+    app._instances_cache.clear()
     app.dependency_overrides.clear()
     customers_repository._customers_db.clear()
     verification_repository._verifications_db.clear()

@@ -1,5 +1,6 @@
 """Centralized type inspection utilities for Optional, List, and OpenAPI type mapping."""
 
+import types
 import typing
 from typing import Type, Tuple, Union, Dict, Any
 
@@ -17,7 +18,7 @@ class TypeUtils:
         """Return (inner_type, is_optional) for Optional[T], else (type, False)."""
         origin = typing.get_origin(python_type)
         args = typing.get_args(python_type)
-        if origin is Union and args:
+        if origin in (Union, types.UnionType) and args:
             non_none = [a for a in args if a is not type(None)]  # noqa: E721
             if len(non_none) == 1:
                 return non_none[0], True

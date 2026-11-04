@@ -93,8 +93,8 @@ class ParameterProcessor:
                 )
                 continue
             if kind == KIND_DEP_CLASS:
-                args[i] = self.app._dependency_resolver.resolve_dependency(
-                    p.annotation, dependency_cache
+                args[i] = await self.app._dependency_resolver.resolve_class_dependency(
+                    p.annotation, dependency_cache, request
                 )
                 continue
 

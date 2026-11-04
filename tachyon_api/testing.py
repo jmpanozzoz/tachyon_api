@@ -28,6 +28,10 @@ class TachyonTestClient(TestClient):
 class AsyncTachyonTestClient:
     """Async context-manager wrapping httpx.AsyncClient with ASGITransport.
 
+    Does not run ASGI lifespan. Manage startup/shutdown separately (for example
+    with asgi_lifespan.LifespanManager), or use TachyonTestClient as a context
+    manager for tests requiring automatic lifespan. Install tachyon-api[test].
+
     Yields the underlying ``httpx.AsyncClient`` so all httpx features
     (cookies, auth, custom headers, follow_redirects, timeout, etc.) are
     available via constructor kwargs.
@@ -87,6 +91,8 @@ async def create_client(
 ):
     """Async context manager that yields an ``httpx.AsyncClient`` bound to *app*.
 
+    Does not run ASGI lifespan; see AsyncTachyonTestClient.
+
     Canonical helper for Tachyon tests — mirrors the pattern used throughout
     the test suite.  All httpx options (cookies, auth, headers, timeouts,
     follow_redirects) are forwarded to the underlying client.
@@ -97,19 +103,14 @@ async def create_client(
             r = await client.get("/healthz")
             assert r.status_code == 200
     """
-    client_kwargs: Dict[str, Any] = {
-        "transport": ASGITransport(app=app),
-        "base_url": base_url,
-        "follow_redirects": follow_redirects,
-        "timeout": timeout,
+    async with AsyncTachyonTestClient(
+        app,
+        base_url=base_url,
+        headers=headers,
+        cookies=cookies,
+        auth=auth,
+        follow_redirects=follow_redirects,
+        timeout=timeout,
         **kwargs,
-    }
-    if headers:
-        client_kwargs["headers"] = headers
-    if cookies:
-        client_kwargs["cookies"] = cookies
-    if auth is not None:
-        client_kwargs["auth"] = auth
-
-    async with AsyncClient(**client_kwargs) as client:
+    ) as client:
         yield client
