@@ -1,0 +1,217 @@
+{
+  "version": "1.4.2",
+  "status": "Final release artifacts validated; publication receipt is attached to GitHub release",
+  "validated_revision": "16a888f2a81294ad58b668c03000004cf8fc9cb9",
+  "runtime_sha256": "ff6cb593f89e3f59f287bd5d802a60110c97e98d690dc2dbebd2c582e4502c90",
+  "artifacts": [
+    {
+      "file": "dist/tachyon_api-1.4.2-py3-none-any.whl",
+      "sha256": "d2b05e7d3f5534e3518a8b3e822068b22f023097a7cb882f389ad503a33471aa",
+      "bytes": 111458
+    },
+    {
+      "file": "dist/tachyon_api-1.4.2.tar.gz",
+      "sha256": "957405ef11030b7244858a36e9eec4fb75a7c78cfa774586006574599d88088c",
+      "bytes": 154319
+    }
+  ],
+  "checks_per_os": 40,
+  "matrix": [
+    {
+      "os": "macos",
+      "python": "3.10.22 (main, Oct  9 2026, 15:10:41) [Clang 22.1.3 ]",
+      "platform": "macOS-27.0.1-arm64-arm-64bit",
+      "revision": "16a888f2a81294ad58b668c03000004cf8fc9cb9",
+      "working_tree": "",
+      "inputs_sha256": "baf9e1841dd3f289f949155d29dc8846bcc2d508cde93d752ab3b661a1db0805",
+      "tests": 904,
+      "installed_tests_per_wheel": 207,
+      "modules": 103,
+      "dependency_versions": {
+        "tachyon-api": "1.4.2",
+        "starlette": "1.7.0",
+        "uvicorn": "0.35.0",
+        "httptools": "0.9.0",
+        "msgspec": "0.19.0",
+        "orjson": "3.13.0",
+        "typer": "0.16.1",
+        "python-multipart": "0.0.32",
+        "granian": "2.8.7"
+      }
+    },
+    {
+      "os": "linux",
+      "python": "3.10.22 (main, Oct  9 2026, 15:20:35) [Clang 22.1.3 ]",
+      "platform": "Linux-6.12.111+deb13-cloud-arm64-aarch64-with-glibc2.41",
+      "revision": "16a888f2a81294ad58b668c03000004cf8fc9cb9",
+      "working_tree": "",
+      "inputs_sha256": "baf9e1841dd3f289f949155d29dc8846bcc2d508cde93d752ab3b661a1db0805",
+      "tests": 904,
+      "installed_tests_per_wheel": 207,
+      "modules": 103,
+      "dependency_versions": {
+        "tachyon-api": "1.4.2",
+        "starlette": "1.7.0",
+        "uvicorn": "0.35.0",
+        "httptools": "0.9.0",
+        "msgspec": "0.19.0",
+        "orjson": "3.13.0",
+        "typer": "0.16.1",
+        "python-multipart": "0.0.32",
+        "granian": "2.8.7"
+      }
+    },
+    {
+      "os": "macos",
+      "python": "3.11.18 (main, Oct 26 2026, 13:58:42) [Clang 23.1.3 ]",
+      "platform": "macOS-27.0.1-arm64-arm-64bit",
+      "revision": "16a888f2a81294ad58b668c03000004cf8fc9cb9",
+      "working_tree": "",
+      "inputs_sha256": "baf9e1841dd3f289f949155d29dc8846bcc2d508cde93d752ab3b661a1db0805",
+      "tests": 904,
+      "installed_tests_per_wheel": 207,
+      "modules": 103,
+      "dependency_versions": {
+        "tachyon-api": "1.4.2",
+        "starlette": "1.10.0",
+        "uvicorn": "0.35.0",
+        "httptools": "0.9.0",
+        "msgspec": "0.19.0",
+        "orjson": "3.13.0",
+        "typer": "0.16.1",
+        "python-multipart": "0.0.32",
+        "granian": "2.8.7"
+      }
+    },
+    {
+      "os": "linux",
+      "python": "3.11.18 (main, Oct 26 2026, 14:06:29) [Clang 23.1.3 ]",
+      "platform": "Linux-6.12.111+deb13-cloud-arm64-aarch64-with-glibc2.41",
+      "revision": "16a888f2a81294ad58b668c03000004cf8fc9cb9",
+      "working_tree": "",
+      "inputs_sha256": "baf9e1841dd3f289f949155d29dc8846bcc2d508cde93d752ab3b661a1db0805",
+      "tests": 904,
+      "installed_tests_per_wheel": 207,
+      "modules": 103,
+      "dependency_versions": {
+        "tachyon-api": "1.4.2",
+        "starlette": "1.10.0",
+        "uvicorn": "0.35.0",
+        "httptools": "0.9.0",
+        "msgspec": "0.19.0",
+        "orjson": "3.13.0",
+        "typer": "0.16.1",
+        "python-multipart": "0.0.32",
+        "granian": "2.8.7"
+      }
+    },
+    {
+      "os": "macos",
+      "python": "3.12.16 (main, Oct 26 2026, 13:59:40) [Clang 23.1.3 ]",
+      "platform": "macOS-27.0.1-arm64-arm-64bit",
+      "revision": "16a888f2a81294ad58b668c03000004cf8fc9cb9",
+      "working_tree": "",
+      "inputs_sha256": "baf9e1841dd3f289f949155d29dc8846bcc2d508cde93d752ab3b661a1db0805",
+      "tests": 904,
+      "installed_tests_per_wheel": 207,
+      "modules": 103,
+      "dependency_versions": {
+        "tachyon-api": "1.4.2",
+        "starlette": "1.10.0",
+        "uvicorn": "0.35.0",
+        "httptools": "0.9.0",
+        "msgspec": "0.19.0",
+        "orjson": "3.13.0",
+        "typer": "0.16.1",
+        "python-multipart": "0.0.32",
+        "granian": "2.8.7"
+      }
+    },
+    {
+      "os": "linux",
+      "python": "3.12.16 (main, Oct 26 2026, 14:06:44) [Clang 23.1.3 ]",
+      "platform": "Linux-6.12.111+deb13-cloud-arm64-aarch64-with-glibc2.41",
+      "revision": "16a888f2a81294ad58b668c03000004cf8fc9cb9",
+      "working_tree": "",
+      "inputs_sha256": "baf9e1841dd3f289f949155d29dc8846bcc2d508cde93d752ab3b661a1db0805",
+      "tests": 904,
+      "installed_tests_per_wheel": 207,
+      "modules": 103,
+      "dependency_versions": {
+        "tachyon-api": "1.4.2",
+        "starlette": "1.10.0",
+        "uvicorn": "0.35.0",
+        "httptools": "0.9.0",
+        "msgspec": "0.19.0",
+        "orjson": "3.13.0",
+        "typer": "0.16.1",
+        "python-multipart": "0.0.32",
+        "granian": "2.8.7"
+      }
+    },
+    {
+      "os": "macos",
+      "python": "3.13.18 (main, Oct 26 2026, 13:59:02) [Clang 23.1.3 ]",
+      "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+      "revision": "16a888f2a81294ad58b668c03000004cf8fc9cb9",
+      "working_tree": "",
+      "inputs_sha256": "baf9e1841dd3f289f949155d29dc8846bcc2d508cde93d752ab3b661a1db0805",
+      "tests": 904,
+      "installed_tests_per_wheel": 207,
+      "modules": 103,
+      "dependency_versions": {
+        "tachyon-api": "1.4.2",
+        "starlette": "1.10.0",
+        "uvicorn": "0.35.0",
+        "httptools": "0.9.0",
+        "msgspec": "0.19.0",
+        "orjson": "3.13.0",
+        "typer": "0.16.1",
+        "python-multipart": "0.0.32",
+        "granian": "2.8.7"
+      }
+    },
+    {
+      "os": "linux",
+      "python": "3.13.18 (main, Oct 26 2026, 14:07:20) [Clang 23.1.3 ]",
+      "platform": "Linux-6.12.111+deb13-cloud-arm64-aarch64-with-glibc2.41",
+      "revision": "16a888f2a81294ad58b668c03000004cf8fc9cb9",
+      "working_tree": "",
+      "inputs_sha256": "baf9e1841dd3f289f949155d29dc8846bcc2d508cde93d752ab3b661a1db0805",
+      "tests": 904,
+      "installed_tests_per_wheel": 207,
+      "modules": 103,
+      "dependency_versions": {
+        "tachyon-api": "1.4.2",
+        "starlette": "1.10.0",
+        "uvicorn": "0.35.0",
+        "httptools": "0.9.0",
+        "msgspec": "0.19.0",
+        "orjson": "3.13.0",
+        "typer": "0.16.1",
+        "python-multipart": "0.0.32",
+        "granian": "2.8.7"
+      }
+    }
+  ],
+  "upload_dry_run": true,
+  "advisory_audit": {
+    "310": {
+      "dependencies": 19,
+      "known_advisories": 0,
+      "scope": "Installed third-party runtime dependencies including optional Granian; local unpublished Tachyon excluded"
+    },
+    "313": {
+      "dependencies": 18,
+      "known_advisories": 0,
+      "scope": "Installed third-party runtime dependencies including optional Granian; local unpublished Tachyon excluded"
+    }
+  },
+  "limits": [
+    "macOS ARM64 and Debian ARM64 execution only; Windows and Linux x86-64 unverified",
+    "Single-process endurance does not establish multi-worker or multi-hour capacity",
+    "Operational endurance and A/B used earlier candidate archives with identical runtime bytes; final artifact hashes above supersede candidate artifact hashes",
+    "No GitHub Actions used"
+  ],
+  "publication_url": "https://github.com/jmpanozzoz/tachyon_api/releases/tag/v1.4.2"
+}
