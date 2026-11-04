@@ -1,0 +1,430 @@
+{
+  "python": "3.13.18 (main, Oct 26 2026, 13:59:02) [Clang 23.1.3 ]",
+  "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+  "measurements": [
+    {
+      "routes": 10,
+      "scenario": "static_hit",
+      "ns_per_match": [
+        511.8034375,
+        515.667265625,
+        543.603515625,
+        517.080078125,
+        512.12234375
+      ],
+      "median_ns": 515.667265625,
+      "registration_ns_under_tracemalloc": 134042,
+      "retained_python_bytes": 17195,
+      "peak_python_bytes": 17309
+    },
+    {
+      "routes": 10,
+      "scenario": "dynamic_hit",
+      "ns_per_match": [
+        1053.4765625,
+        1081.139296875,
+        1053.8671875,
+        1113.880234375,
+        1134.205703125
+      ],
+      "median_ns": 1081.139296875,
+      "registration_ns_under_tracemalloc": 134042,
+      "retained_python_bytes": 17195,
+      "peak_python_bytes": 17309
+    },
+    {
+      "routes": 10,
+      "scenario": "root_miss",
+      "ns_per_match": [
+        249.352265625,
+        248.486328125,
+        250.79421875,
+        236.438828125,
+        235.72921875
+      ],
+      "median_ns": 248.486328125,
+      "registration_ns_under_tracemalloc": 134042,
+      "retained_python_bytes": 17195,
+      "peak_python_bytes": 17309
+    },
+    {
+      "routes": 10,
+      "scenario": "near_miss",
+      "ns_per_match": [
+        798.391875,
+        798.072890625,
+        788.74671875,
+        775.1334375,
+        815.8203125
+      ],
+      "median_ns": 798.072890625,
+      "registration_ns_under_tracemalloc": 134042,
+      "retained_python_bytes": 17195,
+      "peak_python_bytes": 17309
+    },
+    {
+      "routes": 10,
+      "scenario": "method_405",
+      "ns_per_match": [
+        491.357421875,
+        499.524765625,
+        483.157578125,
+        485.13671875,
+        534.879609375
+      ],
+      "median_ns": 491.357421875,
+      "registration_ns_under_tracemalloc": 134042,
+      "retained_python_bytes": 17195,
+      "peak_python_bytes": 17309
+    },
+    {
+      "routes": 10,
+      "scenario": "backtrack",
+      "ns_per_match": [
+        1158.1803125,
+        1103.193359375,
+        1129.114609375,
+        1108.5090625,
+        1115.380859375
+      ],
+      "median_ns": 1115.380859375,
+      "registration_ns_under_tracemalloc": 134042,
+      "retained_python_bytes": 17195,
+      "peak_python_bytes": 17309
+    },
+    {
+      "routes": 10,
+      "scenario": "overlapping_miss",
+      "path": "/overlap/fixed/fixed/fixed/missing",
+      "ns_per_match": [
+        3729.125,
+        3505.25,
+        3468.75,
+        3479.125,
+        3484.375
+      ],
+      "median_ns": 3484.375,
+      "calls_per_sample": 8,
+      "note": "Many registered wildcard/static combinations, not a typical route tree"
+    },
+    {
+      "routes": 100,
+      "scenario": "static_hit",
+      "ns_per_match": [
+        554.53125,
+        543.522109375,
+        553.115234375,
+        572.96546875,
+        571.37046875
+      ],
+      "median_ns": 554.53125,
+      "registration_ns_under_tracemalloc": 1088791,
+      "retained_python_bytes": 148966,
+      "peak_python_bytes": 149081
+    },
+    {
+      "routes": 100,
+      "scenario": "dynamic_hit",
+      "ns_per_match": [
+        1064.814453125,
+        1089.013671875,
+        1096.142578125,
+        1069.280625,
+        1158.857421875
+      ],
+      "median_ns": 1089.013671875,
+      "registration_ns_under_tracemalloc": 1088791,
+      "retained_python_bytes": 148966,
+      "peak_python_bytes": 149081
+    },
+    {
+      "routes": 100,
+      "scenario": "root_miss",
+      "ns_per_match": [
+        263.55796875,
+        252.1028125,
+        249.4303125,
+        248.4309375,
+        252.12890625
+      ],
+      "median_ns": 252.1028125,
+      "registration_ns_under_tracemalloc": 1088791,
+      "retained_python_bytes": 148966,
+      "peak_python_bytes": 149081
+    },
+    {
+      "routes": 100,
+      "scenario": "near_miss",
+      "ns_per_match": [
+        800.983125,
+        834.957734375,
+        796.341171875,
+        793.903046875,
+        804.059296875
+      ],
+      "median_ns": 800.983125,
+      "registration_ns_under_tracemalloc": 1088791,
+      "retained_python_bytes": 148966,
+      "peak_python_bytes": 149081
+    },
+    {
+      "routes": 100,
+      "scenario": "method_405",
+      "ns_per_match": [
+        565.45578125,
+        523.450546875,
+        509.000703125,
+        577.91015625,
+        518.766328125
+      ],
+      "median_ns": 523.450546875,
+      "registration_ns_under_tracemalloc": 1088791,
+      "retained_python_bytes": 148966,
+      "peak_python_bytes": 149081
+    },
+    {
+      "routes": 100,
+      "scenario": "backtrack",
+      "ns_per_match": [
+        1162.659453125,
+        1122.688828125,
+        1148.86390625,
+        1113.157578125,
+        1139.781875
+      ],
+      "median_ns": 1139.781875,
+      "registration_ns_under_tracemalloc": 1088791,
+      "retained_python_bytes": 148966,
+      "peak_python_bytes": 149081
+    },
+    {
+      "routes": 100,
+      "scenario": "overlapping_miss",
+      "path": "/overlap/fixed/fixed/fixed/fixed/fixed/fixed/missing",
+      "ns_per_match": [
+        29031.25,
+        28343.75,
+        28427.0,
+        31416.625,
+        30541.75
+      ],
+      "median_ns": 29031.25,
+      "calls_per_sample": 8,
+      "note": "Many registered wildcard/static combinations, not a typical route tree"
+    },
+    {
+      "routes": 1000,
+      "scenario": "static_hit",
+      "ns_per_match": [
+        616.966171875,
+        588.489609375,
+        569.202421875,
+        550.279921875,
+        556.888046875
+      ],
+      "median_ns": 569.202421875,
+      "registration_ns_under_tracemalloc": 9706250,
+      "retained_python_bytes": 1462958,
+      "peak_python_bytes": 1463106
+    },
+    {
+      "routes": 1000,
+      "scenario": "dynamic_hit",
+      "ns_per_match": [
+        1129.934921875,
+        1094.15359375,
+        1090.19859375,
+        1128.932265625,
+        1091.39
+      ],
+      "median_ns": 1094.15359375,
+      "registration_ns_under_tracemalloc": 9706250,
+      "retained_python_bytes": 1462958,
+      "peak_python_bytes": 1463106
+    },
+    {
+      "routes": 1000,
+      "scenario": "root_miss",
+      "ns_per_match": [
+        243.645859375,
+        301.8196875,
+        247.98828125,
+        250.458984375,
+        278.046875
+      ],
+      "median_ns": 250.458984375,
+      "registration_ns_under_tracemalloc": 9706250,
+      "retained_python_bytes": 1462958,
+      "peak_python_bytes": 1463106
+    },
+    {
+      "routes": 1000,
+      "scenario": "near_miss",
+      "ns_per_match": [
+        815.751953125,
+        805.5859375,
+        840.1628125,
+        811.510390625,
+        790.6315625
+      ],
+      "median_ns": 811.510390625,
+      "registration_ns_under_tracemalloc": 9706250,
+      "retained_python_bytes": 1462958,
+      "peak_python_bytes": 1463106
+    },
+    {
+      "routes": 1000,
+      "scenario": "method_405",
+      "ns_per_match": [
+        533.245390625,
+        520.41015625,
+        553.51890625,
+        527.278671875,
+        518.912734375
+      ],
+      "median_ns": 527.278671875,
+      "registration_ns_under_tracemalloc": 9706250,
+      "retained_python_bytes": 1462958,
+      "peak_python_bytes": 1463106
+    },
+    {
+      "routes": 1000,
+      "scenario": "backtrack",
+      "ns_per_match": [
+        1155.325546875,
+        1155.8984375,
+        1113.330078125,
+        1132.845078125,
+        1088.46359375
+      ],
+      "median_ns": 1132.845078125,
+      "registration_ns_under_tracemalloc": 9706250,
+      "retained_python_bytes": 1462958,
+      "peak_python_bytes": 1463106
+    },
+    {
+      "routes": 1000,
+      "scenario": "overlapping_miss",
+      "path": "/overlap/fixed/fixed/fixed/fixed/fixed/fixed/fixed/fixed/fixed/missing",
+      "ns_per_match": [
+        255223.875,
+        235916.75,
+        236234.375,
+        226609.375,
+        226317.625
+      ],
+      "median_ns": 235916.75,
+      "calls_per_sample": 8,
+      "note": "Many registered wildcard/static combinations, not a typical route tree"
+    },
+    {
+      "routes": 10000,
+      "scenario": "static_hit",
+      "ns_per_match": [
+        574.931640625,
+        563.834609375,
+        606.6471875,
+        569.221953125,
+        570.72265625
+      ],
+      "median_ns": 570.72265625,
+      "registration_ns_under_tracemalloc": 106302417,
+      "retained_python_bytes": 14564056,
+      "peak_python_bytes": 14564205
+    },
+    {
+      "routes": 10000,
+      "scenario": "dynamic_hit",
+      "ns_per_match": [
+        1100.47203125,
+        1150.19859375,
+        1104.4140625,
+        1085.983046875,
+        1139.772109375
+      ],
+      "median_ns": 1104.4140625,
+      "registration_ns_under_tracemalloc": 106302417,
+      "retained_python_bytes": 14564056,
+      "peak_python_bytes": 14564205
+    },
+    {
+      "routes": 10000,
+      "scenario": "root_miss",
+      "ns_per_match": [
+        244.807890625,
+        244.235,
+        238.346328125,
+        238.343125,
+        274.869765625
+      ],
+      "median_ns": 244.235,
+      "registration_ns_under_tracemalloc": 106302417,
+      "retained_python_bytes": 14564056,
+      "peak_python_bytes": 14564205
+    },
+    {
+      "routes": 10000,
+      "scenario": "near_miss",
+      "ns_per_match": [
+        825.810546875,
+        818.662109375,
+        805.32875,
+        876.3671875,
+        807.080078125
+      ],
+      "median_ns": 818.662109375,
+      "registration_ns_under_tracemalloc": 106302417,
+      "retained_python_bytes": 14564056,
+      "peak_python_bytes": 14564205
+    },
+    {
+      "routes": 10000,
+      "scenario": "method_405",
+      "ns_per_match": [
+        543.017578125,
+        524.856796875,
+        573.24546875,
+        536.8425,
+        583.798828125
+      ],
+      "median_ns": 543.017578125,
+      "registration_ns_under_tracemalloc": 106302417,
+      "retained_python_bytes": 14564056,
+      "peak_python_bytes": 14564205
+    },
+    {
+      "routes": 10000,
+      "scenario": "backtrack",
+      "ns_per_match": [
+        1105.950546875,
+        1145.712890625,
+        1103.821640625,
+        1138.629609375,
+        1115.266875
+      ],
+      "median_ns": 1115.266875,
+      "registration_ns_under_tracemalloc": 106302417,
+      "retained_python_bytes": 14564056,
+      "peak_python_bytes": 14564205
+    },
+    {
+      "routes": 10000,
+      "scenario": "overlapping_miss",
+      "path": "/overlap/fixed/fixed/fixed/fixed/fixed/fixed/fixed/fixed/fixed/fixed/fixed/fixed/fixed/missing",
+      "ns_per_match": [
+        5456427.125,
+        6901786.375,
+        5738411.5,
+        6686437.5,
+        5606718.75
+      ],
+      "median_ns": 5738411.5,
+      "calls_per_sample": 8,
+      "note": "Many registered wildcard/static combinations, not a typical route tree"
+    }
+  ],
+  "framework_version": "1.4.1",
+  "router_origin": "/tmp/tachyon-142-asgi-baseline/lib/python3.13/site-packages/tachyon_api/routing/trie.py",
+  "router_sha256": "98cd2065c1ada507a9312de3752f1472ff98d0e236fb428ead898011ce58c419",
+  "methodology": "Single-threaded matcher microbenchmark, six prevalidated 256-entry deterministic corpora plus a bounded adversarial overlapping miss. GC remains enabled. Timed calls are not revalidated. Includes iteration/unpacking overhead, excludes ASGI/server/validation/DI. Allocation bytes are tracemalloc Python allocations, not RSS. Not production capacity or Rust speed predictions."
+}

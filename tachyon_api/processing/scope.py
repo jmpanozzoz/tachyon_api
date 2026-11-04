@@ -59,13 +59,16 @@ class TachyonScope:
                 except ValueError:
                     declared_size = 0
                 if declared_size > self._max_body_size:
+                    self._scope["_tachyon_body_rejected"] = True
                     raise RequestBodyTooLarge(f"Request body too large (max {self._max_body_size} bytes)")
         if self._received_bytes > self._max_body_size:
+            self._scope["_tachyon_body_rejected"] = True
             raise RequestBodyTooLarge(f"Request body too large (max {self._max_body_size} bytes)")
         message = await self._receive()
         if message["type"] == "http.request":
             self._received_bytes += len(message.get("body", b""))
             if self._received_bytes > self._max_body_size:
+                self._scope["_tachyon_body_rejected"] = True
                 raise RequestBodyTooLarge(f"Request body too large (max {self._max_body_size} bytes)")
         return message
 

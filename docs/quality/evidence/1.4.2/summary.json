@@ -1,0 +1,121 @@
+{
+  "status": "Operational validation of the pre-release candidate; final artifact hashes and publication are recorded in GitHub release assets",
+  "date": "2026-11-04",
+  "runtime_revision": "58bb408a887bbbc966ee3fc43adba60b57ee0246",
+  "source_matrix_revision": "d928d27950560a3591a17bbd749b14ff25ee5648",
+  "runtime_sha256": "ff6cb593f89e3f59f287bd5d802a60110c97e98d690dc2dbebd2c582e4502c90",
+  "runtime_hash_algorithm": "Sorted tachyon_api/**/*.py paths including tachyon_api/ prefix, NUL, file bytes, NUL, SHA256",
+  "source_matrix": {
+    "platforms": [
+      "macOS ARM64",
+      "Debian 13 ARM64 / kernel 6.12.111 / glibc 2.41"
+    ],
+    "python": [
+      "3.10",
+      "3.11",
+      "3.12",
+      "3.13"
+    ],
+    "checks_per_platform": 40,
+    "source_tests_per_interpreter": 904,
+    "installed_contracts_per_interpreter_per_candidate_or_rebuilt_wheel": 207,
+    "same_artifacts_on_both_hosts": true,
+    "details": "validation-matrices.json"
+  },
+  "linux_endurance": {
+    "requests": 26927848,
+    "error_count": 0,
+    "seconds": 1890.113252605,
+    "active_seconds": 1800.0303868300002,
+    "phases": [
+      {
+        "phase": "load-1",
+        "seconds": 600.009705548,
+        "requests": 4991352,
+        "errors": 0
+      },
+      {
+        "phase": "load-2",
+        "seconds": 600.0114310610002,
+        "requests": 10381600,
+        "errors": 0
+      },
+      {
+        "phase": "load-3",
+        "seconds": 600.009250221,
+        "requests": 11554896,
+        "errors": 0
+      }
+    ]
+  },
+  "linux_rest_resources": [
+    {
+      "seconds": 3.5839998417941388e-06,
+      "phase": "baseline",
+      "rss_bytes": 38506496,
+      "open_descriptors": 7
+    },
+    {
+      "seconds": 630.045083683,
+      "phase": "idle-1-end",
+      "rss_bytes": 39550976,
+      "open_descriptors": 7
+    },
+    {
+      "seconds": 1260.077328423,
+      "phase": "idle-2-end",
+      "rss_bytes": 39563264,
+      "open_descriptors": 7
+    },
+    {
+      "seconds": 1890.1064922639998,
+      "phase": "idle-3-end",
+      "rss_bytes": 39571456,
+      "open_descriptors": 7
+    }
+  ],
+  "macos_endurance": "Preliminary pre-final-runtime control only; see separately named report. Do not present as final-runtime coverage.",
+  "asgi_comparison": {
+    "baseline": "Public PyPI 1.4.1 wheel",
+    "candidate": "Same candidate 1.4.2 wheel validated on both hosts",
+    "order": [
+      "baseline",
+      "candidate",
+      "candidate",
+      "baseline"
+    ],
+    "iterations_per_scenario_per_repeat": 2000,
+    "repeats_per_block": 3,
+    "validated_timed_requests_total": 192000,
+    "driver": "Actual async ASGI path, fresh scope, exact status/content-type/JSON validation included in timing, no network/server, GC enabled. VM stopped before comparison. Shared host remains uncontrolled.",
+    "medians_and_samples": "asgi-comparison.tar.gz / tachyon-142-asgi-summary.json",
+    "interpretation": "Mixed ordinary-case results; no general throughput improvement claim."
+  },
+  "routing": {
+    "baseline": {
+      "version": "1.4.1",
+      "router_sha256": "98cd2065c1ada507a9312de3752f1472ff98d0e236fb428ead898011ce58c419",
+      "ordinary_static_hit_median_ns": 570.72265625,
+      "overlapping_miss_median_ns": 5738411.5,
+      "retained_python_bytes": 14564056
+    },
+    "candidate": {
+      "version": "1.4.2",
+      "router_sha256": "0b40ed87db7db74bf21aa7de288659f0ee5767d50ca0b55d8b1d7814f520c8ce",
+      "ordinary_static_hit_median_ns": 572.858046875,
+      "overlapping_miss_median_ns": 552.125,
+      "retained_python_bytes": 15088576
+    },
+    "limits": "Matcher only; 10,000-route ordinary corpus and adversarial static/wildcard combinations. Allocation data is tracemalloc, not RSS. Rejection is disabled for wildcard-ending registrations."
+  },
+  "limits": [
+    "ARM64 only; Windows and Linux x86-64 not executed",
+    "Single-process loopback endurance, not multi-worker or production capacity",
+    "30 active minutes with three rest cycles, not multi-hour or leak-free proof",
+    "Timing comparisons on shared host; no statistical significance or SLA claim",
+    "No new FastAPI HTTP comparison in this operational cycle",
+    "Candidate archives precede evidence/docs-only edits and LF policy; runtime bytes unchanged",
+    "No GitHub Actions used; no publication performed"
+  ],
+  "publication_url": "https://github.com/jmpanozzoz/tachyon_api/releases/tag/v1.4.2"
+}

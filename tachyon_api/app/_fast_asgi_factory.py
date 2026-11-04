@@ -25,7 +25,7 @@ class FastASGIFactory:
                     if response is None:
                         response = internal_server_error_response()
                 # Transmission errors must never start a second response.
-                await response(scope, receive, send)
+                await ResponseProcessor.send_response(response, scope, receive, send)
             finally:
                 if request is not None:
                     await request.close()

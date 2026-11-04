@@ -1,0 +1,6 @@
+{
+  "scope": "Checkout with core.autocrlf=true on macOS; not Windows execution",
+  "runtime_modules": 103,
+  "source_bytes_equal": true,
+  "build_files_equal": true
+}
