@@ -8,7 +8,7 @@
 |--------|-----|--------|
 | HTTPBearer | JWT tokens | `Authorization: Bearer <token>` |
 | HTTPBasic | Usuario/password | `Authorization: Basic <base64>` |
-| OAuth2PasswordBearer | OAuth2 flow | `Authorization: Bearer <token>` |
+| OAuth2PasswordBearer | Extracción de token Bearer | `Authorization: Bearer <token>` |
 | APIKeyHeader | API Key en header | `X-API-Key: <key>` |
 | APIKeyQuery | API Key en query | `?api_key=<key>` |
 | APIKeyCookie | API Key en cookie | Cookie: `session=<key>` |
@@ -17,7 +17,7 @@
 
 ## 🎫 HTTPBearer (JWT)
 
-Para autenticación con tokens JWT:
+HTTPBearer extrae un token Bearer; la aplicación debe validar firma, expiración y permisos antes de autenticar. Este ejemplo usa un token fijo de demostración:
 
 ```python
 from tachyon_api import Tachyon, Depends, HTTPException
@@ -95,7 +95,7 @@ curl -u admin:secret http://localhost:8000/admin
 
 ## 🔑 OAuth2PasswordBearer
 
-Para flujos OAuth2 con formulario de login:
+Extracción Bearer y un endpoint de login de demostración. No implementa por sí solo un servidor OAuth2 ni valida JWT:
 
 ```python
 from tachyon_api import Tachyon, Depends, HTTPException, Form
@@ -177,15 +177,21 @@ def dashboard(session: str = Depends(api_key_cookie)):
 Para endpoints que funcionan con o sin auth:
 
 ```python
+from tachyon_api import Tachyon, Depends, HTTPException
 from tachyon_api.security import HTTPBearer
 
+# Reutiliza decode_token del primer ejemplo.
+app = Tachyon()
 security = HTTPBearer(auto_error=False)
 
 @app.get("/items")
 async def list_items(credentials = Depends(security)):
     if credentials:
-        # Usuario autenticado - mostrar todo
-        return {"items": ["public", "private"], "user": "authenticated"}
+        # La presencia del token no autentica: validarlo antes de dar acceso.
+        user = decode_token(credentials.credentials)
+        if not user:
+            raise HTTPException(401, "Invalid token")
+        return {"items": ["public", "private"], "user": user["name"]}
     else:
         # Usuario anónimo - solo público
         return {"items": ["public"], "user": "anonymous"}

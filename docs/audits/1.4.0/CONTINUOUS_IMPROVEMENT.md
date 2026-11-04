@@ -1,3 +1,5 @@
+> Historical snapshot from an earlier audit/repair stage. Its counts, pending actions and source references describe that stage. For the published 1.4.0 state, see [local release validation](LOCAL_RELEASE.md) and the [verified publication receipt](local-release/publication.json).
+
 # Repair and simplification cycles — 2026-11-04
 
 Status: local repair gates passed; 1.4.0 remains unreleased. Changes are on

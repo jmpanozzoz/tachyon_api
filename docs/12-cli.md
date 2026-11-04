@@ -4,7 +4,7 @@
 
 ## Installation
 
-The CLI is included with `tachyon-api`:
+The CLI is included with `tachyon-api`. Ruff is a separate developer tool: install `ruff` before using `tachyon lint` (the repository validates with Ruff 0.14.9).
 
 ```bash
 pip install tachyon-api
@@ -113,7 +113,7 @@ tachyon run --tachyon-server
 
 ## 📋 tachyon routes
 
-Inspect all registered routes without starting the server.
+Import the application and list its registered HTTP routes without starting the server. Import-time application code still executes; WebSocket routes are held by the delegated Starlette router and are not included in this HTTP registry.
 
 ```bash
 tachyon routes          # reads app:app in current directory
@@ -258,6 +258,8 @@ tachyon openapi export app:app -o schema.json
 tachyon openapi export app:app -o schema.json --indent 4
 ```
 
+Export uses the application's cached schema, without a request-specific `root_path` server overlay. Configure OpenAPI servers explicitly when an exported file needs a deployment prefix; the HTTP schema endpoint supplies its automatic mount prefix per request.
+
 ### Validate schema
 
 ```bash
@@ -353,6 +355,7 @@ tachyon install-skill --claude     # only CLAUDE.md
 tachyon install-skill --copilot    # only .github/copilot-instructions.md
 tachyon install-skill --opencode   # only .opencode/rules.md
 tachyon install-skill --agents     # only AGENTS.md (Codex, Aider, generic)
+tachyon install-skill --agents --path ./project  # choose the target directory
 ```
 
 ### What it generates
@@ -360,7 +363,7 @@ tachyon install-skill --agents     # only AGENTS.md (Codex, Aider, generic)
 | Tool | File |
 |------|------|
 | **Cursor** | `.cursorrules` |
-| **Claude Code** | `CLAUDE.md` (creates or appends Tachyon section) |
+| **Claude Code** | `CLAUDE.md` (creates or updates its managed Tachyon section) |
 | **GitHub Copilot** | `.github/copilot-instructions.md` |
 | **OpenCode** | `.opencode/rules.md` |
 | **Codex / Aider / generic** | `AGENTS.md` |

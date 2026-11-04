@@ -14,8 +14,8 @@ top of Tachyon. Tests exercise authentication, customers, verification, async HT
 | **DI scope: request** | `shared/request_context.py` | `@injectable(scope="request")` — fresh per HTTP request |
 | **JWT Authentication** | `modules/auth/` | Login, registration, token validation |
 | **`List[Struct]` response model** | `customers_controller.list_recent_customers` | `response_model=List[CustomerResponse]` → array schema |
-| **Background Tasks** | `modules/verification/` | Async verification processing |
-| **WebSockets** | `app.py` | Customer-notification channel fed by the verification flow |
+| **Background tasks** | `modules/verification/` | Enqueues verification processing after the HTTP response |
+| **WebSockets** | `app.py` | Customer-notification channel; tests exercise messages through the notification manager |
 | **Security headers** | `app.py` | `SecurityHeadersMiddleware` registered explicitly |
 | **CORS opt-in** | `app.py` | Explicit `allow_origins` list (no wildcard default) |
 | **Custom exception handler** | `app.py` | `@app.exception_handler(KYCException)` — subclasses of `HTTPException` are dispatched correctly |
@@ -61,8 +61,10 @@ example/
     ├── conftest.py             # Fixtures
     ├── test_async_client.py
     ├── test_auth.py
+    ├── test_configuration.py
     ├── test_customers.py
-    └── test_verification.py
+    ├── test_verification.py
+    └── test_websocket_lifecycle.py
 ```
 
 ## 🚀 Quick Start
@@ -72,7 +74,7 @@ example/
 pip install -r example/requirements.txt
 
 # Run the server (from project root)
-uvicorn example.app:app --reload --loop uvloop
+uvicorn example.app:app --reload
 
 # Open docs
 open http://localhost:8000/docs
@@ -117,7 +119,7 @@ curl -X POST http://localhost:8000/verification/start \
   -d '{"customer_id": "<customer_id>"}'
 ```
 
-### 4. Connect to WebSocket for Updates
+### 4. Connect to the Notification WebSocket
 
 ```javascript
 const ws = new WebSocket("ws://localhost:8000/ws/notifications/<customer_id>");
@@ -135,6 +137,7 @@ ws.onmessage = (event) => {
 pytest example/tests/ -v
 
 # With coverage
+python -m pip install pytest-cov
 pytest example/tests/ --cov=example
 ```
 
@@ -151,9 +154,10 @@ Environment variables:
 ## 📝 Notes
 
 - All data is stored in-memory (mock databases) — replace with real DB for production
-- Verification processing is simulated with random delays (~1–3s)
-- 90% of verification checks pass (for demo purposes)
-- Add `--loop uvloop --http httptools` to the uvicorn command for production performance
+- The controller checks `background_tasks is not None` so the first task is enqueued even when the collection is empty. The HTTP regression verifies that the processing worker is awaited with the returned verification ID; test workers replace simulated provider delays. Notification tests send through the manager directly and do not assert a complete random verification job.
+- When the simulated processing method is invoked, each check waits 0.5–1.5 seconds; total processing time depends on the number of checks. Tachyon background tasks run after the response is sent and complete before request cleanup.
+- Each verification check has a simulated 90% pass probability; this is not a guaranteed aggregate result.
+- `--loop uvloop --http httptools` selects optional Uvicorn implementations when installed on a compatible platform; benchmark the application before claiming a speed improvement.
 
 ## 🔗 Related Documentation
 

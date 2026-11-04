@@ -46,14 +46,19 @@ host. These are separate work items when unavailable locally.
    compilation failure must remain visible for native builds.
 3. Build the sdist, then rebuild the portable and available native wheels from
    that sdist. Keep its Python, Cython and `.pxd` sources intact.
-4. Run the full source and example suites in genuinely separate Python/native
-   import environments for each available interpreter. Record unsupported or
-   untested matrix entries explicitly.
-5. Install each candidate wheel into a fresh environment and run the installed
-   wheel contracts from outside the checkout. The repository helper
-   `scripts/test_installed_wheel.py --engine python` (portable) or
-   `--engine native` verifies installed module origins and runs the retained
-   contract tests. Its interpreter must belong to the fresh install environment.
+4. Run the full source and example suites for both loaded engines on each
+   available interpreter. The orchestrator creates a clean source snapshot and
+   environment per interpreter, tests fallback before compiling, then verifies
+   native origins. Its fallback soak uses a separate extension-free snapshot.
+   Record unsupported or untested matrix entries explicitly.
+5. Install each candidate wheel and run installed contracts outside the checkout.
+   The orchestrator reuses that interpreter's environment, force-reinstalling the
+   native wheel and then the portable wheel with `--no-deps --reinstall`.
+   `scripts/test_installed_wheel.py --engine python` (portable) or `--engine native`
+   copies retained tests/config into a temporary directory, clears `PYTHONPATH`,
+   and asserts that every extension sibling loads outside the source tree with
+   the expected suffix. These origin checks establish the package being tested;
+   the install environments are not recreated between the two wheel checks.
 6. Check distribution metadata and archive consistency. Keep the exact artifact
    names, hashes, interpreter versions, platform and test results with the
    release evidence. These checks do not substitute for runtime tests.
@@ -75,8 +80,15 @@ python scripts/local_release.py \
 `--python` is repeatable; `--uv` and `--output` are required. The example assumes
 all four interpreters exist; omit unavailable ones and record the coverage gap.
 The command prepares isolated snapshots, tests and artifacts; it does not
-publish. `--duration` defaults to 60 seconds and `--concurrency` to 8. These load
-settings define a bounded local check, not a production capacity claim.
+publish. It saves a `manifest.json` with `complete`, matrix rows, check exit
+codes, artifact hashes and log paths. Completion means preparation gates passed;
+it does not indicate that upload occurred. `--duration` defaults to 60 seconds
+and `--concurrency` to 8. These load settings run the source-snapshot soak in both engines only for the first supplied
+interpreter. They define a bounded local check, not installed-wheel network-load
+coverage on every ABI or a production capacity claim. The duration starts after
+warmup; in-flight requests and shutdown can extend elapsed time. The soak uses
+two-second socket timeouts, bounded latency sampling and actual `ps` RSS samples
+(explicit null when unavailable).
 
 Review `python scripts/local_release.py --help` for the installed script's exact
 interface before running it.
@@ -129,3 +141,24 @@ does not require creating an Actions run. Preserve the package-index result and
 artifact hashes, then reconcile the release notes and tag with what was actually
 published. State which portable/native wheels exist and which platforms were
 validated. Do not describe an unexecuted cross-platform matrix as passing.
+
+
+## Validated 1.4.0 release
+
+[Tachyon 1.4.0 is published on PyPI](https://pypi.org/project/tachyon-api/1.4.0/#files)
+with six verified artifacts: one sdist, one portable wheel and four macOS ARM64
+native wheels for CPython 3.10–3.13. The
+[retained manifest](../audits/1.4.0/local-release/manifest.json) records 49 passing
+preparation checks. Each interpreter passed 809 source/example tests in each
+engine and 174 installed contracts for each candidate wheel. Source validation,
+installed-wheel checks and source-snapshot soaks are distinct evidence sets;
+see the [release validation record](../audits/1.4.0/LOCAL_RELEASE.md).
+
+The two 60-second source soaks used Python 3.10.22 and eight persistent clients,
+with zero incorrect responses across 455,658 fallback and 481,519 native
+requests. RSS samples were retained for both runs. This verifies the selected
+short local workloads; it does not establish long-duration leak freedom or a
+reliability SLA. Linux/Windows native builds and actual macOS 11 runtime tests
+remain outside this host's validation. Publication was completed and remote
+artifact hashes verified; the preparation manifest alone is not the publication
+record, and the dry-run command above remains a reproducible readiness check.

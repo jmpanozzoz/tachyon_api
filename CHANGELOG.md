@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased]
+
+### Documentation
+
+- Reconcile all maintained guides, repository instructions, example/benchmark READMEs and release procedures against the 1.4.0 implementation using EGM drift detection.
+- Correct credential-extraction/authentication examples, error payloads, lifespan/worker assumptions, mounted documentation and native-wheel availability. Link dated release evidence instead of treating historical test counts as permanent gates.
+- Add local Markdown link checks and executable authentication/error examples to documentation contracts; preserve dated audits with current-status links.
+
+### Fixed
+
+- The executable KYC example now schedules its first background verification task; isolate its test state and assert the processing worker is awaited. This is a repository example correction after publication; the 1.4.0 PyPI artifacts are unchanged.
+
+---
+
 ## [1.4.0] — 2026-11-04
 
 ### Security
@@ -21,25 +35,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Respect mounted ASGI root paths and inherited mount parameters; isolate request-specific OpenAPI server/schema URLs.
 - Reject unsupported WebSocket endpoint markers at registration.
-
 - Reject singleton capture of request lifetimes; resolve Header/Query factory markers through prepared parameter plans.
 - Normalize real multipart uploads, validate scalar/list file inputs, and reject file parts in text form fields.
 - Revalidate existing and nested response-model instances and serialize all supported schema types consistently.
 - Isolate decorated cache closures, fail open on backend read/write errors, and offload external cache I/O from async handlers.
-
 - Preserve keyword-only/default argument binding, resolve postponed annotations at registration and align Python 3.10 default-None annotations with newer interpreters.
 - Share one request body cache, finalize uploads after responses/background tasks, and close incomplete multipart resources.
 - Fix Unicode routing, per-method wildcard names and static dead-end fallback in Python and Cython; use Python numeric conversion semantics without C integer truncation.
-- Bind WebSocket dependencies explicitly; preserve scopes, class defaults, concurrent singleton construction and overrides after cache warmup.
+- Bind WebSocket dependencies explicitly; preserve scopes, class defaults and concurrent singleton construction. Prevent override changes during construction from capturing request values in application-wide instances.
 - Run background tasks after transmission without retaining prior-request tasks on reused responses; log unhandled errors without sending a second response after transmission failures.
 - Generate OpenAPI wire names, msgspec field defaults/inheritance/nullability and OpenAPI 3.0 constraints; reject conflicting component names and unsupported schema shapes clearly.
-- Honor JSON option=0 and validate generic JSON decoding; reject invalid boolean strings.
+- Honor JSON option=0 and validate generic JSON decoding; reject invalid boolean strings. Parse date/datetime parameters with one explicit ISO grammar across supported Python versions.
+- Round positive external-cache TTLs to seconds and translate long Memcached TTLs to absolute expiration timestamps.
 - Preserve lifespan yielded state; fix read-only lint mode and clarify the limited OpenAPI CLI check.
 
 ### Performance
 
 - Replace two 65,536-entry header dictionaries with bounded immutable tables; remove mutable payload preconversion and eager Uvicorn imports from the ASGI runtime.
 - Bound the default in-memory cache to 1,024 entries with monotonic expiry and LRU eviction; update entries without a cache-wide write scan.
+- Validate shared dependency graphs once per provider/capture context within each traversal, avoiding exponential expansion. A tested 15-node DAG now visits 15 bindings instead of 32,767.
 - Replace incomparable benchmark claims with validated async workloads, an ASGI baseline, per-scenario percentiles/errors and raw measurements. No new framework multiplier is claimed.
 
 ### Changed
@@ -49,9 +63,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Use setuptools for actual extension-aware wheel tags, with Poetry as metadata source. Portable wheels are py3-none-any; compiler failures remain visible.
 - Expand CI to minimum/maximum interpreters, installed-wheel behavior and sdist rebuilds. See docs/17-migration-1.4.md for compatibility details.
 
+### Added
+
+- Reproducible local release preparation, archive/metadata checks, isolated installed-wheel contracts, manifest-bound publication and post-upload hash verification.
+- Sustained loopback load runner with exact response validation, bounded latency sampling and RSS measurements.
+- Published one portable wheel, one sdist and four native macOS ARM64 wheels. Local release evidence covers Python 3.10–3.13 in both engines; Linux/Windows native builds remain unverified. See [release evidence](docs/audits/1.4.0/LOCAL_RELEASE.md).
+
 ### Removed
 
-- Unsafe direct transport extension and wire constants, the global route-dependent compiled-endpoint cache, shared 500 Response singleton, unused header helpers, and obsolete performance roadmap claims.
+- Unsafe direct transport extension and wire constants, the global route-dependent compiled-endpoint cache, shared 500 Response singleton, unused header helpers, the shared CircularDetector implementation, and obsolete performance roadmap claims.
 
 ---
 

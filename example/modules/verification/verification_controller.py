@@ -4,8 +4,6 @@ Verification Controller - KYC verification endpoints.
 Endpoints:
 - POST /verification/start - Start new verification
 - GET /verification/{id} - Get verification status
-- GET /verification/{id}/summary - Get summary
-- GET /verification/customer/{id} - Get customer's verifications
 """
 
 from tachyon_api import Router, Depends, Body
@@ -54,7 +52,7 @@ async def start_verification(
     )
     
     # Schedule background processing
-    if background_tasks:
+    if background_tasks is not None:
         background_tasks.add_task(
             service.process_verification,
             verification.verification_id,

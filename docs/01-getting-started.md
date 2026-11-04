@@ -26,10 +26,9 @@ Tachyon instala automáticamente:
 
 ### Precompiled extensions
 
-La versión 1.4.0 está sin publicar; requiere validación y CI alojado.
-Los wheels nativos previstos incluyen extensiones Cython en CPython
-3.10–3.13 platforms. Source builds require a compiler; compilation errors are
-reported. For a pure Python build use:
+La [versión 1.4.0 está publicada en PyPI](https://pypi.org/project/tachyon-api/1.4.0/). Incluye wheels nativos macOS ARM64 para CPython 3.10–3.13, un wheel portable y un sdist. La validación local se hizo en Mac; no acredita pruebas en Linux o Windows. En otras plataformas pip puede instalar el wheel portable, sujeto a compatibilidad de dependencias.
+
+Los builds nativos desde fuente requieren compilador. Para construir el fallback Python desde fuente:
 
 ```bash
 TACHYON_SKIP_CYTHON=1 pip install --no-binary=tachyon-api tachyon-api
@@ -37,11 +36,13 @@ TACHYON_SKIP_CYTHON=1 pip install --no-binary=tachyon-api tachyon-api
 
 See the [build guide](./16-cython-build.md) for platform and fallback details.
 
-For production servers, also use:
+Para producción, desactivar reload:
 
 ```bash
-uvicorn app:app --loop uvloop --http httptools
+tachyon run app:app --prod
 ```
+
+El CLI detecta uvloop/httptools si están instalados y disponibles. uvloop es opcional y no está disponible en todas las plataformas.
 
 ---
 
@@ -147,7 +148,7 @@ def get_item(item_id: str):
     return items_db[item_id]
 
 @app.post("/items")
-def create_item(item: Item = Body(...)):
+def create_item(item: Item = Body()):
     """Crea un nuevo item."""
     import uuid
     item_id = str(uuid.uuid4())

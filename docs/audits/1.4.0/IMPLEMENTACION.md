@@ -1,3 +1,5 @@
+> Historical snapshot from an earlier audit/repair stage. Its counts, pending actions and source references describe that stage. For the published 1.4.0 state, see [local release validation](LOCAL_RELEASE.md) and the [verified publication receipt](local-release/publication.json).
+
 # Implementación del plan 1.4.0
 
 Estado al 2026-11-04: versión **1.4.0 preparada y validada localmente**, sin commit, merge, tag ni publicación. El informe AUDITORIA.md y sus resultados originales se conservan como registro histórico de 1.3.1.

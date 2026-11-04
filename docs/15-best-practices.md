@@ -160,11 +160,11 @@ class ConflictError(HTTPException):
 ### ✅ Custom exception handlers
 
 ```python
-@app.exception_handler(ValidationError)
-def handle_validation(request, exc):
+@app.exception_handler(ConflictError)
+def handle_conflict(request, exc):
     return JSONResponse(
-        status_code=422,
-        content={"errors": exc.errors}
+        status_code=exc.status_code,
+        content={"detail": exc.detail}
     )
 ```
 
@@ -238,8 +238,8 @@ def test_user_service():
 
 # Integration: API completa
 def test_create_user_api(client):
-    response = client.post("/users", json={...})
-    assert response.status_code == 201
+    response = client.post("/users", json={"email": "ada@example.com", "password": "password123"})
+    assert response.status_code == 200
 ```
 
 ---
@@ -281,11 +281,13 @@ my-api/
 
 ## ⚡ Production Performance
 
-### ✅ Use uvloop and httptools
+### ✅ Medir opciones disponibles de servidor
 
 ```bash
-uvicorn app:app --loop uvloop --http httptools --workers 4
+tachyon run app:app --prod --workers 4
 ```
+
+El CLI detecta uvloop/httptools opcionales; uvloop requiere una plataforma compatible. Ajustar workers con mediciones del deployment.
 
 - `uvloop`: event loop opcional; medir con el workload y versión desplegados
 - `httptools`: parser HTTP opcional; comparar con h11 en el deployment real
@@ -298,9 +300,9 @@ pip install tachyon-api
 # Para compilar un checkout: seguir docs/16-cython-build.md
 ```
 
-Los wheels nativos previstos incluyen extensiones; [fast] no recompila un wheel instalado. Los builds de fuente usan Cython y requieren compilador; el fallback portable se solicita con TACHYON_SKIP_CYTHON=1 al construir.
+1.4.0 publica wheels nativos macOS ARM64 para CPython 3.10–3.13 y un wheel portable para el fallback Python; [fast] no recompila un wheel instalado. Los builds de fuente usan Cython y requieren compilador; el fallback portable se solicita con TACHYON_SKIP_CYTHON=1 al construir.
 
-### ✅ Prefer `@injectable` over `Depends(factory)`
+### ✅ Elegir scope según el lifetime
 
 `@injectable` crea su singleton de forma lazy en el primer uso. `Depends(factory)` se cachea por request. Elegir scope según lifetime: un singleton solo puede capturar clases singleton y debe soportar concurrencia desde varios threads. No usarlo para estado por usuario.
 
@@ -313,10 +315,10 @@ class UserResponse(Struct):
 
 @app.get("/users/{id}", response_model=UserResponse)
 def get_user(id: int) -> UserResponse:
-    return UserResponse(id=id, name="Alice")  # uses msgspec.json.encode directly
+    return UserResponse(id=id, name="Alice")  # response_model revalida el JSON
 ```
 
-Struct se serializa con msgspec. Los dicts JSON simples van directamente a orjson; no requieren un paso Python intermedio. Los hooks intervienen para tipos no nativos. Comparar shapes equivalentes antes de recomendar uno por rendimiento.
+Struct se serializa con msgspec. Sin response_model, los dicts JSON simples van directamente a orjson; no requieren un paso Python intermedio. Los hooks intervienen para tipos no nativos. Comparar shapes equivalentes antes de recomendar uno por rendimiento.
 
 ### ✅ Minimize middleware
 
@@ -341,7 +343,7 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"])  # if you need CORS
 - [ ] Tests por capas
 - [ ] Cache donde aplique
 - [ ] Background tasks breves; cola externa para tareas largas o persistentes
-- [ ] uvloop + httptools en producción
+- [ ] Medir uvloop/httptools si están disponibles en la plataforma
 - [ ] Verificar wheel o build según la guía de Cython
 
 ---

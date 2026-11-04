@@ -5,16 +5,17 @@ Python automatically prefers an installed native extension over its `.py`
 sibling. The supported interpreter range is CPython 3.10–3.13; Python 3.14 is
 excluded until the pinned msgspec release and both engines are validated.
 
-Native wheel targets: Linux x86_64/aarch64, macOS arm64, Windows AMD64.
-Other platforms use source builds. Source builds install Cython in the isolated
+The configured native build targets are Linux x86_64/aarch64, macOS arm64 and Windows AMD64. The 1.4.0 local publication contains macOS arm64 native wheels for all four supported CPython ABIs, a portable wheel and an sdist; the Linux/Windows native matrix was not executed for that publication. Use the portable wheel when no matching native wheel exists, or build from source. Source builds install Cython in the isolated
 build environment and require a C compiler. `[fast]` also installs Cython in
 the caller's environment for development. Installing it alongside a prebuilt
 wheel does not rebuild that wheel.
 
 ```bash
 pip install tachyon-api
-# Development only:
-pip install 'tachyon-api[fast]'
+
+# Development from a source checkout (setup.py must exist here):
+cd /path/to/tachyon_api
+python -m pip install -e '.[fast]' poetry-core setuptools
 python setup.py build_ext --inplace
 ```
 
@@ -35,8 +36,9 @@ own native extensions).
 `setup.py` discovers the checked-in `.pyx` modules and uses setuptools for wheel
 tags, while reading metadata from `pyproject.toml` through poetry-core. The sdist
 includes Python, Cython and declaration (`.pxd`) sources and regression tests.
-CI tests the lowest/highest supported Python versions in both modes, tests
-behavior outside the checkout against installed wheels, and rebuilds the sdist.
+The ordinary CI workflow is configured to test the lowest/highest supported Python versions (3.10 and 3.13) in both modes. The wheel workflow is configured for all four ABIs on its target platforms, installed-wheel contracts outside the checkout, and a native rebuild from the sdist. Workflow configuration is not evidence that those hosted jobs ran.
+
+The [dated local 1.4.0 evidence](audits/1.4.0/LOCAL_RELEASE.md) records 809 full-suite tests for each of eight interpreter/engine combinations (3.10–3.13 × Python/native), and 174 installed-wheel contracts for each portable/native installation. That run exercised macOS arm64 only; its `macosx_11_0_arm64` deployment tag does not prove testing on macOS 11. See the [local release process](quality/local-release.md) for isolated snapshots, interpreter selection, artifact hashes and publication verification. Retain such counts as dated results, not permanent suite requirements.
 
 The experimental direct HTTP writer has been removed. The `--tachyon-server`
 compatibility flag uses standard Uvicorn h11; applications should normally use

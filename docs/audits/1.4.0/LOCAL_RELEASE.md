@@ -6,6 +6,8 @@ one portable wheel, one sdist, and native wheels for CPython 3.10–3.13 on macO
 ARM64, tagged `macosx_11_0_arm64`. Linux and Windows native builds were not run.
 The portable fallback is available, subject to dependency/platform compatibility.
 
+[1.4.0 is published on PyPI](https://pypi.org/project/tachyon-api/1.4.0/). The [publication receipt](local-release/publication.json) records all six verified remote hashes and the product source commit. After downloading from PyPI, both native and portable wheels passed 174 contracts on Python 3.13.18.
+
 ## Additional repair cycle
 
 - Mounted HTTP routing now uses the ASGI route path, preserves inherited dynamic

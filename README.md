@@ -3,13 +3,14 @@
 ![Version](https://img.shields.io/badge/version-1.4.0-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.10--3.13-brightgreen.svg)
 ![License](https://img.shields.io/badge/license-GPL--3.0-orange.svg)
-![Python](https://img.shields.io/badge/python-3.10%E2%80%933.13-blue.svg)
 
 **A lightweight, high-performance API framework for Python with the elegance of FastAPI and the speed of light.**
 
 Tachyon API combines decorator-based routing, msgspec validation, and ASGI integration on Starlette. Endpoint metadata is prepared at registration to reduce request-time introspection.
 
-1.4.0 is validated through the [local release process](docs/quality/local-release.md). Native wheels are built and tested on macOS ARM64; the portable wheel supplies the Python fallback for platforms without a matching native wheel. Other operating systems are not validated by the local Mac runs.
+[1.4.0 is published on PyPI](https://pypi.org/project/tachyon-api/1.4.0/): four macOS ARM64 native wheels for CPython 3.10–3.13, one portable Python wheel and one source distribution. The [local release record](docs/audits/1.4.0/LOCAL_RELEASE.md) describes validation on this Mac; it does not establish Linux or Windows validation.
+
+[Source repository](https://github.com/jmpanozzoz/tachyon_api/tree/feature/v1.4.0-audit-cleanup) · [Documentation](https://github.com/jmpanozzoz/tachyon_api/tree/feature/v1.4.0-audit-cleanup/docs). These links point to the release preparation branch; no release tag or merge to `main` is implied.
 
 The [1.4 migration guide](docs/17-migration-1.4.md) describes execution, body limits, resource lifetime, schema support and packaging changes.
 
@@ -38,9 +39,9 @@ def search(q: str = Query(...), limit: int = Query(10)):
 ```
 
 ```bash
-pip install tachyon-api
+pip install tachyon-api==1.4.0
 # Testing helpers: pip install "tachyon-api[test]"
-tachyon run                 # uvloop + httptools + reload, served at :8000
+tachyon run                 # reload on; optional uvloop/httptools detected, served at :8000
 ```
 
 📖 **Docs:** http://localhost:8000/docs
@@ -54,9 +55,7 @@ extensions. Performance depends on the application, workload, and deployment.
 Benchmarks must compare equivalent handler execution and dependency scopes. See
 [`benchmark/`](./benchmark/) for the benchmark harness and its limitations.
 
-The planned native wheel matrix targets CPython 3.10–3.13 on Linux x86_64/aarch64,
-macOS arm64, and Windows AMD64. On other platforms pip builds from source,
-requiring a C compiler. Compilation errors fail the build explicitly.
+Published native wheels cover macOS arm64 and CPython 3.10–3.13. On other platforms, pip can select the published portable wheel, subject to dependency compatibility. A source build with native extensions requires a C compiler; compilation errors fail explicitly. Linux and Windows native wheels are not part of this local release.
 For a portable pure Python installation from source:
 
 ```bash
@@ -240,7 +239,8 @@ from tachyon_api import injectable, Depends
 
 @injectable
 class RoomBroadcaster:
-    async def join(self, ws, room_key: str): ...
+    async def join(self, ws, room_key: str):
+        await ws.accept()
 
 @app.websocket("/ws/rooms/{room_id}")           # typed UUID path param
 async def room(
@@ -262,8 +262,9 @@ async def room(
 ```bash
 # Create project (generates .env.example, config.py with dotenv, clean arch)
 tachyon new my-api
+cd my_api
 
-# Start development server (uvloop + httptools auto-detected, reload on)
+# Start development server (optional uvloop + httptools detected, reload on)
 tachyon run
 
 # List all registered routes

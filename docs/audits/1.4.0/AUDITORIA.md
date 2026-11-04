@@ -1,3 +1,5 @@
+> Historical snapshot from an earlier audit/repair stage. Its counts, pending actions and source references describe that stage. For the published 1.4.0 state, see [local release validation](LOCAL_RELEASE.md) and the [verified publication receipt](local-release/publication.json).
+
 # Auditoría de Tachyon API para preparar 1.4.0
 
 Fecha: 2026-11-04. Base: `1b89bf134a1a418145c200162c4ca4d5dded46a6`, versión declarada 1.3.1.

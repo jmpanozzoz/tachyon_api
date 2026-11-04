@@ -1,0 +1,16 @@
+{
+  "verified_utc": "2026-11-04T16:20:39.192305+00:00",
+  "skill": "egm:egm-drift-report",
+  "documents_reviewed": 31,
+  "goldfish_convergence_claimed": false,
+  "post_publication_source_suites": {
+    "python310": 838,
+    "python313": 838
+  },
+  "targeted_documentation_and_example_tests": 212,
+  "updated_example_against_pypi_native": 27,
+  "ruff": "passed",
+  "local_link_checks": "passed",
+  "release_artifacts_changed": false,
+  "scope": "Documentation, example app, tests; tachyon_api production sources unchanged since published 1.4.0"
+}

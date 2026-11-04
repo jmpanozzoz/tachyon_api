@@ -149,7 +149,7 @@ class UserResponse(UserBase):
 
 ## 🔌 Registrar Módulos
 
-En `app.py`:
+Cada paquete de módulo debe exportar su router desde `__init__.py`, por ejemplo `from .users_controller import router` en `modules/users/__init__.py`. Luego, en `app.py`:
 
 ```python
 from tachyon_api import Tachyon
@@ -210,7 +210,7 @@ Para `tachyon g service user`, esto crea automáticamente:
 - `processing/dependencies/`: factories, scopes, overrides y resolución de firmas.
 - `processing/scope.{py,pyx}` y `_request.py`: recepción acotada, cache de Request y lifetime multipart.
 - `routing/trie.{py,pyx}`: prioridad estática con fallback si una rama no completa la ruta.
-- `responses/`: mensajes ASGI por envío; `_internal_error.py` crea respuestas por llamada; `app/_error_static.py` contiene constantes de errores estáticos.
+- `responses/`: mensajes ASGI por envío; `_internal_error.py` crea respuestas por llamada. `app/_error_static.py` contiene constantes de errores estáticos.
 - `openapi/`: schemas, `_config.py` y `_html_renderers.py` para el subconjunto OpenAPI 3.0 admitido.
 - `security/`: extracción de credenciales; API keys en `_api_keys.py`, valores en `_credentials.py`.
 - `core/`: lifecycle y WebSockets delegados a Starlette.

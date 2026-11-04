@@ -23,7 +23,7 @@ pueden modificar o rechazar solicitudes antes del dispatcher.
 El trie prefiere coincidencias estáticas completas y explora alternativas si
 una rama estática llega a un callejón sin salida. Su costo depende de los
 segmentos y ramas exploradas; no se garantiza O(k) incondicional. Una ruta
-inexistente produce 404 y un método no admitido para la ruta produce 405.
+inexistente produce 404 y un método no admitido para la ruta produce 405. El dispatcher calcula el path de routing con `root_path`, conserva parámetros heredados de mounts y no altera el path original usado por Request.
 
 Los guards se resuelven antes de los parámetros del endpoint. El procesador
 recorre descriptores en orden de firma, no agrupados por Path/Query/Body. La
@@ -36,8 +36,7 @@ por JSON, forms, archivos y lecturas de Request. Superar el límite devuelve 422
 Un Request y su body/form cacheados se reutilizan durante la solicitud. La
 validación de JSON usa msgspec; errores de entrada producen 422.
 
-`ResponseProcessor` valida `response_model` y serializa Struct con msgspec y
-valores JSON con orjson. Un Struct construido o mutado manualmente también se
+`ResponseProcessor` valida el JSON de `response_model` mediante encode/decode de msgspec y serializa con msgspec todos los resultados validados. Sin `response_model`, los Struct usan msgspec y otros valores JSON usan orjson. Un Struct construido o mutado manualmente también se
 revalida cuando hay `response_model`. Una `starlette.responses.Response`,
 incluyendo `StreamingResponse`, se invoca por ASGI. En streaming, el envío y los
 errores del iterador pertenecen a ese flujo; un error después del inicio no debe
@@ -46,11 +45,13 @@ cuando el callable de respuesta termina.
 
 Los mensajes ASGI y headers mutables pertenecen a cada envío. Solo se comparten
 bytes inmutables y tablas pequeñas acotadas: no hay singleton mutable de errores
-ni garantía de cero asignaciones por respuesta.
+ni garantía de cero asignaciones por respuesta. El cache de content-length cubre longitudes 0–1023; cuerpos mayores calculan su header al construir la respuesta.
+
+Las rutas de documentación se instalan de forma lazy. Sus URLs locales de schema siguen `root_path`; URLs externas conservan su destino. La respuesta del schema agrega un `servers` con el prefijo del request solo cuando no se configuraron servidores explícitos, mediante una copia superficial que no muta el schema cacheado.
 
 Después del envío, `BackgroundTasks` ejecuta las tareas en orden y registra sus
 excepciones sin impedir la tarea siguiente. El request espera su finalización
-antes del cierre de uploads. No es una cola persistente ni un scheduler separado.
+antes del cierre de uploads. Si el envío falla o la solicitud se cancela, las tareas no tienen ejecución garantizada; el cierre del request se intenta en `finally`, también para errores de validación o transmisión. No es una cola persistente ni un scheduler separado.
 
 Las excepciones del endpoint se traducen mediante los handlers registrados;
 `HTTPException` conserva su status. Los errores de envío o stream no se convierten

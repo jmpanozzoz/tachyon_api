@@ -2,9 +2,21 @@
 Tests for Verification module.
 """
 
+import pytest
+from unittest.mock import AsyncMock
+
 from example.app import app
+from example.modules.verification.verification_service import VerificationService
 from example.modules.customers.customers_repository import CustomersRepository
 from example.modules.customers.customers_dto import CustomerResponse
+
+
+@pytest.fixture(autouse=True)
+def processing_worker(monkeypatch):
+    """Exercise task scheduling without random provider delays or global sleeps."""
+    worker = AsyncMock()
+    monkeypatch.setattr(VerificationService, "process_verification", worker)
+    return worker
 
 
 class MockCustomersRepository:
@@ -115,3 +127,15 @@ class TestVerificationEndpoints:
         assert response.status_code == 200
         data = response.json()
         assert data["verification_id"] == verification_id
+
+
+def test_start_verification_awaits_first_background_task(client, auth_headers, processing_worker):
+    """A fresh injected task collection must enqueue and await the returned ID."""
+    app.dependency_overrides[CustomersRepository] = MockCustomersRepository()
+    response = client.post(
+        "/verification/start",
+        json={"customer_id": "valid_customer", "verification_type": "standard"},
+        headers=auth_headers,
+    )
+    assert response.status_code == 200
+    processing_worker.assert_awaited_once_with(response.json()["verification_id"])

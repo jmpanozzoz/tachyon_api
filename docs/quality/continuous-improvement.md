@@ -36,13 +36,18 @@ python setup.py build_ext --inplace
 python scripts/quality_cycle.py --engine native --output /tmp/quality-native.json
 ```
 
-Use a clean checkout/environment for each interpreter and engine. The runner
-rejects a mismatched loaded engine and records the revision, dirty working tree,
+Use a clean snapshot/environment per interpreter. Run fallback before building
+native extensions, or use a separate extension-free snapshot; `--engine python`
+does not disable compiled modules already present. The runner rejects a
+mismatched loaded engine and records the revision, dirty working tree,
 Python/platform, output, exit status and duration of each check. A source checkout
 run cannot establish installed wheel correctness: build a portable wheel and a
 native wheel from the sdist, install outside the checkout and run the wheel
-contracts separately. CI provides these release gates; results on other operating
-systems are only established when their jobs run.
+contracts separately. The [local release orchestrator](local-release.md) supplies
+these gates without requiring GitHub Actions. Its per-interpreter environment is
+reused for native/portable wheel reinstallation; external test directories and
+module-origin assertions prevent checkout imports. Hosted workflows can supply additional platform evidence when executed. Results on another operating system require actual
+execution there.
 
 ## Performance and stability acceptance
 
@@ -52,6 +57,11 @@ percentiles, error counts and memory methodology separately. For meaningful spee
 claims, repeat measurements under equivalent load and retain raw artifacts. Do
 not turn noisy shared-runner nanosecond timings into mandatory CI assertions.
 An ASGI transport test is not a network-load or long-duration stability test.
+`python -m benchmark.run_soak --duration 60 --concurrency 8 --output /tmp/soak.json`
+provides real loopback HTTP with exact response validation and process RSS
+sampling. Its fixed duration starts after warmup; socket timeouts and graceful
+shutdown can extend total runtime. Latency percentiles use a bounded sample;
+mean/max cover all requests. See the [benchmark methodology](../../benchmark/README.md).
 
 Before release, exercise real HTTP, concurrent requests, disconnections, multipart
 limits/cleanup, dependency overrides, lifecycle, WebSockets and malformed input.
@@ -65,7 +75,22 @@ Historical audit: [1.4.0 audit](../audits/1.4.0/AUDITORIA.md).
 Detected documentation drift: [2026-11-04 report](../../2026-11-04_DRIFT_REPORT.md).
 Repair evidence: [current cycle](../audits/1.4.0/CONTINUOUS_IMPROVEMENT.md).
 
-Release requires reviewed changes, passing supported-platform wheel jobs,
-published migration notes, and a versioned record of known limitations. Publishing
-is a separate action. This workflow does not certify uptime, security, or ISO
+Release requires reviewed changes, documented passing checks for the selected
+artifact/platform matrix, published migration notes, and a versioned record of
+known limitations. Local builds and installed contracts can supply those checks;
+untested platforms must remain explicit. Publishing is a separate action.
+
+The [1.4.0 local release](../audits/1.4.0/LOCAL_RELEASE.md) completed 49 preparation
+checks across Python 3.10–3.13 on macOS ARM64: 809 source/example tests per engine
+and interpreter, plus 174 installed contracts per portable/native wheel. Two
+60-second source-snapshot soaks on Python 3.10 used eight clients, exact responses
+and actual RSS samples, with zero errors. These runs establish short local
+stability for the selected scenarios. They do not cover Linux/Windows native
+execution, older macOS systems or multi-hour production endurance.
+[Tachyon 1.4.0 was published](https://pypi.org/project/tachyon-api/1.4.0/#files) as
+six artifacts whose remote hashes were verified against the release manifest.
+Historical repair-cycle measurements remain historical; the local release record
+contains the later matrix and publication evidence.
+
+This workflow does not certify uptime, security, or ISO
 compliance, and does not establish a quantitative performance SLA.

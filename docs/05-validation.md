@@ -20,7 +20,7 @@ class User(Struct):
 
 ### Características:
 - ✅ Ultra-rápido (compilado)
-- ✅ Validación automática de tipos
+- ✅ Validación de tipos al decodificar/convertir; el constructor normal no valida
 - ✅ Serialización JSON incluida
 - ✅ Defaults y Optional support
 - ✅ Mutable por defecto; usar `class User(Struct, frozen=True)` para impedir asignación de campos
@@ -90,7 +90,7 @@ class CreateUser(Struct):
 app = Tachyon()
 
 @app.post("/users")
-def create_user(user: CreateUser = Body(...)):
+def create_user(user: CreateUser = Body()):
     return {"created": user.name}
 ```
 
@@ -108,7 +108,7 @@ def create_user(user: CreateUser = Body(...)):
 ```json
 {
   "success": false,
-  "error": "Expected `int`, got `str`",
+  "error": "Invalid JSON body: Expected `int`, got `str` - at `$.age`",
   "code": "VALIDATION_ERROR"
 }
 ```
@@ -118,8 +118,10 @@ def create_user(user: CreateUser = Body(...)):
 ## 🔄 Nested Validation
 
 ```python
-from tachyon_api import Struct
+from tachyon_api import Tachyon, Struct, Body
 from typing import List
+
+app = Tachyon()
 
 class Address(Struct):
     street: str
@@ -137,7 +139,7 @@ class Order(Struct):
     notes: str = ""
 
 @app.post("/orders")
-def create_order(order: Order = Body(...)):
+def create_order(order: Order = Body()):
     total = sum(item.price * item.quantity for item in order.items)
     return {
         "customer": order.customer_name,
@@ -166,10 +168,12 @@ Request:
 
 ## 🎭 Response Models
 
-Valida también las respuestas:
+Con `response_model`, Tachyon valida la representación JSON, incluso para Struct construidos o mutados manualmente. Un resultado incompatible produce 500. Sin `response_model`, serializar un Struct no valida sus tipos. Una Response ASGI devuelta por el usuario se conserva y no pasa por esta validación.
 
 ```python
-from tachyon_api import Struct
+from tachyon_api import Tachyon, Struct
+
+app = Tachyon()
 
 class UserResponse(Struct):
     id: str

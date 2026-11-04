@@ -1,4 +1,4 @@
-> Historical detection snapshot before the repair cycle. For current resolutions, validation evidence and remaining limits, see [continuous improvement results](docs/audits/1.4.0/CONTINUOUS_IMPROVEMENT.md).
+> Historical detection snapshot before the repair cycle. For current resolutions, validation evidence and remaining limits, see [published release validation](docs/audits/1.4.0/LOCAL_RELEASE.md).
 
 ## README.md
 

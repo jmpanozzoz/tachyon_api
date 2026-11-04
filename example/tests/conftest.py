@@ -71,7 +71,11 @@ def clean_state():
     verification created in one test leaks into the next (e.g. an in-progress
     "standard" verification being returned to a test requesting "enhanced").
     """
+    # Singleton services capture repository overrides when first constructed.
+    # Rebuild them for each test so one mock cannot leak into another test.
+    app._instances_cache.clear()
     yield
+    app._instances_cache.clear()
     app.dependency_overrides.clear()
     customers_repository._customers_db.clear()
     verification_repository._verifications_db.clear()

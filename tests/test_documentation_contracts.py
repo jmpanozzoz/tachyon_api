@@ -11,6 +11,7 @@ import re
 import subprocess
 import sys
 import types
+from urllib.parse import unquote, urlsplit
 
 import pytest
 from typer.testing import CliRunner
@@ -22,6 +23,18 @@ ROOT = Path(__file__).resolve().parents[1]
 DOCS = [ROOT / "README.md", *sorted((ROOT / "docs").glob("*.md")), ROOT / "example/README.md"]
 FENCES = re.compile(r"^```python[^\n]*\n(.*?)^```", re.MULTILINE | re.DOTALL)
 BLOCKS = [(path, index, match[1]) for path in DOCS for index, match in enumerate(FENCES.finditer(path.read_text()))]
+
+
+@pytest.mark.parametrize("path", [*DOCS, ROOT / "CLAUDE.md", ROOT / "benchmark/README.md", *sorted((ROOT / "docs/quality").glob("*.md"))], ids=lambda path: str(path.relative_to(ROOT)))
+def test_maintained_documentation_links_resolve_locally(path):
+    # External services and historical audit references need separate review.
+    for match in re.finditer(r"\[[^\]]*\]\(([^\s)]+)\)", path.read_text()):
+        target = match[1].strip("<>")
+        parsed = urlsplit(target)
+        if parsed.scheme or parsed.netloc or not parsed.path:
+            continue
+        resolved = (path.parent / unquote(parsed.path)).resolve()
+        assert resolved.exists(), f"{path.relative_to(ROOT)}: broken link {target}"
 
 
 @pytest.mark.parametrize("path,index,source", BLOCKS, ids=[f"{path.relative_to(ROOT)}:{index}" for path, index, _ in BLOCKS])
@@ -162,3 +175,49 @@ def test_validation_migration_preserves_unknown_field_policy():
     assert user.name == "Ada"
     with pytest.raises(msgspec.ValidationError, match="unknown field"):
         msgspec.json.decode(b'{"name":"Ada","email":"ada@example.com","admin":true}', type=module.User)
+
+
+def test_optional_bearer_example_validates_tokens_before_private_access():
+    module = load_block("docs/06-security.md", 0)
+    source = next(source for path, _, source in BLOCKS if path.name == "06-security.md" and "auto_error=False" in source)
+    exec(compile(source, "optional-bearer-example", "exec"), module.__dict__)
+    with TachyonTestClient(module.app) as client:
+        assert client.get("/items").json() == {"items": ["public"], "user": "anonymous"}
+        assert client.get("/items", headers={"Authorization": "Bearer invalid"}).status_code == 401
+        assert client.get("/items", headers={"Authorization": "Bearer valid_token"}).json() == {
+            "items": ["public", "private"], "user": "John",
+        }
+
+
+def test_validation_guide_error_payload_matches_runtime():
+    import json
+
+    path = ROOT / "docs/05-validation.md"
+    index = next(index for document, index, source in BLOCKS if document == path and "class CreateUser" in source)
+    module = load_block("docs/05-validation.md", index)
+    examples = [json.loads(match[1]) for match in re.finditer(r"^```json\n(.*?)^```", path.read_text(), re.MULTILINE | re.DOTALL)]
+    with TachyonTestClient(module.app) as client:
+        assert client.post("/users", json=examples[0]).status_code == 200
+        response = client.post("/users", json=examples[1])
+        assert response.status_code == 422
+        assert response.json() == examples[2]
+
+
+def test_best_practices_exception_handler_uses_domain_exception_fields():
+    from tachyon_api import HTTPException, Tachyon
+    from starlette.responses import JSONResponse
+
+    namespace = {"HTTPException": HTTPException, "JSONResponse": JSONResponse, "app": Tachyon()}
+    sources = [source for path, _, source in BLOCKS if path.name == "15-best-practices.md"]
+    for marker in ["class ConflictError", "def handle_conflict"]:
+        source = next(source for source in sources if marker in source)
+        exec(compile(source, "best-practices-errors", "exec"), namespace)
+
+    @namespace["app"].get("/conflict")
+    def conflict():
+        raise namespace["ConflictError"]("Already exists")
+
+    with TachyonTestClient(namespace["app"]) as client:
+        response = client.get("/conflict")
+        assert response.status_code == 409
+        assert response.json() == {"detail": "Already exists"}

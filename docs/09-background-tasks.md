@@ -24,15 +24,15 @@ def signup(background_tasks: BackgroundTasks):
     # Programar email para después
     background_tasks.add_task(send_email, user_email, "Welcome!")
     
-    # Respuesta inmediata (email se envía después)
+    # El cuerpo se transmite antes de ejecutar el email
     return {"message": "User created"}
 ```
 
 ### Flujo:
 1. Request llega
 2. Usuario se crea
-3. **Response se envía** (usuario no espera)
-4. Email se envía en background
+3. **Response se transmite**
+4. Email se envía; el callable ASGI termina después de las tareas
 
 ---
 
@@ -115,7 +115,7 @@ background_tasks.add_task(
 
 ## ⚠️ Manejo de Errores
 
-Los errores en tasks no afectan la respuesta:
+Las excepciones ordinarias de una tarea se registran después del envío y no cambian esa respuesta:
 
 ```python
 def risky_task():
@@ -225,7 +225,7 @@ def get_data(background_tasks: BackgroundTasks = None):
 | Scheduling | No | Sí |
 | Uso | Tareas simples | Tareas pesadas |
 
-**Regla**: Usa BackgroundTasks para tareas rápidas (<30s). Para tareas pesadas o distribuidas, usa Celery/RQ.
+**Regla**: usar tareas breves y medir su costo. No existe un umbral garantizado de duración ni ejecución independiente del proceso; para trabajos largos, persistentes o distribuidos, usar una cola externa.
 
 ---
 
@@ -234,4 +234,4 @@ def get_data(background_tasks: BackgroundTasks = None):
 - [WebSockets](./10-websockets.md) - Comunicación en tiempo real
 - [Testing](./11-testing.md) - Testear background tasks
 
-Las tareas se awaitean dentro del proceso después del envío y antes de cerrar los uploads. No hay cola persistente ni límite propio de concurrencia. Medir saturación antes de delegar trabajo; los trabajos largos requieren un sistema externo.
+Las tareas se awaitean dentro del proceso después de que termina el callable de respuesta y antes de cerrar los uploads. Las tareas síncronas usan el thread pool; las async usan el event loop. Los clientes ASGI de test esperan también esa finalización. Si el envío falla o la solicitud se cancela, no se garantiza ejecutar las tareas; el cierre de recursos del request se intenta igualmente. No hay cola persistente ni límite propio de concurrencia. Medir saturación antes de delegar trabajo; los trabajos largos requieren un sistema externo.
