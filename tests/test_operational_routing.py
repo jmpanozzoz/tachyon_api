@@ -1,5 +1,8 @@
 """Prune impossible overlapping misses without changing routing precedence."""
 from tachyon_api.routing.trie import RadixTrie
+import random
+
+import pytest
 
 
 def test_impossible_static_suffix_does_not_expand_every_overlap():
@@ -42,3 +45,43 @@ def test_suffix_pruning_preserves_unicode_repeated_slashes_and_root():
     assert trie.match("//a//static//finñ///", "GET")[1] is terminal
     assert trie.match("/a/static/tail/", "GET")[1] is fallback
     assert trie.match("///", "GET")[1] is root
+
+
+@pytest.mark.parametrize("seed", [142, 143, 144, 145])
+def test_generated_routes_match_declarative_static_priority(seed):
+    rng = random.Random(seed)
+    trie = RadixTrie()
+    terminals, patterns = {}, []
+    words = ["fixed", "users", "end", "δ", "ñ", "a", "b"]
+    for index in range(150):
+        segments = [f"{{p{i}}}" if rng.randrange(3) == 0 else rng.choice(words)
+                    for i in range(rng.randrange(5))]
+        shape = tuple(None if segment.startswith("{") else segment for segment in segments)
+        names = [segment[1:-1] for segment in segments if segment.startswith("{")]
+        method = rng.choice(["GET", "POST", "PUT"])
+        handler = f"handler-{index}"
+        trie.add("/" + "/".join(segments), method, handler)
+        terminals.setdefault(shape, {})[method] = (handler, names)
+        patterns.append(segments)
+    for _ in range(500):
+        segments = [rng.choice(words + ["42", "missing"]) if part.startswith("{") else part
+                    for part in rng.choice(patterns)]
+        if segments and rng.randrange(3) == 0:
+            segments[rng.randrange(len(segments))] = "missing"
+        method = rng.choice(["GET", "POST", "PUT", "DELETE", "get"])
+        candidates = [(shape, methods) for shape, methods in terminals.items()
+                      if len(shape) == len(segments) and all(p is None or p == value for p, value in zip(shape, segments))]
+        if not candidates:
+            expected = (0, None, {}, None)
+        else:
+            shape, methods = max(candidates, key=lambda pair: tuple(part is not None for part in pair[0]))
+            selected = methods.get(method.upper())
+            if selected is None:
+                expected = (1, None, {}, ", ".join(sorted(methods)))
+            else:
+                handler, names = selected
+                values = [value for part, value in zip(shape, segments) if part is None]
+                expected = (2, handler, dict(zip(names, values)), None)
+        slash = "//" if rng.randrange(2) else "/"
+        path = slash + slash.join(segments) + slash
+        assert trie.match(path, method) == expected, (seed, path, method)
