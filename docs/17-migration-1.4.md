@@ -37,3 +37,22 @@ public API remain. `[fast]` is an empty deprecated alias. Uvicorn/CLI installati
 behavior is retained. orjson now requires at least 3.11.6. Use a clean checkout
 for editable builds and restart services after upgrades; residual native files
 are rejected by quality/install gates. See [packaging](16-cython-build.md).
+
+
+## 1.4.2 preparation (unreleased)
+
+- An async streaming producer is finalized on send failure or cancellation before
+  request-owned files are closed. Failed transmission still skips subsequent
+  background tasks and never triggers a second response.
+- Oversized bodies keep the existing 422 status. HTTP/1 responses explicitly
+  retire the connection when the rejected body was not consumed, preventing
+  reuse of an unusable keepalive connection. HTTP/2 receives no added Connection
+  header; shared response objects are not mutated.
+- A routing prefilter can reject impossible static endings when an ambiguous
+  search would begin. Wildcard-ending routes disable that rejection, preserving
+  fallback and complete-static-path 405 precedence. Slashes and Unicode retain
+  their existing behavior.
+
+These corrections preserve the Python API. Rust, model replacement and server
+installation defaults are outside this patch. Platform coverage and durations
+belong to the dated validation evidence, not a blanket production guarantee.

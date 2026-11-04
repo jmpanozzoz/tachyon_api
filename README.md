@@ -14,6 +14,8 @@ Tachyon API combines decorator-based routing, msgspec validation, and ASGI integ
 
 **1.4.1 uses a single Python implementation**, portable packaging and a corrected orjson minimum. The deprecated `[fast]` extra remains installable as an empty alias. Published 1.4.0 artifacts remain unchanged.
 
+The source branch prepares **1.4.2 (unreleased)** with streaming cleanup, oversized-body connection handling and routing fixes. See [the changelog](CHANGELOG.md) for scope.
+
 The [1.4 migration guide](docs/17-migration-1.4.md) describes execution, body limits, resource lifetime, schema support and packaging changes.
 
 ## 🚀 Quick Start

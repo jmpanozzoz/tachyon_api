@@ -135,6 +135,18 @@ def test_repeated_incomplete_uploads_do_not_leave_requests_running(server):
     assert client.get("/health").status_code == 200
 
 
+def test_slow_incomplete_upload_does_not_block_other_requests(server):
+    client, port = server
+    path = "/abort-upload/slow-client"
+    with socket.create_connection(("127.0.0.1", port), timeout=3) as connection:
+        connection.sendall((f"POST {path} HTTP/1.1\r\nHost: localhost\r\nContent-Length: 60000\r\n"
+                            "Content-Type: multipart/form-data; boundary=slow\r\n\r\n").encode())
+        connection.sendall(b'--slow\r\nContent-Disposition: form-data; name="file"; filename="a.txt"\r\n\r\nx')
+        for _ in range(3):
+            assert client.get("/health").json() == {"ready": True}
+    wait_for_event(client, {"finished": path})
+
+
 @pytest.mark.parametrize("name", ["uvicorn", "granian"])
 def test_shutdown_drains_request_before_lifespan_cleanup(name, tmp_path):
     with running_server(name, tmp_path) as (client, port, process):
