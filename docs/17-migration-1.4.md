@@ -39,7 +39,7 @@ for editable builds and restart services after upgrades; residual native files
 are rejected by quality/install gates. See [packaging](16-cython-build.md).
 
 
-## 1.4.2 preparation (unreleased)
+## 1.4.2
 
 - An async streaming producer is finalized on send failure or cancellation before
   request-owned files are closed. Failed transmission still skips subsequent

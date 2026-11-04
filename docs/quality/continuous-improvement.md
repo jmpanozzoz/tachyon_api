@@ -95,7 +95,8 @@ transport failure/cancellation; HTTP/1 keepalive reuse after rejecting an unread
 oversized body; and exhaustive ambiguous-route traversal for impossible suffixes.
 Regression reproducers and results are retained in
 [`evidence/1.4.2/`](evidence/1.4.2/). This is preparation evidence, not a publication
-record. The published release remains 1.4.1 until the release procedure completes.
+record. Final artifact validation and publication are recorded separately in the
+[1.4.2 GitHub release assets](https://github.com/jmpanozzoz/tachyon_api/releases/tag/v1.4.2).
 
 One identical portable wheel and sdist passed 40 release checks on macOS ARM64
 and 40 on Debian 13 ARM64, using Python 3.10–3.13. Each interpreter passed 904

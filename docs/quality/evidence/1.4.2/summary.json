@@ -1,5 +1,5 @@
 {
-  "status": "Unreleased 1.4.2 operational candidate; not a publication receipt",
+  "status": "Operational validation of the pre-release candidate; final artifact hashes and publication are recorded in GitHub release assets",
   "date": "2026-11-04",
   "runtime_revision": "58bb408a887bbbc966ee3fc43adba60b57ee0246",
   "source_matrix_revision": "d928d27950560a3591a17bbd749b14ff25ee5648",
@@ -116,5 +116,6 @@
     "No new FastAPI HTTP comparison in this operational cycle",
     "Candidate archives precede evidence/docs-only edits and LF policy; runtime bytes unchanged",
     "No GitHub Actions used; no publication performed"
-  ]
+  ],
+  "publication_url": "https://github.com/jmpanozzoz/tachyon_api/releases/tag/v1.4.2"
 }
