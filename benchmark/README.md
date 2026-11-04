@@ -77,3 +77,34 @@ the installed-wheel contracts. Their short duration does not prove absence of
 leaks, multi-hour endurance, a production SLA or a global speed multiplier. Both
 engines ran sequentially on the same host; historical raw benchmark artifacts
 remain unchanged.
+
+
+## Operational endurance and route scaling
+
+```sh
+python -m benchmark.run_endurance --duration 1800 --cycles 3 --idle 30 --http httptools --output /tmp/endurance.json
+python -m benchmark.profile_routing --output /tmp/routing.json
+python -m benchmark.profile_hotpath --output /tmp/asgi.json
+```
+
+Endurance duration is total active load, split across cycles; idle follows every
+cycle, so this example takes about 31.5 minutes plus startup/shutdown. One server
+stays alive while clients close between phases. Every response is validated.
+RSS and open descriptor counts describe that child (Linux `/proc` or macOS `lsof`),
+not the load generator. Missing counters are null. Resource sampling is capped at
+7,200 entries; latency percentiles use a bounded uniform reservoir. Mean/max use
+all requests. Shared-host contention is uncontrolled: rates are not production
+capacity measurements, and flat resource samples do not prove absence of leaks.
+
+The routing profile checks six ordinary deterministic corpora and a deliberately
+overlapping miss at 10–10,000 routes. It records registration allocations with
+tracemalloc (not RSS), repeated matcher timings and the route shape. A synthetic
+pruning improvement is not an end-to-end framework multiplier.
+
+The hot-path tool now executes the actual async ASGI pipeline, including routing,
+parameters, DI, response construction and send. It validates every timed response;
+results include driver/validation overhead and exclude network/server costs. It
+replaces the old mock-based component walkthrough. For installed-package A/B runs,
+use a driver directory without a Tachyon checkout and record actual module origins,
+versions, wheel hashes and host contention. Do not compare across changed servers
+or claim throughput capacity from these microbenchmarks.

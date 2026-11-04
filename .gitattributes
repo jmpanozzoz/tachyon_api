@@ -1,0 +1,5 @@
+# Installed/archive source hashes must survive platform checkout defaults.
+*.py text eol=lf
+*.toml text eol=lf
+MANIFEST.in text eol=lf
+README.md text eol=lf

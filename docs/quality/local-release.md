@@ -39,7 +39,9 @@ python -m twine check --strict /absolute/path/to/artifacts/*
 
 The archive checker requires exactly one portable wheel and one sdist, validates
 metadata, the safe orjson minimum, Python inventory, tags, RECORD hashes and CLI
-entry point, and rejects retired Cython/native files. It does not execute requests.
+entry point, and rejects retired Cython/native files and special device/FIFO archive members.
+Python/build source bytes are compared with the checked-out source; installed
+contracts verify Python hashes in addition to origins. It does not execute requests.
 Review scripts' `--help` for their current interfaces.
 
 A successful preparation writes `manifest.json` with `complete: true`, check exit
@@ -58,3 +60,14 @@ Do not overwrite or rebuild artifacts after a partial upload; inspect index stat
 
 The [1.4.0 release](../audits/1.4.0/LOCAL_RELEASE.md) remains immutable historical
 evidence, including its native wheels. It is not the current build policy.
+
+
+## Revalidate the same candidate on another host
+
+Use `--artifacts /absolute/path/to/candidate-directory` with the preparation command
+to copy and validate an existing wheel/sdist pair instead of building a different
+candidate. Keep the reviewed source checkout identical on both hosts. Each host
+still runs the source suite, rebuilds the selected sdist, verifies installed source
+hashes, tests the exact candidate wheel, and records its real platform. This makes
+cross-platform validation refer to the same upload hashes. No hosted Actions are
+required, and Windows support is not inferred from Linux/macOS results.

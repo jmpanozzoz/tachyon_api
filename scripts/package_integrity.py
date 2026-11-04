@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import importlib.util
+import hashlib
 from pathlib import Path
 
 
@@ -17,7 +18,12 @@ def module_names(package_root: Path) -> list[str]:
     return names
 
 
-def verify_python_package(package_root: Path, expected: list[str]) -> dict[str, str]:
+def source_hashes(package_root: Path) -> dict[str, str]:
+    return {str(path.relative_to(package_root)): hashlib.sha256(path.read_bytes()).hexdigest()
+            for path in sorted(package_root.rglob("*.py"))}
+
+
+def verify_python_package(package_root: Path, expected: list[str], hashes=None) -> dict[str, str]:
     root = package_root.resolve()
     if not expected or set(module_names(root)) != set(expected):
         raise ValueError("Python module inventory is empty or differs from the source package")
@@ -25,6 +31,8 @@ def verify_python_package(package_root: Path, expected: list[str]) -> dict[str, 
     stale = [str(path) for path in root.rglob("*") if path.suffix in forbidden]
     if stale:
         raise ValueError(f"Unexpected native/build sources in Python package: {stale}")
+    if hashes is not None and (not hashes or source_hashes(root) != hashes):
+        raise ValueError("Installed Python source hashes differ from the validated source package")
     origins = {}
     for name in expected:
         spec = importlib.util.find_spec(name)

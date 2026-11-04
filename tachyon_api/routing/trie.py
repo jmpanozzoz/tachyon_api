@@ -46,10 +46,12 @@ class RadixTrie:
         status, handler, params, allowed = trie.match("/users/42", "GET")
     """
 
-    __slots__ = ("_root",)
+    __slots__ = ("_root", "_static_endings", "_dynamic_ending")
 
     def __init__(self) -> None:
         self._root = _Node()
+        self._static_endings = set()
+        self._dynamic_ending = False
 
     # ── Registration ────────────────────────────────────────────────────────
 
@@ -57,7 +59,13 @@ class RadixTrie:
         """Register a (path, method) → handler mapping."""
         node = self._root
         names = []
-        for seg in _segments(path):
+        segments = _segments(path)
+        last = segments[-1] if segments else ""
+        if last.startswith("{") and last.endswith("}"):
+            self._dynamic_ending = True
+        else:
+            self._static_endings.add(last)
+        for seg in segments:
             if seg[0] == "{" and seg[-1] == "}":
                 # Param segment — create param child if needed
                 if node.param_child is None:
@@ -123,6 +131,13 @@ class RadixTrie:
                 if child is not None:
                     if wildcard is not None:
                         if alternatives is None:
+                            # Check only when ambiguity would create a search
+                            # stack. Normal unambiguous hits pay no suffix scan.
+                            if not self._dynamic_ending:
+                                tail = path.rstrip("/")
+                                tail = tail[tail.rfind("/") + 1:]
+                                if tail not in self._static_endings:
+                                    return _NOT_FOUND, None, _EMPTY_PARAMS, None
                             alternatives = []
                         alternatives.append((wildcard, end, values + (seg,)))
                     node = child

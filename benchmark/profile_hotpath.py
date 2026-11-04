@@ -1,164 +1,89 @@
-"""
-Time the actual Tachyon hot path in-process without network overhead.
-Measures each layer independently.
-"""
+"""Validate and time the full async ASGI request path without a network server."""
+import argparse
 import asyncio
+import hashlib
+import importlib.metadata
+import json
+from pathlib import Path
+import platform
+import random
+import statistics
+import sys
 import time
 
-from unittest.mock import AsyncMock
+from benchmark.scenarios import SCENARIOS
 
 
-async def make_mock_request(path: str, method: str = "GET",
-                             body: bytes = b"", query: str = ""):
-    from tachyon_api.processing.scope import TachyonScope
-    scope = {
-        "type": "http",
-        "method": method,
-        "path": path,
-        "query_string": query.encode(),
-        "headers": [
-            (b"content-type", b"application/json"),
-            (b"content-length", str(len(body)).encode()),
-        ],
-        "path_params": {},
-        "app": None,
-    }
-    receive = AsyncMock(return_value={"type": "http.request", "body": body, "more_body": False})
-    req = TachyonScope(scope, receive, None)
-    # Pre-warm the body cache so profiling measures processing not I/O
-    if body:
-        await req.body()
-    return req
+def make_call(app, scenario):
+    _, method, target, payload, headers, expected = scenario
+    path, _, query = target.partition("?")
+    body = json.dumps(payload).encode() if payload is not None else b""
+    base = {"type": "http", "asgi": {"version": "3.0", "spec_version": "2.4"},
+            "http_version": "1.1", "method": method, "scheme": "http", "path": path,
+            "raw_path": path.encode(), "root_path": "", "query_string": query.encode(),
+            "server": ("test", 80), "client": ("127.0.0.1", 10000),
+            "headers": [(k.encode(), v.encode()) for k, v in headers.items()] +
+                       [(b"content-type", b"application/json"), (b"content-length", str(len(body)).encode())]}
+    async def call():
+        messages = []
+        async def receive():
+            return {"type": "http.request", "body": body, "more_body": False}
+        async def send(message):
+            messages.append(message)
+        await app(dict(base), receive, send)
+        starts = [message for message in messages if message["type"] == "http.response.start"]
+        assert len(starts) == 1 and starts[0]["status"] == 200
+        assert b"application/json" in dict(starts[0]["headers"])[b"content-type"]
+        data = b"".join(message.get("body", b"") for message in messages if message["type"] == "http.response.body")
+        assert json.loads(data) == expected
+    return call
 
 
-ITERATIONS = 50_000
-
-def timed(label: str, n: int, elapsed: float):
-    per_req_us = (elapsed / n) * 1_000_000
-    print(f"  {label:<45} {per_req_us:>7.2f} µs/req   {n/elapsed:>10,.0f} req/s")
-
-
-async def main():
-    from tachyon_api import Tachyon, Struct
-    from tachyon_api.params import Body, Query
-    from tachyon_api.processing.compiler import compile_endpoint
-    from tachyon_api.processing.parameters import ParameterProcessor
-    from tachyon_api.processing.response_processor import ResponseProcessor
-
-    app = Tachyon()
-
-    class Item(Struct):
-        name: str
-        price: float
-
-    @app.get("/hello")
-    def hello():
-        return {"message": "Hello, World!"}
-
-    @app.get("/items/{item_id}")
-    def get_item(item_id: int, q: str = Query(None)):
-        return {"item_id": item_id, "q": q}
-
-    @app.post("/items")
-    def create_item(item: Item = Body()):
-        return {"name": item.name}
-
-    compiled_hello   = compile_endpoint(hello, "/hello")
-    compiled_item    = compile_endpoint(get_item, "/items/{item_id}")
-    compiled_body    = compile_endpoint(create_item, "/items")
-
-    proc   = ParameterProcessor(app)
-    req_hello  = await make_mock_request("/hello")
-    req_item   = await make_mock_request("/items/42", query="q=test")
-    req_item._scope["path_params"] = {"item_id": "42"}
-    req_body   = await make_mock_request("/items", "POST", b'{"name":"Widget","price":9.99}')
-
-    print("\n" + "═"*65)
-    print("  TACHYON HOT PATH MICRO-BENCHMARKS")
-    print("═"*65)
-
-    # ── 2. process_parameters — hello (no params) ──
-    N = ITERATIONS
-    dep_cache = {}
-    t0 = time.perf_counter()
-    for _ in range(N):
-        kwargs, err, bg = await proc.process_parameters(compiled_hello, req_hello, dep_cache)
-    timed("process_parameters — no params", N, time.perf_counter() - t0)
-
-    # ── 3. process_parameters — path + query ──
-    dep_cache = {}
-    t0 = time.perf_counter()
-    for _ in range(N):
-        kwargs, err, bg = await proc.process_parameters(compiled_item, req_item, dep_cache)
-    timed("process_parameters — path+query", N, time.perf_counter() - t0)
-
-    # ── 4. process_parameters — body ──
-    dep_cache = {}
-    t0 = time.perf_counter()
-    for _ in range(N):
-        kwargs, err, bg = await proc.process_parameters(compiled_body, req_body, dep_cache)
-    timed("process_parameters — body POST", N, time.perf_counter() - t0)
-
-    # ── 5. call_endpoint (sync) ──
-    args_hello = []   # F7: list instead of dict
-    t0 = time.perf_counter()
-    for _ in range(N):
-        payload = await ResponseProcessor.call_endpoint(compiled_hello, args_hello)
-    timed("call_endpoint — sync", N, time.perf_counter() - t0)
-
-    # ── 6. process_response — dict ──
-    payload_dict = {"message": "Hello, World!"}
-    t0 = time.perf_counter()
-    for _ in range(N):
-        await ResponseProcessor.process_response(payload_dict, None, None)
-    timed("process_response — dict payload", N, time.perf_counter() - t0)
-
-    # ── 7. process_response — Struct ──
-    payload_struct = Item(name="x", price=1.0)
-    t0 = time.perf_counter()
-    for _ in range(N):
-        await ResponseProcessor.process_response(payload_struct, None, None)
-    timed("process_response — Struct payload", N, time.perf_counter() - t0)
-
-    # ── 8. TachyonJSONResponse render ──
-    from tachyon_api.responses import TachyonJSONResponse
-    t0 = time.perf_counter()
-    for _ in range(N):
-        TachyonJSONResponse(payload_dict)
-    timed("TachyonJSONResponse(dict)", N, time.perf_counter() - t0)
-
-    # ── 9. msgspec.json.encode Struct directly ──
-    import msgspec
-    t0 = time.perf_counter()
-    for _ in range(N):
-        msgspec.json.encode(payload_struct)
-    timed("msgspec.json.encode(Struct)", N, time.perf_counter() - t0)
-
-    # ── 10. orjson.dumps dict ──
-    import orjson
-    t0 = time.perf_counter()
-    for _ in range(N):
-        orjson.dumps(payload_dict)
-    timed("orjson.dumps(dict)", N, time.perf_counter() - t0)
-
-    # ── 11. starlette Response(bytes) ──
-    from starlette.responses import Response
-    content_bytes = b'{"message":"Hello, World!"}'
-    t0 = time.perf_counter()
-    for _ in range(N):
-        Response(content=content_bytes, media_type="application/json")
-    timed("starlette.Response(bytes)", N, time.perf_counter() - t0)
-
-    # ── 12. Full handler round-trip (our code only, no network) ──
-    t0 = time.perf_counter()
-    dep_cache = {}
-    for _ in range(N):
-        args, err, bg = await proc.process_parameters(compiled_hello, req_hello, dep_cache)
-        payload = await ResponseProcessor.call_endpoint(compiled_hello, args)
-        await ResponseProcessor.process_response(payload, None, bg)
-    timed("FULL HANDLER (no network, no routing)", N, time.perf_counter() - t0)
-
-    print("═"*65 + "\n")
+async def run(args):
+    from benchmark.app_tachyon import app
+    import tachyon_api
+    import tachyon_api.routing.trie as trie
+    root = Path(tachyon_api.__file__).parent
+    digest = hashlib.sha256()
+    for path in sorted(root.rglob("*.py")):
+        digest.update(str(path.relative_to(root)).encode() + b"\0" + path.read_bytes() + b"\0")
+    versions = {}
+    for name in ("tachyon-api", "starlette", "msgspec", "orjson"):
+        versions[name] = importlib.metadata.version(name)
+    report = {"python": sys.version, "platform": platform.platform(), "versions": versions,
+        "runtime_root": str(root), "trie_origin": trie.__file__, "runtime_sha256": digest.hexdigest(),
+        "iterations": args.iterations, "repetitions": args.repeats, "measurements": [],
+        "methodology": "Full single-task ASGI requests using fresh scope and send buffer, shared valid scenarios and async endpoints. Every status/content-type/JSON result is checked, including timed requests. Includes Python driver/validation costs; excludes networking and server. GC stays enabled. Repeated hot inputs, not production access patterns. Not throughput capacity or isolated framework overhead."}
+    calls = {scenario[0]: make_call(app, scenario) for scenario in SCENARIOS}
+    for call in calls.values():
+        for _ in range(50):
+            await call()
+    for repeat in range(args.repeats):
+        order = list(calls)
+        random.Random(142 + repeat).shuffle(order)
+        for name in order:
+            started = time.perf_counter_ns()
+            for _ in range(args.iterations):
+                await calls[name]()
+            report["measurements"].append({"scenario": name, "repeat": repeat,
+                "ns_per_validated_request": (time.perf_counter_ns() - started) / args.iterations})
+    report["medians_ns"] = {name: statistics.median(row["ns_per_validated_request"]
+        for row in report["measurements"] if row["scenario"] == name) for name in calls}
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    args.output.write_text(json.dumps(report, indent=2) + "\n")
+    print(json.dumps({"versions": versions, "medians_ns": report["medians_ns"]}))
 
 
-asyncio.run(main())
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--iterations", type=int, default=5000)
+    parser.add_argument("--repeats", type=int, default=7)
+    parser.add_argument("--output", type=Path, required=True)
+    args = parser.parse_args()
+    if min(args.iterations, args.repeats) < 1:
+        parser.error("iterations and repeats must be positive")
+    asyncio.run(run(args))
+
+
+if __name__ == "__main__":
+    main()

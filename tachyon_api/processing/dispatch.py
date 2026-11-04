@@ -2,6 +2,7 @@
 from starlette._utils import get_route_path
 
 from .scope import TachyonScope
+from .response_processor import ResponseProcessor
 
 
 class TachyonDispatcher:
@@ -38,6 +39,6 @@ class TachyonDispatcher:
             request = TachyonScope(scope, receive, send)
             try:
                 response = await handler(request)
-                await response(scope, receive, send)
+                await ResponseProcessor.send_response(response, scope, receive, send)
             finally:
                 await request.close()

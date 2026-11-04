@@ -1,11 +1,12 @@
 """Release guards must reject empty inventories and leftover native modules."""
 from pathlib import Path
 from types import SimpleNamespace
+import tarfile
 
 import pytest
 
-from scripts.package_integrity import module_names, verify_python_package
-from scripts.check_release_artifacts import metadata, check_wheel
+from scripts.package_integrity import module_names, verify_python_package, source_hashes
+from scripts.check_release_artifacts import metadata, check_wheel, check_sdist
 
 
 def package(tmp_path):
@@ -39,6 +40,14 @@ def test_installed_inventory_cannot_hide_missing_module(tmp_path):
         verify_python_package(root, ["tachyon_api", "tachyon_api.missing"])
 
 
+def test_same_module_inventory_cannot_hide_a_different_wheel(tmp_path):
+    root = package(tmp_path)
+    hashes = source_hashes(root)
+    (root / "__init__.py").write_text("# stale or altered installed source\n")
+    with pytest.raises(ValueError, match="source hashes differ"):
+        verify_python_package(root, module_names(root), hashes)
+
+
 def test_checkout_import_is_rejected_when_checking_installed_package(tmp_path, monkeypatch):
     root = package(tmp_path)
     monkeypatch.setattr("scripts.package_integrity.importlib.util.find_spec",
@@ -59,3 +68,14 @@ def test_release_checker_rejects_native_wheel_even_with_empty_native_inventory(t
     wheel = tmp_path / "tachyon_api-1.4.1-cp313-cp313-macosx_11_0_arm64.whl"
     with pytest.raises(ValueError, match="portable"):
         check_wheel(wheel, "1.4.1", {"tachyon_api/__init__.py"})
+
+
+@pytest.mark.parametrize("kind", [tarfile.FIFOTYPE, tarfile.CHRTYPE])
+def test_source_archive_rejects_special_files_before_extraction(tmp_path, kind):
+    path = tmp_path / "tachyon_api-1.4.2.tar.gz"
+    with tarfile.open(path, "w:gz") as archive:
+        member = tarfile.TarInfo("tachyon_api-1.4.2/special")
+        member.type = kind
+        archive.addfile(member)
+    with pytest.raises(ValueError, match="special device/FIFO"):
+        check_sdist(path, "1.4.2", set())

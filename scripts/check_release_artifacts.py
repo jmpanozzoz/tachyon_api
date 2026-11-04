@@ -45,6 +45,8 @@ def check_wheel(path, version, python_files):
         require(set(wheel.get_all("Tag", [])) == {"py3-none-any"}, "WHEEL tags differ from filename")
         require(wheel["Root-Is-Purelib"] == "true", "Root-Is-Purelib differs from wheel type")
         require(python_files <= set(names), "wheel is missing Python modules")
+        for name in python_files:
+            require(archive.read(name) == (ROOT / name).read_bytes(), f"wheel source differs from checkout: {name}")
         binaries = {name for name in names if name.endswith((".so", ".pyd", ".dylib", ".dll"))}
         require(not binaries, "portable wheel contains native binary files")
         require(not any(name.endswith((".pyx", ".pxd")) for name in names), "wheel contains retired Cython sources")
@@ -73,10 +75,13 @@ def check_sdist(path, version, source_files):
         require(len(names) == len(set(names)), "duplicate sdist paths")
         require(all(not PurePosixPath(name).is_absolute() and ".." not in PurePosixPath(name).parts and "\\" not in name for name in names), "unsafe sdist path")
         require(all(not member.issym() and not member.islnk() for member in members), "sdist contains links")
+        require(all(member.isfile() or member.isdir() for member in members), "sdist contains special device/FIFO members")
         prefix = f"tachyon_api-{version}/"
         require(all(name == prefix[:-1] or name.startswith(prefix) for name in names), "sdist has inconsistent root directory")
         required = source_files | {"setup.py", "pyproject.toml", "MANIFEST.in", "README.md", "LICENSE", "PKG-INFO"}
         require({prefix + name for name in required} <= set(names), "sdist is missing build/Python sources")
+        for name in source_files | {"setup.py", "pyproject.toml", "MANIFEST.in", "README.md"}:
+            require(archive.extractfile(prefix + name).read() == (ROOT / name).read_bytes(), f"sdist source differs from checkout: {name}")
         require(not any(name.endswith((".so", ".pyd", ".dylib", ".dll")) for name in names), "sdist contains stale compiled binaries")
         require(not any(name.endswith((".pyx", ".pxd")) for name in names), "sdist contains retired Cython sources")
         metadata(archive.extractfile(prefix + "PKG-INFO").read(), version)

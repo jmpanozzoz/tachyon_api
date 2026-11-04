@@ -26,18 +26,22 @@ def main():
     parser.add_argument("--duration", type=float, default=60)
     parser.add_argument("--concurrency", type=int, default=8)
     parser.add_argument("--with-granian", action="store_true", help="Include optional real-server contracts")
+    parser.add_argument("--artifacts", type=Path, help="Validate an existing wheel/sdist pair on another host")
     args = parser.parse_args()
     output = args.output.resolve()
     if output.exists() or output.is_relative_to(ROOT):
         parser.error("output must be a new directory outside the checkout")
-    if args.duration < 1 or args.concurrency < 1:
+    if not 1 <= args.duration < float("inf") or args.concurrency < 1:
         parser.error("duration and concurrency must be positive")
+    if args.artifacts is not None and not args.artifacts.is_dir():
+        parser.error("artifacts must be an existing directory containing the candidate wheel/sdist")
     output.mkdir(parents=True)
     dist = output / "dist"
     dist.mkdir()
     report = {"started": datetime.now(timezone.utc).isoformat(), "complete": False,
               "revision": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip(),
               "checks": [], "matrix": [], "artifacts": [], "with_granian": args.with_granian,
+              "artifact_origin": str(args.artifacts.resolve()) if args.artifacts else "built from this source snapshot",
               "platform_limit": "Runtime tested on this host only; portable packaging is not platform execution evidence"}
     release_version = re.search(r'^version = "([^"]+)"', (ROOT / "pyproject.toml").read_text(), re.M).group(1)
     report["version"] = release_version
@@ -60,6 +64,7 @@ def main():
             work = Path(temporary)
             frozen = work / "source"
             subprocess.run(["git", "clone", "--quiet", "--no-checkout", "--no-hardlinks", str(ROOT), str(frozen)], check=True)
+            subprocess.run(["git", "read-tree", "HEAD"], cwd=frozen, check=True)
             shutil.copytree(ROOT, frozen, dirs_exist_ok=True, ignore=IGNORED)
             versions = set()
             for index, interpreter in enumerate(args.python):
@@ -80,7 +85,14 @@ def main():
                 run(f"{label}-ruff", [python, "-m", "ruff", "check", "tachyon_api", "tests", "benchmark", "scripts"], source)
                 run(f"{label}-python", [python, "scripts/quality_cycle.py", "--engine", "python", "--output", output / f"{label}-python.json"], source)
                 if index == 0:
-                    run("portable-sdist-build", [python, "-m", "build", "--no-isolation", "--outdir", dist], source)
+                    if args.artifacts is None:
+                        run("portable-sdist-build", [python, "-m", "build", "--no-isolation", "--outdir", dist], source)
+                    else:
+                        for pattern in ("*.whl", "*.tar.gz"):
+                            for artifact in args.artifacts.glob(pattern):
+                                shutil.copyfile(artifact, dist / artifact.name)
+                        run("candidate-artifact-check", [python, "scripts/check_release_artifacts.py",
+                            "--version", release_version, dist], source)
                 if index == 0:
                     run("soak-python", [python, "-m", "benchmark.run_soak", "--duration", args.duration,
                         "--concurrency", args.concurrency, "--output", output / "soak-python.json"], source)
@@ -90,9 +102,9 @@ def main():
                     # Only this run's freshly built archive is accepted.
                     for member in archive.getmembers():
                         path = Path(member.name)
-                        if path.is_absolute() or ".." in path.parts or member.issym() or member.islnk():
+                        if path.is_absolute() or ".." in path.parts or not (member.isfile() or member.isdir()):
                             raise ValueError(f"Unsafe sdist member {member.name}")
-                    archive.extractall(extracted)
+                    archive.extractall(extracted, **({"filter": "data"} if hasattr(tarfile, "data_filter") else {}))
                 build_source = next(extracted.iterdir())
                 run(f"{label}-sdist-wheel", [python, "-m", "build", "--wheel", "--no-isolation", "--outdir", work / f"rebuilt-{label}"], build_source)
                 portable = next((work / f"rebuilt-{label}").glob("*-py3-none-any.whl"))

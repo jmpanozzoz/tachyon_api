@@ -1,10 +1,10 @@
 # Tachyon API documentation
 
-The current release is [1.4.1 on PyPI](https://pypi.org/project/tachyon-api/1.4.1/).
+The current release is [1.4.2 on PyPI](https://pypi.org/project/tachyon-api/1.4.2/).
 Python 3.10–3.13 is supported through one portable Python implementation and a
-source distribution. Local validation covers macOS ARM64, not Linux/Windows
-execution. See [release validation](quality/evidence/1.4.1/summary.json),
-[release notes](https://github.com/jmpanozzoz/tachyon_api/releases/tag/v1.4.1)
+source distribution. Local runtime validation covers macOS ARM64 and Debian ARM64; Linux x86-64
+and Windows execution remain unverified. See [release validation](quality/evidence/1.4.2/summary.json),
+[release notes](https://github.com/jmpanozzoz/tachyon_api/releases/tag/v1.4.2)
 and the [changelog](../CHANGELOG.md). Third-party dependencies retain their own
 native wheel/build requirements.
 
@@ -60,7 +60,7 @@ Interactive documentation is available at `/docs`.
 - [Historical audits](audits/1.4.0/AUDITORIA.md): dated findings with current-status links.
 
 The framework uses Starlette ASGI integration, msgspec validation, a radix trie
-and bounded request/cache behavior. Version 1.4.1 uses one Python implementation. The
+and bounded request/cache behavior. Version 1.4.2 uses one Python implementation. The
 supported OpenAPI subset and API differences are described in the migration
 guides. Performance results are workload-specific; no universal multiplier or
 competitor dependency-count comparison is asserted.
