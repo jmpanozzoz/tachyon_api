@@ -1,9 +1,6 @@
 """Parameter extraction pipeline — composes atomic extractors per kind.
 
-This is the pure-Python fallback.  Production builds with `[fast]` Cython
-compiled will use ``parameters.pyx`` (single-file, semantically identical)
-loaded as ``parameters.cpython-*.so``.  Both implementations produce identical
-output for the same input.
+One Python implementation serves every installation.
 """
 
 from __future__ import annotations

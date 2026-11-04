@@ -1,10 +1,12 @@
 # Tachyon API documentation
 
-The current published version is [1.4.0 on PyPI](https://pypi.org/project/tachyon-api/1.4.0/).
-Python 3.10–3.13 is supported. The release includes a portable Python wheel and
-macOS ARM64 native wheels. Local validation does not establish Linux/Windows
-native compatibility. See the [release evidence](audits/1.4.0/LOCAL_RELEASE.md)
-and [changelog](../CHANGELOG.md) for scope and history.
+The current release is [1.4.1 on PyPI](https://pypi.org/project/tachyon-api/1.4.1/).
+Python 3.10–3.13 is supported through one portable Python implementation and a
+source distribution. Local validation covers macOS ARM64, not Linux/Windows
+execution. See [release validation](quality/evidence/1.4.1/summary.json),
+[release notes](https://github.com/jmpanozzoz/tachyon_api/releases/tag/v1.4.1)
+and the [changelog](../CHANGELOG.md). Third-party dependencies retain their own
+native wheel/build requirements.
 
 ## Guides
 
@@ -25,7 +27,7 @@ and [changelog](../CHANGELOG.md) for scope and history.
 | [13. Request lifecycle](13-request-lifecycle.md) | Registration, dispatch, validation and cleanup |
 | [14. FastAPI migration](14-migration-fastapi.md) | API and execution differences |
 | [15. Best practices](15-best-practices.md) | Application design and deployment considerations |
-| [16. Cython builds](16-cython-build.md) | Source compilation, fallback and installed-wheel checks |
+| [16. Portable builds](16-cython-build.md) | Python packaging, installed checks and upgrade from Cython |
 | [17. Migration to 1.4](17-migration-1.4.md) | Changed behavior and explicit limitations |
 
 ## Start an application
@@ -52,12 +54,13 @@ Interactive documentation is available at `/docs`.
 - [Executable example](../example/README.md): demonstration application and test scope.
 - [Benchmark methodology](../benchmark/README.md): validated measurements and limits.
 - [Continuous improvement](quality/continuous-improvement.md): repair/review gates.
+- [Framework assessment](quality/framework-review.md): maintainability, production limits, refreshed FastAPI measurements, Cython removal experiments and Rust research dated 2026-11-04.
 - [Local release](quality/local-release.md): builds and publication without Actions.
 - [Documentation maintenance](quality/documentation.md): source comparisons, links and executable examples.
 - [Historical audits](audits/1.4.0/AUDITORIA.md): dated findings with current-status links.
 
 The framework uses Starlette ASGI integration, msgspec validation, a radix trie
-with optional Cython implementations, and bounded request/cache behavior. The
+and bounded request/cache behavior. Version 1.4.1 uses one Python implementation. The
 supported OpenAPI subset and API differences are described in the migration
 guides. Performance results are workload-specific; no universal multiplier or
 competitor dependency-count comparison is asserted.

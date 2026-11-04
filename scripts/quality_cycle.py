@@ -1,13 +1,13 @@
 """Run the local release quality gates and retain machine-readable evidence.
 
-Run with each supported interpreter, before and after building extensions.
+Run with each supported interpreter against the Python implementation.
 This command verifies the current working tree; it never edits or commits it.
 """
 from __future__ import annotations
 
 import argparse
-import importlib.util
 import hashlib
+import importlib.metadata
 import json
 import platform
 import subprocess
@@ -19,22 +19,20 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+from scripts.package_integrity import module_names, verify_python_package  # noqa: E402
+
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--engine", choices=("python", "native"), required=True)
+    parser.add_argument("--engine", choices=("python",), default="python")
     args = parser.parse_args()
-    modules = {}
-    for source in sorted((ROOT / "tachyon_api").rglob("*.pyx")):
-        name = ".".join(source.relative_to(ROOT).with_suffix("").parts)
-        spec = importlib.util.find_spec(name)
-        origin = spec.origin if spec is not None else None
-        if origin is None or origin.endswith((".so", ".pyd")) != (args.engine == "native"):
-            parser.error(f"Expected {args.engine} engine for {name}; loaded {origin}")
-        modules[name] = origin
+    try:
+        package = ROOT / "tachyon_api"
+        modules = verify_python_package(package, module_names(package))
+    except ValueError as exc:
+        parser.error(str(exc))
     commands = [
-        [sys.executable, "scripts/check_py_pyx_parity.py"],
         [sys.executable, "-m", "pytest", "tests", "example/tests", "-q"],
     ]
     digest = hashlib.sha256()
@@ -54,6 +52,12 @@ def main():
         "working_tree": subprocess.check_output(["git", "status", "--porcelain"], cwd=ROOT, text=True),
         "checks": [],
     }
+    report["dependency_versions"] = {}
+    for package in ("tachyon-api", "starlette", "uvicorn", "httptools", "msgspec", "orjson", "typer", "python-multipart", "granian"):
+        try:
+            report["dependency_versions"][package] = importlib.metadata.version(package)
+        except importlib.metadata.PackageNotFoundError:
+            report["dependency_versions"][package] = None
     for command in commands:
         started = time.monotonic()
         result = subprocess.run(command, cwd=ROOT, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)

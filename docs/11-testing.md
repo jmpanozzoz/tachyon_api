@@ -365,9 +365,9 @@ tests/
 
 ## Verificación del framework y de los artefactos
 
-Desde un checkout con dependencias de test y del ejemplo instaladas, ejecutar `pytest tests/ example/tests/`. `scripts/quality_cycle.py --engine python --output /tmp/quality-python.json` comprueba además paridad y los orígenes importados; repetir con `--engine native` después de compilar en otro snapshot. `TACHYON_SKIP_CYTHON=1` controla el build y no desactiva extensiones que ya existen.
+Desde un checkout con dependencias de test y del ejemplo instaladas, ejecutar `pytest tests/ example/tests/`. `scripts/quality_cycle.py --engine python --output /tmp/quality-python.json` comprueba el inventario Python completo y sus orígenes; rechaza binarios residuales. La preparación de 1.4.1 ya no mantiene un motor nativo propio.
 
-La validación local de 1.4.0 del **2026-11-04** registró **809 tests por combinación** en CPython 3.10, 3.11, 3.12 y 3.13, cada uno con ambos motores, y **174 contratos por instalación** de wheel portable/native fuera del checkout. Son resultados de ese snapshot, no un número mínimo fijo para futuras suites. Los jobs ordinarios de CI están configurados para 3.10 y 3.13; la corrida local cubrió las cuatro versiones. Ver [evidencia y límites de plataforma](audits/1.4.0/LOCAL_RELEASE.md) y [reproducción local](quality/local-release.md).
+La validación local de 1.4.0 del **2026-11-04** registró **809 tests por combinación** en CPython 3.10, 3.11, 3.12 y 3.13, cada uno con ambos motores, y **174 contratos por instalación** de wheel portable/native fuera del checkout. Son resultados de ese snapshot, no un número mínimo fijo para futuras suites. Los jobs actuales están configurados para 3.10–3.13; su configuración no demuestra ejecución alojada. Ver [evidencia y límites de plataforma](audits/1.4.0/LOCAL_RELEASE.md) y [reproducción local](quality/local-release.md).
 
 Las regresiones incluyen routing montado con `root_path`, parámetros heredados y Unicode, URLs de documentación y `servers` aislados por request, y rechazo temprano de markers no soportados en endpoints WebSocket (`tests/test_local_release_runtime.py`).
 

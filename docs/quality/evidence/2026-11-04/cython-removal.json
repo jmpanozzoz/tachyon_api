@@ -1,0 +1,76 @@
+{
+  "scope": "Disposable removal experiment, not implemented migration; build/release gates still require adaptation",
+  "source_revision": "ce995d7a75434782c3f59303026f15aa523a8e4f",
+  "directory": "/var/folders/pq/mx14w_8j4tz1613dtkp90gvc0000gn/T/tachyon-no-cython-probe-ljqqd6so",
+  "removed": [
+    "tachyon_api/app/_exception_table.pyx",
+    "tachyon_api/security/_bearer_parser.pyx",
+    "tachyon_api/processing/dispatch.pyx",
+    "tachyon_api/processing/scope.pyx",
+    "tachyon_api/processing/compiler.pyx",
+    "tachyon_api/processing/response_processor.pyx",
+    "tachyon_api/processing/parameters.pyx",
+    "tachyon_api/responses/_json_response.pyx",
+    "tachyon_api/responses/_internal_error.pyx",
+    "tachyon_api/responses/_bytes_response.pyx",
+    "tachyon_api/routing/trie.pyx",
+    "tachyon_api/processing/dependencies/_override_lookup.pyx",
+    "tachyon_api/processing/dependencies/_resolver.pyx",
+    "tachyon_api/processing/dependencies/_scope_cache.pyx",
+    "tachyon_api/processing/dependencies/_class_factory.pyx",
+    "tachyon_api/processing/_extractors/query_list.pyx",
+    "tachyon_api/processing/_extractors/path.pyx",
+    "tachyon_api/processing/_extractors/body.pyx",
+    "tachyon_api/processing/_extractors/cookie.pyx",
+    "tachyon_api/processing/_extractors/file.pyx",
+    "tachyon_api/processing/_extractors/body_limit.pyx",
+    "tachyon_api/processing/_extractors/header.pyx",
+    "tachyon_api/processing/_extractors/form.pyx",
+    "tachyon_api/processing/_extractors/_missing.pyx",
+    "tachyon_api/processing/_extractors/query.pyx",
+    "tachyon_api/processing/_extractors/query.pxd",
+    "tachyon_api/processing/_extractors/form.pxd",
+    "tachyon_api/processing/_extractors/header.pxd",
+    "tachyon_api/processing/_extractors/body_limit.pxd",
+    "tachyon_api/processing/_extractors/file.pxd",
+    "tachyon_api/processing/_extractors/cookie.pxd",
+    "tachyon_api/processing/_extractors/body.pxd",
+    "tachyon_api/processing/_extractors/path.pxd",
+    "tachyon_api/processing/_extractors/query_list.pxd"
+  ],
+  "python_runtime_files_unchanged": true,
+  "steps": [
+    {
+      "step": "tests",
+      "returncode": 0,
+      "log": "/var/folders/pq/mx14w_8j4tz1613dtkp90gvc0000gn/T/tachyon-no-cython-probe-ljqqd6so/tests.log"
+    },
+    {
+      "step": "build",
+      "returncode": 0,
+      "log": "/var/folders/pq/mx14w_8j4tz1613dtkp90gvc0000gn/T/tachyon-no-cython-probe-ljqqd6so/build.log"
+    }
+  ],
+  "runtime_python_files": 103,
+  "installed_contracts_returncode": 0,
+  "independent_origins_returncode": 0,
+  "independent_origins": "{\"package_root\": \"/private/tmp/tachyon-no-cython-installed-env/lib/python3.13/site-packages/tachyon_api\", \"python_modules_checked\": 103, \"cython_installed\": false, \"native_extensions\": false}\n",
+  "independent_origins_error": "",
+  "additional_interpreters": [
+    {
+      "abi": "310",
+      "returncode": 0,
+      "result": "======================= 838 passed, 7 warnings in 2.41s ========================"
+    },
+    {
+      "abi": "311",
+      "returncode": 0,
+      "result": "======================= 838 passed, 7 warnings in 2.03s ========================"
+    },
+    {
+      "abi": "312",
+      "returncode": 0,
+      "result": "======================= 838 passed, 13 warnings in 2.13s ======================="
+    }
+  ]
+}

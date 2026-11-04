@@ -205,11 +205,11 @@ Para `tachyon g service user`, esto crea automáticamente:
 ## Arquitectura interna actual
 
 - `app/`: facade ASGI, registro de rutas, middleware, errores y factories de handlers.
-- `processing/compiler.{py,pyx}`: metadatos y decoders preparados al registrar.
-- `processing/parameters.{py,pyx}`: `ParameterProcessor`; extractores en `_extractors/` devuelven tuples.
+- `processing/compiler.py`: metadatos y decoders preparados al registrar.
+- `processing/parameters.py`: `ParameterProcessor`; extractores en `_extractors/` devuelven tuples.
 - `processing/dependencies/`: factories, scopes, overrides y resolución de firmas.
-- `processing/scope.{py,pyx}` y `_request.py`: recepción acotada, cache de Request y lifetime multipart.
-- `routing/trie.{py,pyx}`: prioridad estática con fallback si una rama no completa la ruta.
+- `processing/scope.py` y `_request.py`: recepción acotada, cache de Request y lifetime multipart.
+- `routing/trie.py`: prioridad estática con fallback si una rama no completa la ruta.
 - `responses/`: mensajes ASGI por envío; `_internal_error.py` crea respuestas por llamada. `app/_error_static.py` contiene constantes de errores estáticos.
 - `openapi/`: schemas, `_config.py` y `_html_renderers.py` para el subconjunto OpenAPI 3.0 admitido.
 - `security/`: extracción de credenciales; API keys en `_api_keys.py`, valores en `_credentials.py`.
@@ -228,4 +228,4 @@ arrancar. No se promete costo constante ni un multiplicador de rendimiento.
 
 - [Dependency Injection](03-dependency-injection.md)
 - [Request Lifecycle](13-request-lifecycle.md)
-- [Cython Build](16-cython-build.md)
+- [Portable builds](16-cython-build.md)

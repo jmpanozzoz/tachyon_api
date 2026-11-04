@@ -7,7 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [Unreleased]
+## [1.4.1] — 2026-11-04
+
+### Security
+
+- Require orjson >=3.11.6 to exclude versions affected by CVE-2025-67221; refresh the lockfile.
+
+### Changed
+
+- Use one Python implementation and portable wheel/sdist packaging. Keep public modules, default server/CLI installation and the deprecated empty `[fast]` extra.
+- Replace Cython parity/native builds with nonempty Python inventory and installed-origin checks; reject stale native binaries and test sdist rebuilds.
+- Add explicit optional Granian selection to the benchmark runner and real-server lifecycle, shutdown, HTTP, upload, streaming and WebSocket contracts. Uvicorn remains the default; update the optional FastAPI benchmark dependency.
+- Archive the root drift report under the historical 1.4.0 evidence.
+
+### Removed
+
+- Remove 25 Cython implementations, nine declaration files, native wheel compilation and the obsolete parity checker.
+
 
 ### Documentation
 

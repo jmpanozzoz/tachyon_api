@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "tachyon-api"
-version = "1.4.0"
+version = "1.4.1"
 description = "A lightweight, FastAPI-inspired web framework"
 authors = ["Juan Manuel Panozzo Zénere <jm.panozzozenere@gmail.com>"]
 license = "GPL-3.0-or-later"
@@ -8,8 +8,6 @@ readme = "README.md"
 include = [
     { path = "setup.py",                  format = ["sdist"] },
     { path = "MANIFEST.in",               format = ["sdist"] },
-    { path = "tachyon_api/**/*.pyx",      format = ["sdist"] },
-    { path = "tachyon_api/**/*.pxd",      format = ["sdist"] },
 ]
 
 [tool.poetry.dependencies]
@@ -19,20 +17,19 @@ uvicorn = "^0.35.0"
 httptools = ">=0.6.0"
 msgspec = "^0.19.0"
 typer = "^0.16.0"
-orjson = "^3.11.1"
+orjson = ">=3.11.6,<4.0"
 python-multipart = "^0.0.32"
-cython = { version = ">=3.0", optional = true }
 httpx = { version = "^0.28.1", optional = true }
+granian = { version = "^2.8.7", optional = true }
 # Optional — only pulled in via the [benchmark] extra:
-fastapi = { version = "^0.136.1", optional = true }
+fastapi = { version = ">=0.162.0,<1.0", optional = true }
 pydantic = { version = "^2.13.4", optional = true }
 
 [tool.poetry.extras]
-# Precompiled wheels published to PyPI already include the Cython extensions
-# as native files. This extra supplies Cython for local development; isolated
-# source builds already declare Cython in build-system.requires.
-fast = ["cython"]
+# Compatibility alias for existing installations; deprecated since 1.4.1.
+fast = []
 test = ["httpx"]
+granian = ["granian"]
 # Only needed to run benchmark/run_benchmark.sh (Tachyon vs FastAPI).
 benchmark = ["fastapi", "pydantic"]
 
@@ -41,32 +38,10 @@ pytest = "^8.4.1"
 pytest-asyncio = "^1.1.0"
 httpx = "^0.28.1"
 ruff = "0.14.9"
-cython = ">=3.0"
 
 [tool.poetry.scripts]
 tachyon = "tachyon_api.cli:app"
 
 [build-system]
-requires = ["poetry-core>=1.5.0", "setuptools>=61", "cython>=3.0"]
+requires = ["poetry-core>=1.5.0", "setuptools>=61"]
 build-backend = "setuptools.build_meta"
-
-[tool.cibuildwheel]
-build = ["cp310-*", "cp311-*", "cp312-*", "cp313-*"]
-# Skip alternative interpreters/libcs:
-# - pp*    : PyPy (Cython generates CPython-API code; would need cffi rewrite)
-# - *-musllinux_* : Alpine; not in the supported matrix for v1
-# - *t-*   : free-threaded CPython (Cython 3 still maturing GIL-less support)
-# - *-win32, *_i686 : 32-bit; nobody serves prod from a 32-bit host
-skip = ["pp*", "*-musllinux_*", "*t-*", "*-win32", "*_i686"]
-build-frontend = "build"
-test-requires = ["httpx", "pytest", "pytest-asyncio"]
-test-command = "python {project}/scripts/test_installed_wheel.py --engine native"
-
-[tool.cibuildwheel.linux]
-archs = ["x86_64", "aarch64"]
-
-[tool.cibuildwheel.macos]
-archs = ["arm64"]
-
-[tool.cibuildwheel.windows]
-archs = ["AMD64"]

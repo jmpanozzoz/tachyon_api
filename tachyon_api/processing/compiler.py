@@ -14,7 +14,7 @@ from ..utils import TypeUtils
 from .dependencies._sig_cache import get_signature, is_async_callable, prepare_dependency
 
 
-# Parameter kinds — integer constants for O(1) C-level comparison in Cython.
+# Parameter kinds prepared at registration and used by the dispatch loop.
 # (int compare is a single machine instruction vs string hash+compare)
 KIND_REQUEST       = 0
 KIND_BG            = 1

@@ -1,0 +1,7 @@
+Using Python 3.11.18 environment at: /private/tmp/tachyon-release-141-publish/env-cp311
+Resolved 1 package in 0.61ms
+Prepared 1 package in 7ms
+Uninstalled 1 package in 6ms
+Installed 1 package in 2ms
+ - tachyon-api==1.4.1 (from file:///var/folders/pq/mx14w_8j4tz1613dtkp90gvc0000gn/T/tachyon-local-release-82qi8bi8/cp311)
+ + tachyon-api==1.4.1 (from file:///var/folders/pq/mx14w_8j4tz1613dtkp90gvc0000gn/T/tachyon-local-release-82qi8bi8/rebuilt-cp311/tachyon_api-1.4.1-py3-none-any.whl)
