@@ -456,3 +456,20 @@ The root drift report moved into the historical release archive. This document
 contains both the research and staged implementation brief; no root RFC or new
 runtime Rust implementation was added. A future Rust matcher remains subject to
 profiling and the behavioral/distribution criteria in the brief.
+
+
+## Release finalization — 1.4.1
+
+The release validation was rerun after finalizing the versioned README and
+synchronizing main into dev. Its [summary](evidence/1.4.1/summary.json) supersedes
+the candidate artifact hashes above: 40 preparation gates, 856 tests on each of
+CPython 3.10–3.13, 174 contracts for each installed candidate/rebuilt wheel, and
+native-to-portable upgrades on all four interpreters. The release soak verified
+470,496 responses in 60 seconds with zero errors on macOS ARM64. Linux/Windows
+execution and long-duration endurance remain unverified.
+
+The final wheel is 110,530 bytes; the sdist is 148,489 bytes. Publication hashes
+and the release commit are recorded in the assets of the
+[GitHub release](https://github.com/jmpanozzoz/tachyon_api/releases/tag/v1.4.1).
+Historical sections above retain the outcomes and publication state of their own
+snapshots; they are not current release status.

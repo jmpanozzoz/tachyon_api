@@ -1,0 +1,1 @@
+{"requests": 470496, "successful": 470496, "error_count": 0, "seconds": 60.006182124998304, "latency_ms": {"mean": 1.0178087177298023, "max": 62.259583, "p50": 0.902417, "p95": 1.523833, "p99": 2.326042}, "runner_error": null}

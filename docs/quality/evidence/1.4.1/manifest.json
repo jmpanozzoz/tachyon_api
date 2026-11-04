@@ -1,7 +1,7 @@
 {
-  "started": "2026-11-04T19:03:50.182661+00:00",
+  "started": "2026-11-04T19:14:31.786284+00:00",
   "complete": true,
-  "revision": "ce995d7a75434782c3f59303026f15aa523a8e4f",
+  "revision": "c39a74936e055c9bb75edf307fe4208419a8a340",
   "checks": [
     {
       "name": "cp310-venv",
@@ -237,17 +237,17 @@
   "artifacts": [
     {
       "file": "dist/tachyon_api-1.4.1-py3-none-any.whl",
-      "sha256": "228aac7f128a6f4ece439cef396499140af54a9a88e2f28be8bf8722d54f9967",
-      "bytes": 110501
+      "sha256": "88de5d4b4b19426b33fd87afc8f106b7307bf4cb28c82bd9c6801158ca5a4722",
+      "bytes": 110530
     },
     {
       "file": "dist/tachyon_api-1.4.1.tar.gz",
-      "sha256": "a278597815c2126e3483859aa2278927eca9d82a018b4b83eb685c79b5e4e2ef",
-      "bytes": 149108
+      "sha256": "b6055e31e658e7a7ffadf59590e663cbdfbad9369db89eaf85d964825163545f",
+      "bytes": 148489
     }
   ],
   "with_granian": true,
   "platform_limit": "Runtime tested on this host only; portable packaging is not platform execution evidence",
   "version": "1.4.1",
-  "finished": "2026-11-04T19:05:31.935122+00:00"
+  "finished": "2026-11-04T19:16:14.926474+00:00"
 }

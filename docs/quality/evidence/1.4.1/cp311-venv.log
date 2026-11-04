@@ -1,0 +1,3 @@
+Using CPython 3.11.18 interpreter at: /tmp/tachyon-local-release-140/env-cp311/bin/python
+Creating virtual environment at: /private/tmp/tachyon-release-141-publish/env-cp311
+Activate with: source /private/tmp/tachyon-release-141-publish/env-cp311/bin/activate
