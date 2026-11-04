@@ -1,6 +1,6 @@
 # 16. Portable builds and upgrading from Cython
 
-The source tree targets **1.4.1, not yet published**. Tachyon now has one Python
+Starting with **1.4.1**, Tachyon now has one Python
 implementation and produces one `py3-none-any` wheel plus an sdist. Python
 3.10–3.13 remains supported. Building Tachyon itself needs neither Cython nor a
 C/Rust compiler; dependencies such as msgspec, orjson and httptools may still need
@@ -26,8 +26,7 @@ has no effect. Requests keep the Python behavior tested in the previous release.
 
 ## Upgrade from 1.4.0
 
-Use the normal package manager upgrade when 1.4.1 is published, and restart worker
-processes. For editable installations or manually compiled checkouts, prefer a
+Use the normal package manager upgrade to 1.4.1, and restart worker processes. For editable installations or manually compiled checkouts, prefer a
 fresh environment or clean checkout: old `.so`/`.pyd` files can shadow `.py` files.
 Do not delete third-party native dependencies. The verification command above
 rejects stale native modules inside Tachyon itself.

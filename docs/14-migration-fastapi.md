@@ -24,9 +24,8 @@ pip uninstall fastapi pydantic
 # Install Tachyon
 pip install tachyon-api
 
-# 1.4.0 remains the published version with native and portable wheels.
-# The unreleased 1.4.1 source uses one Python implementation and portable builds.
-# [fast] becomes an empty compatibility alias; see docs/16-cython-build.md.
+# 1.4.1 uses one Python implementation and portable builds.
+# [fast] is an empty compatibility alias; see docs/16-cython-build.md.
 ```
 
 ---

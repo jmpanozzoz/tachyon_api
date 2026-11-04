@@ -1,6 +1,6 @@
 # 🚀 Tachyon API
 
-![Version](https://img.shields.io/badge/version-1.4.0-blue.svg)
+![Version](https://img.shields.io/badge/version-1.4.1-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.10--3.13-brightgreen.svg)
 ![License](https://img.shields.io/badge/license-GPL--3.0-orange.svg)
 
@@ -8,11 +8,11 @@
 
 Tachyon API combines decorator-based routing, msgspec validation, and ASGI integration on Starlette. Endpoint metadata is prepared at registration to reduce request-time introspection.
 
-[1.4.0 is published on PyPI](https://pypi.org/project/tachyon-api/1.4.0/): four macOS ARM64 native wheels for CPython 3.10–3.13, one portable Python wheel and one source distribution. The [local release record](docs/audits/1.4.0/LOCAL_RELEASE.md) describes validation on this Mac; it does not establish Linux or Windows validation.
+[1.4.1 on PyPI](https://pypi.org/project/tachyon-api/1.4.1/) provides one portable Python wheel and one source distribution for Python 3.10–3.13. Validation ran locally on macOS ARM64; it does not establish Linux or Windows execution. See [release validation](docs/quality/evidence/1.4.1/summary.json) and the [release notes](https://github.com/jmpanozzoz/tachyon_api/releases/tag/v1.4.1). The [1.4.0 native release record](docs/audits/1.4.0/LOCAL_RELEASE.md) remains historical evidence.
 
 [Source repository](https://github.com/jmpanozzoz/tachyon_api) · [Documentation](docs/README.md).
 
-This checkout prepares **1.4.1 (unreleased)**: a single Python implementation, portable packaging and a corrected orjson minimum. The published 1.4.0 artifacts above remain unchanged.
+**1.4.1 uses a single Python implementation**, portable packaging and a corrected orjson minimum. The deprecated `[fast]` extra remains installable as an empty alias. Published 1.4.0 artifacts remain unchanged.
 
 The [1.4 migration guide](docs/17-migration-1.4.md) describes execution, body limits, resource lifetime, schema support and packaging changes.
 
@@ -41,7 +41,7 @@ def search(q: str = Query(...), limit: int = Query(10)):
 ```
 
 ```bash
-pip install tachyon-api==1.4.0
+pip install tachyon-api==1.4.1
 # Testing helpers: pip install "tachyon-api[test]"
 tachyon run                 # reload on; optional uvloop/httptools detected, served at :8000
 ```
@@ -52,8 +52,8 @@ tachyon run                 # reload on; optional uvloop/httptools detected, ser
 
 ## ⚡ Performance and builds
 
-Tachyon prepares endpoint metadata at registration. Starting with the unreleased
-1.4.1 source, its own package uses one Python implementation and no Cython build.
+Tachyon prepares endpoint metadata at registration. Starting with
+1.4.1, its own package uses one Python implementation and no Cython build.
 The deprecated `[fast]` extra remains accepted as an empty compatibility alias.
 Third-party native libraries retain their own platform requirements.
 
@@ -157,7 +157,7 @@ alternative branches when a static prefix reaches a dead end. Error responses
 are created per call; immutable payload bytes and bounded header tables may be
 shared. Response messages and mutable headers belong to each send.
 
-The hot path uses one Python implementation in the 1.4.1 preparation.
+The hot path uses one Python implementation in 1.4.1.
 The build guide explains upgrades from old native installations and checks for
 residual binaries.
 

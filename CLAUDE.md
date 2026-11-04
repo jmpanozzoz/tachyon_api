@@ -5,7 +5,7 @@
 - Keep commit authorship with the project owner; do not add assistant co-author trailers.
 - Work on a feature/fix/performance branch. Never put in-progress feature work directly on main or dev. Merge features into dev, then releases into main.
 - Update CHANGELOG.md whenever the version changes, using dated Keep a Changelog categories.
-- Maintain one Python implementation. Run `scripts/quality_cycle.py` with a nonempty module inventory; reject stale native binaries. Cython and parity gates were retired in 1.4.1 preparation.
+- Maintain one Python implementation. Run `scripts/quality_cycle.py` with a nonempty module inventory; reject stale native binaries. Cython and parity gates were retired in 1.4.1.
 - Optional development/benchmark tools must not become runtime imports. Keep useful install errors in CLI entry points.
 - Treat this guide as repository policy, and code/tests as the source of actual behavior. User instructions take precedence.
 
@@ -40,7 +40,7 @@ Do not claim a performance win without comparable before/after measurements. Sep
 
 Supported interpreters: Python 3.10–3.13. Run `pytest tests/ example/tests/` with test/example dependencies installed. Verify all package modules load as `.py` inside the intended checkout or installed package. Never allow empty origin checks or residual native binaries.
 
-Build one portable wheel and one sdist without Cython. Rebuild the sdist and test its installed wheel outside the checkout on each available interpreter. Keep the deprecated empty `[fast]` extra for installation compatibility. Do not claim the prepared 1.4.1 is published before index verification. The safe orjson minimum is 3.11.6.
+Build one portable wheel and one sdist without Cython. Rebuild the sdist and test its installed wheel outside the checkout on each available interpreter. Keep the deprecated empty `[fast]` extra for installation compatibility. Verify index hashes before declaring a publication successful. The safe orjson minimum is 3.11.6.
 
 Use [local release checks](docs/quality/local-release.md) when hosted CI is unavailable. Preserve source fingerprints, artifact hashes, installed origins and actual platform/interpreter limits. Historical [1.4.0 evidence](docs/audits/1.4.0/LOCAL_RELEASE.md) describes a different native release; do not rewrite its counts or claim that its configured platforms were exercised.
 

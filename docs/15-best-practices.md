@@ -295,8 +295,8 @@ El CLI detecta uvloop/httptools opcionales; uvloop requiere una plataforma compa
 
 ### ✅ Verify portable installations
 
-La preparación de 1.4.1 conserva una sola implementación Python y publica wheel
-portable y sdist cuando se complete la release. `[fast]` queda como alias vacío
+La versión 1.4.1 conserva una sola implementación Python y distribuye wheel
+portable y sdist. `[fast]` queda como alias vacío
 deprecado. Las dependencias externas conservan sus requisitos nativos. Verificar
 el paquete instalado fuera del checkout y reiniciar workers después de actualizar;
 ver [packaging](16-cython-build.md).
