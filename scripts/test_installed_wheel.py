@@ -13,7 +13,7 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from scripts.package_integrity import module_names  # noqa: E402
+from scripts.package_integrity import module_names, source_hashes  # noqa: E402
 
 
 def main():
@@ -29,6 +29,7 @@ def main():
         (tests / "__init__.py").touch()
         names = ["helpers.py", "test_audit_wheel.py", "test_audit_routing_contract.py", "test_local_release_runtime.py"]
         names += [path.name for path in sorted((ROOT / "tests").glob("test_continuous_*.py"))]
+        names += [path.name for path in sorted((ROOT / "tests").glob("test_operational_*.py"))]
         for name in names:
             shutil.copyfile(ROOT / "tests" / name, tests / name)
         (target / "pytest.ini").write_text("[pytest]\nasyncio_mode = strict\nasyncio_default_fixture_loop_scope = function\n")
@@ -38,10 +39,11 @@ def main():
             "import importlib.util\nfrom pathlib import Path\n"
             "from package_integrity import verify_python_package\n"
             f"MODULES = {json.dumps(modules)}\n"
+            f"HASHES = {json.dumps(source_hashes(ROOT / 'tachyon_api'))}\n"
             "def test_installed_origins():\n"
             "    root = Path(importlib.util.find_spec('tachyon_api').origin).resolve().parent\n"
             f"    assert not root.is_relative_to(Path({str(ROOT)!r})), root\n"
-            "    assert verify_python_package(root, MODULES)\n"
+            "    assert verify_python_package(root, MODULES, HASHES)\n"
         )
         environment = dict(os.environ, PYTHONPATH="")
         return subprocess.run([sys.executable, "-m", "pytest", "-q"], cwd=target, env=environment).returncode

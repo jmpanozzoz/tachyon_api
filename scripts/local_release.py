@@ -60,6 +60,7 @@ def main():
             work = Path(temporary)
             frozen = work / "source"
             subprocess.run(["git", "clone", "--quiet", "--no-checkout", "--no-hardlinks", str(ROOT), str(frozen)], check=True)
+            subprocess.run(["git", "read-tree", "HEAD"], cwd=frozen, check=True)
             shutil.copytree(ROOT, frozen, dirs_exist_ok=True, ignore=IGNORED)
             versions = set()
             for index, interpreter in enumerate(args.python):

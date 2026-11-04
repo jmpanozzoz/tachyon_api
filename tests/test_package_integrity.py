@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from scripts.package_integrity import module_names, verify_python_package
+from scripts.package_integrity import module_names, verify_python_package, source_hashes
 from scripts.check_release_artifacts import metadata, check_wheel
 
 
@@ -37,6 +37,14 @@ def test_installed_inventory_cannot_hide_missing_module(tmp_path):
     root = package(tmp_path)
     with pytest.raises(ValueError, match="differs"):
         verify_python_package(root, ["tachyon_api", "tachyon_api.missing"])
+
+
+def test_same_module_inventory_cannot_hide_a_different_wheel(tmp_path):
+    root = package(tmp_path)
+    hashes = source_hashes(root)
+    (root / "__init__.py").write_text("# stale or altered installed source\n")
+    with pytest.raises(ValueError, match="source hashes differ"):
+        verify_python_package(root, module_names(root), hashes)
 
 
 def test_checkout_import_is_rejected_when_checking_installed_package(tmp_path, monkeypatch):

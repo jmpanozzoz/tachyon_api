@@ -2,8 +2,9 @@
 from __future__ import annotations
 
 import msgspec
+from anyio import CancelScope
 from starlette.concurrency import run_in_threadpool
-from starlette.responses import Response
+from starlette.responses import Response, StreamingResponse
 
 from ..models import Struct
 from ..responses._background import _BackgroundResponse
@@ -11,6 +12,22 @@ from ..responses import TachyonBytesResponse, TachyonJSONResponse, response_vali
 
 
 class ResponseProcessor:
+    @staticmethod
+    async def send_response(response, scope, receive, send):
+        stream = response._response if isinstance(response, _BackgroundResponse) else response
+        if not isinstance(stream, StreamingResponse):
+            await response(scope, receive, send)
+            return
+        try:
+            await response(scope, receive, send)
+        finally:
+            # A failed ASGI 2.4 send can leave an async producer suspended at
+            # yield. Finalize it before request-owned uploads are closed.
+            close = getattr(stream.body_iterator, "aclose", None)
+            if close is not None:
+                with CancelScope(shield=True):
+                    await close()
+
     @staticmethod
     async def process_response(payload, response_model, background_tasks):
         response = ResponseProcessor._build_response(payload, response_model)

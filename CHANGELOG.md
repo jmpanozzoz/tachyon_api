@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.4.2] — Unreleased
+
+### Fixed
+
+- Finalize async streaming response producers on ASGI send failure or cancellation before request-owned files are closed; preserve transport errors without starting another response.
+
+### Validation
+
+- Add operational disconnect/cancellation coverage, Linux validation and load/rest resource measurements. Results and platform limits are recorded with the release evidence.
+
+---
+
 ## [1.4.1] — 2026-11-04
 
 ### Security
