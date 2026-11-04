@@ -87,3 +87,72 @@ contains the later matrix and publication evidence.
 
 This workflow does not certify uptime, security, or ISO
 compliance, and does not establish a quantitative performance SLA.
+
+## 1.4.2 operational candidate — 2026-11-04
+
+The candidate fixes three observed failures: suspended async stream producers on
+transport failure/cancellation; HTTP/1 keepalive reuse after rejecting an unread
+oversized body; and exhaustive ambiguous-route traversal for impossible suffixes.
+Regression reproducers and results are retained in
+[`evidence/1.4.2/`](evidence/1.4.2/). This is preparation evidence, not a publication
+record. The published release remains 1.4.1 until the release procedure completes.
+
+One identical portable wheel and sdist passed 40 release checks on macOS ARM64
+and 40 on Debian 13 ARM64, using Python 3.10–3.13. Each interpreter passed 904
+source/example tests and 207 installed contracts for both the candidate wheel and
+the wheel rebuilt from its sdist. The archives retain dependency versions, source
+fingerprints, logs and artifact hashes. Source validation revision is `d928d27`;
+the subsequent LF checkout policy passed another 904-test macOS run and preserved
+all runtime/build bytes in a checkout with `core.autocrlf=true`.
+
+Real-server contracts cover Uvicorn and Granian, client disconnections, partial
+and slow uploads, producer/file cleanup order, WebSockets and graceful shutdown
+with a request in flight. A Linux Granian oversized-body replay failed 31 of 150
+follow-up requests before the fix and zero of 150 after it. Routing precedence
+also passed 2,000 generated queries against an independent declarative matcher.
+
+The routing rejection avoids expanding alternatives only when a registered
+static suffix proves the request impossible. A deterministic 128-route regression
+reduced dictionary accesses from 256 to two. Wildcard-ending routes disable that
+shortcut. The suffix index adds registration memory; raw measurements distinguish
+this cost from process RSS and from network performance.
+
+The final Linux run validated **26,927,848 requests with zero errors** over
+1,800 active seconds, split into three ten-minute loads and three 30-second
+rests. Runtime SHA-256 matched the current checkout. Open descriptors returned
+to seven after each rest. RSS was 38,506,496 bytes at baseline and 39,550,976,
+39,563,264 and 39,571,456 bytes after the rests. The separately archived macOS
+endurance run used an earlier runtime and is preliminary evidence only.
+
+Installed-wheel A/B measurements used Python 3.13, identical dependency versions,
+and baseline/candidate/candidate/baseline order after stopping the Linux VM.
+All 192,000 timed ASGI responses were validated. The table reports medians across
+six samples per scenario; driver and response-validation work are included.
+
+| ASGI scenario | 1.4.1 (µs/request) | Candidate 1.4.2 (µs/request) |
+| --- | ---: | ---: |
+| Hello | 3.802 | 4.068 |
+| Path/query | 8.563 | 8.835 |
+| Body | 11.654 | 12.058 |
+| Nested body | 12.130 | 12.132 |
+| Response model | 5.925 | 5.914 |
+| Header | 4.917 | 5.048 |
+| Dependency | 11.618 | 11.801 |
+| Query | 10.022 | 9.823 |
+
+These mixed results do not support a general speedup claim. The minimal case
+increased about 7% (0.266 µs); small differences on a shared host are not evidence
+of statistical significance. The installed matcher profile at 10,000 routes
+measured ordinary static hits at 0.571/0.573 µs and adversarial overlapping misses
+at 5.738 ms/0.552 µs (baseline/candidate). Retained Python allocations during
+registration increased from 14,564,056 to 15,088,576 bytes, about 3.6%.
+This is a bounded worst-case improvement with an explicit memory cost, not an
+HTTP throughput multiplier. No new FastAPI network comparison was run here.
+
+The machine-readable [summary](evidence/1.4.2/summary.json), matrix and compressed
+logs/reports preserve artifacts, versions, raw timing samples and methodology.
+
+Windows execution, Linux x86-64, multi-worker endurance and multi-hour production
+traffic remain untested. The Linux VM had two ARM64 CPUs and 2 GiB RAM with no
+host directory mounts. Local loopback load on this shared host establishes the
+selected contracts, not a capacity estimate or an absence-of-leaks guarantee.

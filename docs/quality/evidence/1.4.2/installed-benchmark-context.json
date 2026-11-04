@@ -1,0 +1,12 @@
+{
+  "baseline": {
+    "wheel": "tachyon_api-1.4.1-py3-none-any.whl",
+    "sha256": "88de5d4b4b19426b33fd87afc8f106b7307bf4cb28c82bd9c6801158ca5a4722",
+    "executable": "/tmp/tachyon-142-asgi-baseline/bin/python"
+  },
+  "candidate": {
+    "wheel": "tachyon_api-1.4.2-py3-none-any.whl",
+    "sha256": "efc37b4eee56fd47fcf81c57a8cfbdf41c8b27d14296d0e74b77e98281ba676d",
+    "executable": "/tmp/tachyon-142-asgi-candidate/bin/python"
+  }
+}

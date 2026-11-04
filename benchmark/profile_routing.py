@@ -1,6 +1,8 @@
 """Route-count scaling of the actual Python matcher; not HTTP throughput."""
 import argparse
 import gc
+import hashlib
+import importlib.metadata
 import json
 import math
 from pathlib import Path
@@ -12,6 +14,7 @@ import time
 import tracemalloc
 
 from tachyon_api.routing.trie import RadixTrie
+import tachyon_api.routing.trie as router_module
 
 
 def build(count):
@@ -63,6 +66,9 @@ def main():
     if min(args.counts) < 10 or min(args.repeats, args.batches) < 1:
         parser.error("Use at least ten routes and positive repeats/batches")
     report = {"python": sys.version, "platform": platform.platform(), "measurements": [],
+        "framework_version": importlib.metadata.version("tachyon-api"),
+        "router_origin": router_module.__file__,
+        "router_sha256": hashlib.sha256(Path(router_module.__file__).read_bytes()).hexdigest(),
         "methodology": "Single-threaded matcher microbenchmark, six prevalidated 256-entry deterministic corpora plus a bounded adversarial overlapping miss. GC remains enabled. Timed calls are not revalidated. Includes iteration/unpacking overhead, excludes ASGI/server/validation/DI. Allocation bytes are tracemalloc Python allocations, not RSS. Not production capacity or Rust speed predictions."}
     for count in args.counts:
         gc.collect()
