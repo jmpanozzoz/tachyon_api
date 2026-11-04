@@ -43,7 +43,7 @@ class TestVerificationEndpoints:
 
     def test_start_verification(self, client, auth_headers):
         """Should start a new verification."""
-        app.dependency_overrides[CustomersRepository] = MockCustomersRepository
+        app.dependency_overrides[CustomersRepository] = MockCustomersRepository()
 
         response = client.post(
             "/verification/start",
@@ -63,7 +63,7 @@ class TestVerificationEndpoints:
 
     def test_start_enhanced_verification(self, client, auth_headers):
         """Should start enhanced verification with more checks."""
-        app.dependency_overrides[CustomersRepository] = MockCustomersRepository
+        app.dependency_overrides[CustomersRepository] = MockCustomersRepository()
 
         response = client.post(
             "/verification/start",
@@ -80,7 +80,7 @@ class TestVerificationEndpoints:
 
     def test_start_verification_invalid_customer(self, client, auth_headers):
         """Should reject verification for non-existent customer."""
-        app.dependency_overrides[CustomersRepository] = MockCustomersRepository
+        app.dependency_overrides[CustomersRepository] = MockCustomersRepository()
 
         response = client.post(
             "/verification/start",
@@ -95,7 +95,7 @@ class TestVerificationEndpoints:
 
     def test_get_verification(self, client, auth_headers):
         """Should get verification status."""
-        app.dependency_overrides[CustomersRepository] = MockCustomersRepository
+        app.dependency_overrides[CustomersRepository] = MockCustomersRepository()
 
         # First create a verification
         create_response = client.post(

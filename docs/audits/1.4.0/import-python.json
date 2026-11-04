@@ -1,0 +1,17 @@
+{
+  "python": "3.13.18",
+  "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+  "import_ms_with_tracemalloc": 575.5754580022767,
+  "traced_current_bytes_after_import": 28133797,
+  "traced_peak_bytes_after_import": 28207229,
+  "uvicorn_imported": true,
+  "header_cache_shallow_bytes": 5243056,
+  "largest_allocation_sources": [
+    "/Users/juanmanuelpanozzozenere/Projects/personal/tachyon_api/tachyon_api/responses/_caches.py:0: size=14.8 MiB, count=261632, average=60 B",
+    "<frozen importlib._bootstrap_external>:0: size=6854 KiB, count=59554, average=118 B",
+    "<frozen importlib._bootstrap>:0: size=1075 KiB, count=10532, average=105 B",
+    "/Users/juanmanuelpanozzozenere/.local/share/uv/python/cpython-3.13.18-macos-aarch64-none/lib/python3.13/typing.py:0: size=410 KiB, count=2832, average=148 B",
+    "/Users/juanmanuelpanozzozenere/.local/share/uv/python/cpython-3.13.18-macos-aarch64-none/lib/python3.13/enum.py:0: size=284 KiB, count=1607, average=181 B",
+    "<frozen abc>:0: size=255 KiB, count=1221, average=214 B"
+  ]
+}

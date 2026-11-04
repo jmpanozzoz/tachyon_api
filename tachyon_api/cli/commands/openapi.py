@@ -4,42 +4,12 @@ tachyon openapi - OpenAPI schema utilities
 
 import typer
 import json
-import importlib
 from pathlib import Path
 from typing import Optional
 
+from ..utils import load_app as _load_app
+
 app = typer.Typer(no_args_is_help=True)
-
-
-def _load_app(app_path: str):
-    """
-    Load a Tachyon app from module:attribute format.
-
-    Example: "app:app" or "main:application"
-    """
-    try:
-        module_path, attr_name = app_path.split(":")
-    except ValueError:
-        typer.secho(
-            "❌ Invalid app path format. Use 'module:attribute' (e.g., 'app:app')",
-            fg=typer.colors.RED,
-        )
-        raise typer.Exit(1)
-
-    try:
-        module = importlib.import_module(module_path)
-        app_instance = getattr(module, attr_name)
-        return app_instance
-    except ModuleNotFoundError as e:
-        typer.secho(f"❌ Module not found: {module_path}", fg=typer.colors.RED)
-        typer.secho(f"   Error: {e}", fg=typer.colors.YELLOW)
-        raise typer.Exit(1)
-    except AttributeError:
-        typer.secho(
-            f"❌ Attribute '{attr_name}' not found in module '{module_path}'",
-            fg=typer.colors.RED,
-        )
-        raise typer.Exit(1)
 
 
 @app.command()
@@ -60,11 +30,6 @@ def export(
         tachyon openapi export app:app -o openapi.json
         tachyon openapi export app:app | jq .
     """
-    # Add current directory to path for imports
-    import sys
-
-    sys.path.insert(0, str(Path.cwd()))
-
     typer.echo(f"📄 Loading app from: {app_path}", err=True)
 
     app_instance = _load_app(app_path)
@@ -94,7 +59,7 @@ def validate(
     schema_path: Path = typer.Argument(..., help="Path to OpenAPI schema file"),
 ):
     """
-    ✅ Validate an OpenAPI schema file.
+    ✅ Check basic OpenAPI structure (not full specification validation).
 
     Example:
         tachyon openapi validate openapi.json
@@ -107,7 +72,11 @@ def validate(
         content = schema_path.read_text()
         schema = json.loads(content)
 
-        # Basic validation
+        if not isinstance(schema, dict):
+            typer.secho(
+                "❌ Invalid schema: root must be an object", fg=typer.colors.RED
+            )
+            raise typer.Exit(1)
         required_fields = ["openapi", "info", "paths"]
         missing = [f for f in required_fields if f not in schema]
 
@@ -118,7 +87,30 @@ def validate(
             )
             raise typer.Exit(1)
 
-        typer.secho("✅ Schema is valid!", fg=typer.colors.GREEN)
+        info = schema["info"]
+        if (
+            not isinstance(schema["openapi"], str)
+            or not schema["openapi"].startswith("3.")
+            or not isinstance(info, dict)
+            or not isinstance(info.get("title"), str)
+            or not isinstance(info.get("version"), str)
+            or not isinstance(schema["paths"], dict)
+            or any(
+                not isinstance(path, str)
+                or not path.startswith("/")
+                or not isinstance(item, dict)
+                for path, item in schema["paths"].items()
+            )
+        ):
+            typer.secho(
+                "❌ Invalid schema: incorrect basic field types or values",
+                fg=typer.colors.RED,
+            )
+            raise typer.Exit(1)
+        typer.secho(
+            "✅ Basic structure check passed (not full OpenAPI validation).",
+            fg=typer.colors.GREEN,
+        )
         typer.echo(f"   OpenAPI version: {schema.get('openapi')}")
         typer.echo(f"   Title: {schema.get('info', {}).get('title')}")
         typer.echo(f"   Paths: {len(schema.get('paths', {}))}")

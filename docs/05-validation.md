@@ -23,7 +23,7 @@ class User(Struct):
 - ✅ Validación automática de tipos
 - ✅ Serialización JSON incluida
 - ✅ Defaults y Optional support
-- ✅ Inmutable por defecto
+- ✅ Mutable por defecto; usar `class User(Struct, frozen=True)` para impedir asignación de campos
 
 ---
 
@@ -67,7 +67,7 @@ class Product(Struct):
     warehouse: Optional[Address] = None
     
     # Datetime
-    created_at: datetime = None
+    created_at: Optional[datetime] = None
     
     # Union types
     discount: Union[int, float, None] = None
@@ -197,10 +197,10 @@ Response:
 
 ## 🛡️ Custom Validation
 
-Para validaciones custom, hazlo en el service:
+Las restricciones de campos pueden expresarse con `typing.Annotated` y `msgspec.Meta`; `__post_init__` permite invariantes del modelo. La lógica de negocio y acceso a datos pertenecen al service. El constructor normal de Struct no valida tipos; la decodificación y conversión sí.
 
 ```python
-from tachyon_api import Struct, HTTPException
+from tachyon_api import Struct, HTTPException, injectable
 
 class UserCreate(Struct):
     email: str
@@ -225,10 +225,10 @@ class UserService:
 
 | Feature | Tachyon (msgspec) | FastAPI (pydantic) |
 |---------|------------------|-------------------|
-| Performance | ⚡⚡⚡ Ultra-fast | ⚡ Fast |
-| Validators | Manual en service | Decorators |
+| Performance | Medir workloads equivalentes | Medir workloads equivalentes |
+| Validators | `Meta`/`Annotated`, `__post_init__`, lógica de negocio en service | Decorators y restricciones |
 | JSON encoding | Built-in + orjson | JSON encoder |
-| Memory | Muy bajo | Moderado |
+| Memory | Depende del modelo y workload | Depende del modelo y workload |
 | Syntax | Simple | Feature-rich |
 
 ---
@@ -237,3 +237,5 @@ class UserService:
 
 - [Security](./06-security.md) - Autenticación
 - [Parameters](./04-parameters.md) - Tipos de parámetros
+
+Los defaults mutables vacíos (`[]`, `{}`) de msgspec se crean por instancia: no son el default compartido de una función Python. Para otros defaults dinámicos usar `msgspec.field(default_factory=...)`.

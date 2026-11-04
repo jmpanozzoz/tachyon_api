@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import inspect
 from typing import Any, Callable, List, Optional
 
@@ -12,6 +11,7 @@ from ..params import Body, Query, Path, Header, Cookie, Form, File
 from ..background import BackgroundTasks
 from ..di import Depends, _registry
 from ..utils import TypeUtils
+from .dependencies._sig_cache import get_signature, is_async_callable, prepare_dependency
 
 
 # Parameter kinds — integer constants for O(1) C-level comparison in Cython.
@@ -80,36 +80,28 @@ class ParamDescriptor:
 class CompiledEndpoint:
     __slots__ = (
         "func", "is_async", "params", "has_params", "has_callable_deps",
-        "param_count",
+        "param_count", "keyword_names",
     )
 
-    def __init__(self, func: Callable, is_async: bool, params: List[ParamDescriptor]):
+    def __init__(self, func: Callable, is_async: bool, params: List[ParamDescriptor], keyword_names: Any = None):
+        self.keyword_names = keyword_names
         self.func = func
         self.is_async = is_async
         self.params = params
         # Pre-computed flags — zero cost at request time
         self.has_params = bool(params)
-        from ..di import _scopes, SCOPE_SINGLETON
+        # Nested factories and overrides share the same request cache.
         self.has_callable_deps = any(
-            p.kind == KIND_DEP_CALLABLE
-            or (p.kind == KIND_DEP_CLASS and _scopes.get(p.annotation, SCOPE_SINGLETON) != SCOPE_SINGLETON)
-            for p in params
+            p.kind in (KIND_DEP_CALLABLE, KIND_DEP_CLASS) for p in params
         )
         # Pre-computed length — used to pre-allocate the args list in process_parameters
         self.param_count = len(params)
 
 
-# Global cache: func → CompiledEndpoint (populated once per registered endpoint)
-_COMPILED: dict[Callable, CompiledEndpoint] = {}
-
-
 def compile_endpoint(func: Callable, path: str) -> CompiledEndpoint:
     """Analyse endpoint signature once and return a CompiledEndpoint descriptor."""
-    if func in _COMPILED:
-        return _COMPILED[func]
-
-    is_async = asyncio.iscoroutinefunction(func)
-    sig = inspect.signature(func)
+    is_async = is_async_callable(func)
+    sig = get_signature(func)
     params: List[ParamDescriptor] = []
 
     for param in sig.parameters.values():
@@ -130,11 +122,12 @@ def compile_endpoint(func: Callable, path: str) -> CompiledEndpoint:
         # 3. Explicit callable dependency: Depends(some_callable)
         if isinstance(default, Depends) and default.dependency is not None:
             dep_fn = default.dependency
+            prepare_dependency(dep_fn)
             params.append(ParamDescriptor(
                 name=param.name,
                 kind=KIND_DEP_CALLABLE,
                 dependency=dep_fn,
-                dep_is_async=asyncio.iscoroutinefunction(dep_fn),
+                dep_is_async=is_async_callable(dep_fn),
             ))
             continue
 
@@ -142,6 +135,7 @@ def compile_endpoint(func: Callable, path: str) -> CompiledEndpoint:
         is_implicit = (default is inspect.Parameter.empty and ann in _registry)
         is_explicit_class = isinstance(default, Depends) and default.dependency is None
         if is_implicit or is_explicit_class:
+            prepare_dependency(ann)
             params.append(ParamDescriptor(
                 name=param.name,
                 kind=KIND_DEP_CLASS,
@@ -172,12 +166,20 @@ def compile_endpoint(func: Callable, path: str) -> CompiledEndpoint:
             ))
             continue
 
-    compiled = CompiledEndpoint(func=func, is_async=is_async, params=params)
-    _COMPILED[func] = compiled
+    positional = [p.name for p in sig.parameters.values()
+                  if p.kind in (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD)]
+    names = [p.name for p in params]
+    keyword_names = None if names == positional[:len(names)] else tuple(names)
+    if keyword_names and any(sig.parameters[name].kind == inspect.Parameter.POSITIONAL_ONLY for name in names):
+        raise TypeError("Injected positional-only parameters cannot follow omitted defaults")
+    compiled = CompiledEndpoint(func=func, is_async=is_async, params=params, keyword_names=keyword_names)
     return compiled
 
 
 def _build_typed_descriptor(name: str, kind: int, ann: Any, marker: Any) -> ParamDescriptor:
+    if kind == KIND_FILE:
+        from ..files import validate_file_parameter
+        validate_file_parameter(ann, marker.default)
     base_type, _ = TypeUtils.unwrap_optional(ann)
     is_list, raw_item_type = TypeUtils.is_list_type(base_type)
     # Unwrap Optional from item type too (e.g. List[Optional[int]] → item=int, item_is_opt=True)
@@ -194,15 +196,8 @@ def _build_typed_descriptor(name: str, kind: int, ann: Any, marker: Any) -> Para
 
     decoder = None
     if kind == KIND_BODY:
-        # msgspec supports Struct, List[Struct], Tuple[...], Optional[Struct],
-        # dict, primitives, etc.  We delegate the "is this decodable" decision
-        # to msgspec by trying to build a decoder — if the type is genuinely
-        # unsupported, msgspec raises and we leave decoder=None so the body
-        # extractor returns a 422 at request time.
-        try:
-            decoder = msgspec.json.Decoder(ann)
-        except Exception:
-            decoder = None
+        # Reject unsupported body annotations during registration.
+        decoder = msgspec.json.Decoder(ann)
 
     return ParamDescriptor(
         name=name,

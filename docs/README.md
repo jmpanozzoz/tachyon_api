@@ -37,13 +37,13 @@
 | Feature | Tachyon | FastAPI |
 |---------|---------|---------|
 | **Serialization** | msgspec + orjson | pydantic |
-| **Performance** | ⚡ ~5.6x throughput on the published benchmarks | Fast |
-| **Routing** | Radix trie O(k), Cython-compiled | Regex scan O(N) |
-| **Bundle Size** | 7 runtime deps (starlette, msgspec, orjson, uvicorn, httptools, typer, python-multipart) | ~15 deps |
-| **DI scopes** | 3 (singleton / request / transient) | 1 |
+| **Performance** | Workload dependent; see [benchmark method](../benchmark/README.md) | Fast |
+| **Routing** | Radix trie with static priority and dead-end fallback; optional Cython | Regex scan O(N) |
+| **Bundle Size** | See runtime dependencies in `pyproject.toml` | ~15 deps |
+| **DI scopes** | singleton / request / transient | Callable dependency caching |
 | **Learning Curve** | Easy (FastAPI-like decorators) | Easy |
-| **Type Safety** | Full (msgspec Struct) | Full (Pydantic) |
-| **OpenAPI** | Automatic (incl. `List[Struct]`, multipart) | Automatic |
+| **Type Safety** | msgspec decode/convert validates; constructors do not | Pydantic model validation |
+| **OpenAPI** | Explicit OpenAPI 3.0 subset; see [limits](17-migration-1.4.md) | Automatic |
 
 ## 📦 Installation
 
@@ -81,8 +81,10 @@ Visit: http://localhost:8000/docs
 
 ## 📖 Version
 
-Current: **1.3.x** — see [CHANGELOG](../CHANGELOG.md) for full history.
+Current development version: **1.4.0 (unreleased; validation and hosted CI pending)** — see [CHANGELOG](../CHANGELOG.md) for full history.
 
 ## 📄 License
 
 GPL-3.0-or-later
+
+- [Migrating to 1.4](17-migration-1.4.md) — execution, resources and compatibility changes.

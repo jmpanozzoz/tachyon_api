@@ -1,55 +1,46 @@
-"""Endpoint response processing: validation, serialization, background tasks."""
-
+"""Endpoint invocation and response construction, without mutating user values."""
 from __future__ import annotations
 
 import msgspec
-from typing import Any, Optional, Type
+from starlette.concurrency import run_in_threadpool
+from starlette.responses import Response
 
-from starlette.responses import Response  # kept for isinstance check on user-returned responses
-
-from ..background import BackgroundTasks
 from ..models import Struct
-from ..responses import TachyonJSONResponse, TachyonBytesResponse, response_validation_error_response
-from .compiler import CompiledEndpoint
+from ..responses._background import _BackgroundResponse
+from ..responses import TachyonBytesResponse, TachyonJSONResponse, response_validation_error_response
 
 
 class ResponseProcessor:
     @staticmethod
-    async def process_response(
-        payload: Any,
-        response_model: Optional[Type[Struct]],
-        background_tasks: Optional[BackgroundTasks],
-    ) -> Response:
-        if background_tasks is not None:
-            await background_tasks.run_tasks()
+    async def process_response(payload, response_model, background_tasks):
+        response = ResponseProcessor._build_response(payload, response_model)
+        if background_tasks:
+            return _BackgroundResponse(response, background_tasks)
+        return response
 
+    @staticmethod
+    def _build_response(payload, response_model):
         if isinstance(payload, Response):
             return payload
-
-        if response_model is not None and type(payload) is not response_model:
+        if response_model is not None:
             try:
-                payload = msgspec.convert(payload, response_model)
-            except Exception as e:
-                return response_validation_error_response(str(e))
-
-        # Fast path: Struct → msgspec.json.encode (pure C) + minimal response wrapper
+                # Validate the actual JSON representation, including constructed
+                # Structs, nested mutations and non-finite numeric values.
+                payload = msgspec.json.decode(msgspec.json.encode(payload), type=response_model)
+            except (msgspec.ValidationError, TypeError, ValueError) as exc:
+                return response_validation_error_response(str(exc))
+            return TachyonBytesResponse(msgspec.json.encode(payload))
         if isinstance(payload, Struct):
             return TachyonBytesResponse(msgspec.json.encode(payload))
-
-        if isinstance(payload, dict):
-            for key, value in payload.items():
-                if isinstance(value, Struct):
-                    payload[key] = msgspec.to_builtins(value)
-
         return TachyonJSONResponse(payload)
 
     @staticmethod
-    async def call_endpoint(compiled: CompiledEndpoint, args: list) -> Any:
-        """Invoke endpoint using pre-computed is_async flag — no runtime check.
-
-        args is a positional list built by process_parameters in signature order.
-        Calling func(*args) avoids the **kwargs dict-unpacking overhead.
-        """
+    async def call_endpoint(compiled, args):
+        if compiled.keyword_names is not None:
+            kwargs = dict(zip(compiled.keyword_names, args))
+            if compiled.is_async:
+                return await compiled.func(**kwargs)
+            return await run_in_threadpool(compiled.func, **kwargs)
         if compiled.is_async:
             return await compiled.func(*args)
-        return compiled.func(*args)
+        return await run_in_threadpool(compiled.func, *args)

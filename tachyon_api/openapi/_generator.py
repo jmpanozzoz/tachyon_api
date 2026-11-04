@@ -37,7 +37,13 @@ class OpenAPIGenerator:
     def add_schema(self, name: str, schema_data: Dict[str, Any]) -> None:
         if self._openapi_schema is None:
             self._openapi_schema = self.config.to_openapi_dict()
-        self._openapi_schema["components"]["schemas"][name] = schema_data
+        schemas = self._openapi_schema["components"]["schemas"]
+        if name in schemas and schemas[name] != schema_data:
+            raise ValueError(
+                f"Conflicting OpenAPI component schema {name!r}; "
+                "use distinct model names for models with different schemas"
+            )
+        schemas[name] = schema_data
 
     def generate_route(
         self, path: str, method: str, endpoint_func: Callable, **kwargs: Any

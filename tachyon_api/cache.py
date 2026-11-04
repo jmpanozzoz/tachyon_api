@@ -7,7 +7,7 @@ This module provides:
 - cache decorator usable on any sync/async function (including routes)
 
 Design notes:
-- Key builder defaults to a stable representation of function + args/kwargs
+- Default keys include a per-decoration namespace plus function and arguments
 - Unless predicate allows opt-out per-call
 - TTL can be provided per-decorator or falls back to global default
 """
@@ -16,8 +16,14 @@ from __future__ import annotations
 
 import logging
 import time
-import asyncio
+import inspect
 import hashlib
+import math
+from uuid import uuid4
+
+from starlette.concurrency import run_in_threadpool
+from collections import OrderedDict
+from threading import RLock
 from dataclasses import dataclass
 from functools import wraps
 from typing import Any, Callable, Optional, Tuple
@@ -26,7 +32,12 @@ logger = logging.getLogger(__name__)
 
 
 class BaseCacheBackend:
-    """Minimal cache backend interface."""
+    """Synchronous cache backend interface; None means a cache miss.
+
+    External implementations must support concurrent worker-thread calls. Async
+    decorated functions offload backend I/O to Starlette's shared thread pool;
+    coroutine-based clients are not supported by this synchronous interface.
+    """
 
     def get(self, key: str) -> Any:  # pragma: no cover - interface
         raise NotImplementedError
@@ -44,37 +55,51 @@ class BaseCacheBackend:
 
 
 class InMemoryCacheBackend(BaseCacheBackend):
-    """Simple in-memory cache with TTL using wall-clock time."""
+    """Thread-safe, bounded LRU cache with monotonic TTL expiration.
 
-    def __init__(self) -> None:
-        self._store: dict[str, Tuple[float | None, Any]] = {}
+    Expired entries are removed on access or evicted under capacity pressure.
+    Each write updates the LRU in constant time without scanning the cache.
+    Non-positive TTLs retain the historical meaning of no expiration.
+    """
+
+    def __init__(self, max_entries: int = 1024) -> None:
+        if not isinstance(max_entries, int) or max_entries <= 0:
+            raise ValueError("max_entries must be a positive integer")
+        self.max_entries = max_entries
+        self._store: OrderedDict[str, Tuple[float | None, Any]] = OrderedDict()
+        self._lock = RLock()
 
     def _is_expired(self, expires_at: float | None) -> bool:
-        return expires_at is not None and time.time() >= expires_at
+        return expires_at is not None and time.monotonic() >= expires_at
 
     def get(self, key: str) -> Any:
-        item = self._store.get(key)
-        if not item:
-            return None
-        expires_at, value = item
-        if self._is_expired(expires_at):
-            # Lazy expiration
-            try:
+        with self._lock:
+            item = self._store.get(key)
+            if item is None:
+                return None
+            expires_at, value = item
+            if self._is_expired(expires_at):
                 del self._store[key]
-            except KeyError:
-                pass
-            return None
-        return value
+                return None
+            self._store.move_to_end(key)
+            return value
 
     def set(self, key: str, value: Any, ttl: Optional[float] = None) -> None:
-        expires_at = time.time() + ttl if ttl and ttl > 0 else None
-        self._store[key] = (expires_at, value)
+        with self._lock:
+            now = time.monotonic()
+            expires_at = now + ttl if ttl is not None and ttl > 0 else None
+            self._store[key] = (expires_at, value)
+            self._store.move_to_end(key)
+            while len(self._store) > self.max_entries:
+                self._store.popitem(last=False)
 
     def delete(self, key: str) -> None:
-        self._store.pop(key, None)
+        with self._lock:
+            self._store.pop(key, None)
 
     def clear(self) -> None:
-        self._store.clear()
+        with self._lock:
+            self._store.clear()
 
 
 @dataclass
@@ -110,7 +135,7 @@ def create_cache_config(
     """
     global _cache_config
     cfg = CacheConfig(
-        backend=backend or InMemoryCacheBackend(),
+        backend=backend if backend is not None else InMemoryCacheBackend(),
         default_ttl=default_ttl,
         key_builder=key_builder,
         enabled=enabled,
@@ -139,35 +164,58 @@ def cache(
     key_builder: Optional[Callable[[Callable, tuple, dict], str]] = None,
     unless: Optional[Callable[[tuple, dict], bool]] = None,
     backend: Optional[BaseCacheBackend] = None,
+    config: Optional[CacheConfig] = None,
 ):
     """Cache decorator with TTL and pluggable backend.
 
     Args:
         TTL: Time-to-live in seconds for this decorator instance. Falls back to config.default_ttl.
-        key_builder: Optional custom function to build cache keys.
+        key_builder: Optional custom function to build cache keys. Defaults use
+            a random namespace per decoration; provide a stable builder to share
+            entries across processes, restarts or distinct decorated functions.
         unless: Predicate receiving (args, kwargs). If returns True, skip cache for that call.
         backend: Optional backend override for this decorator.
+        config: Explicit config for isolated apps. Otherwise the global config is
+            captured at decoration time; replacing the global does not rebind it.
     """
 
     def decorator(func: Callable):
-        cfg = get_cache_config()
-        be = backend or cfg.backend
+        cfg = config if config is not None else get_cache_config()
+        be = backend if backend is not None else cfg.backend
         ttl_value = cfg.default_ttl if TTL is None else TTL
-        kb = key_builder or cfg.key_builder or _default_key_builder
+        kb = key_builder or cfg.key_builder
+        if kb is None:
+            namespace = uuid4().hex
 
-        if asyncio.iscoroutinefunction(func):
+            def kb(function, args, kwargs):
+                return namespace + ":" + _default_key_builder(function, args, kwargs)
+
+        if any(inspect.iscoroutinefunction(method) for method in (be.get, be.set)):
+            raise TypeError("Cache backends require synchronous get/set methods")
+        # Only the known bounded implementation can safely run inline. A subclass
+        # may override these methods with blocking I/O, so it is offloaded too.
+        inline_backend = type(be) is InMemoryCacheBackend
+
+        if inspect.iscoroutinefunction(func):
 
             @wraps(func)
             async def async_wrapper(*args, **kwargs):
                 if not cfg.enabled or (unless and unless(args, kwargs)):
                     return await func(*args, **kwargs)
                 key = kb(func, args, kwargs)
-                cached = be.get(key)
+                try:
+                    cached = be.get(key) if inline_backend else await run_in_threadpool(be.get, key)
+                except Exception as exc:
+                    logger.warning("Cache get failed for key %r: %s", key, exc)
+                    cached = None
                 if cached is not None:
                     return cached
                 result = await func(*args, **kwargs)
                 try:
-                    be.set(key, result, ttl_value)
+                    if inline_backend:
+                        be.set(key, result, ttl_value)
+                    else:
+                        await run_in_threadpool(be.set, key, result, ttl_value)
                 except Exception as exc:
                     logger.warning("Cache set failed for key %r: %s", key, exc)
                 return result
@@ -180,7 +228,11 @@ def cache(
                 if not cfg.enabled or (unless and unless(args, kwargs)):
                     return func(*args, **kwargs)
                 key = kb(func, args, kwargs)
-                cached = be.get(key)
+                try:
+                    cached = be.get(key)
+                except Exception as exc:
+                    logger.warning("Cache get failed for key %r: %s", key, exc)
+                    cached = None
                 if cached is not None:
                     return cached
                 result = func(*args, **kwargs)
@@ -219,26 +271,23 @@ class RedisCacheBackend(BaseCacheBackend):
         # Use ex (expire seconds) if available
         kwargs = {}
         if ttl and ttl > 0:
-            kwargs["ex"] = int(ttl)
+            kwargs["ex"] = math.ceil(ttl)
         # Best effort set
         self.client.set(key, value, **kwargs)
 
     def delete(self, key: str) -> None:
         try:
             self.client.delete(key)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("Cache operation failed: %s", exc)
 
     def clear(self) -> None:
         # flushdb() clears the current Redis database only (not all databases).
         # Use with care in shared Redis instances.
         try:
             self.client.flushdb()
-        except Exception:
-            try:
-                self.client.flushall()
-            except Exception:
-                pass
+        except Exception as exc:
+            logger.warning("Redis cache clear failed: %s", exc)
 
 
 class MemcachedCacheBackend(BaseCacheBackend):
@@ -254,7 +303,10 @@ class MemcachedCacheBackend(BaseCacheBackend):
         return self.client.get(key)
 
     def set(self, key: str, value: Any, ttl: Optional[float] = None) -> None:
-        expire = int(ttl) if ttl and ttl > 0 else 0
+        expire = math.ceil(ttl) if ttl and ttl > 0 else 0
+        # Memcached interprets values above 30 days as absolute Unix time.
+        if expire > 30 * 24 * 60 * 60:
+            expire = math.ceil(time.time() + ttl)
         try:
             # pymemcache: set(key, value, expire=...)
             self.client.set(key, value, expire=expire)
@@ -265,11 +317,11 @@ class MemcachedCacheBackend(BaseCacheBackend):
     def delete(self, key: str) -> None:
         try:
             self.client.delete(key)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("Cache operation failed: %s", exc)
 
     def clear(self) -> None:
         try:
             self.client.flush_all()
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("Cache operation failed: %s", exc)

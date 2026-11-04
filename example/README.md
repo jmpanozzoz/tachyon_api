@@ -1,10 +1,9 @@
 # 🏦 KYC Demo API
 
-> A compact example demonstrating Tachyon's core features — fully exercised by its test suite
+> A compact example demonstrating selected Tachyon features
 
 This example implements a **Know Your Customer (KYC)** verification system on
-top of Tachyon so users coming from FastAPI can map idioms 1:1. Every endpoint
-in the demo is covered by `tests/`.
+top of Tachyon. Tests exercise authentication, customers, verification, async HTTP helpers, notification WebSockets and lifespan startup/shutdown; they do not establish exhaustive endpoint coverage.
 
 ## ✨ Features Demonstrated
 
@@ -69,11 +68,8 @@ example/
 ## 🚀 Quick Start
 
 ```bash
-# Install dependencies
-pip install -r requirements.txt
-
-# Optional: install Cython extensions for extra speed
-pip install tachyon-api[fast]
+# From the repository root (the directory containing example/)
+pip install -r example/requirements.txt
 
 # Run the server (from project root)
 uvicorn example.app:app --reload --loop uvloop
@@ -149,8 +145,8 @@ Environment variables:
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `ENVIRONMENT` | `development` | Environment name |
-| `DEBUG` | `true` | Enable debug mode |
-| `SECRET_KEY` | (generated) | JWT signing key |
+| `DEBUG` | `true` in development, `false` otherwise | Enable debug mode |
+| `SECRET_KEY` | Random ephemeral key only in development/test | JWT signing key; required in production |
 
 ## 📝 Notes
 
@@ -168,3 +164,5 @@ Environment variables:
 - [Background Tasks](../docs/09-background-tasks.md)
 - [WebSockets](../docs/10-websockets.md)
 - [Testing](../docs/11-testing.md)
+
+Production (`ENVIRONMENT=production` or any environment other than development/test) requires a SECRET_KEY of at least 32 characters and rejects known demo placeholders. Development/test generate a random key per Settings instance if missing; restarting invalidates existing tokens. Set an explicit key for stable tokens across workers/restarts. This remains an in-memory demo, not a production KYC service.

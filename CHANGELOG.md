@@ -7,6 +7,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.4.0] — 2026-11-04
+
+### Security
+
+- Execute accumulated router, include-router and route guards with the same request dependency cache; reject untyped route guards instead of silently ignoring them.
+- Enforce total request body limits while receiving JSON, forms, files and injected Request reads, including exception handlers.
+- Remove the direct HTTP transport writer that bypassed response middleware and lost headers/HEAD semantics.
+- Isolate error response messages and headers across requests and applications; Redis clear never escalates to flushall.
+- Preserve user instruction files when installing assistant context through managed sections.
+
+### Fixed
+
+- Respect mounted ASGI root paths and inherited mount parameters; isolate request-specific OpenAPI server/schema URLs.
+- Reject unsupported WebSocket endpoint markers at registration.
+
+- Reject singleton capture of request lifetimes; resolve Header/Query factory markers through prepared parameter plans.
+- Normalize real multipart uploads, validate scalar/list file inputs, and reject file parts in text form fields.
+- Revalidate existing and nested response-model instances and serialize all supported schema types consistently.
+- Isolate decorated cache closures, fail open on backend read/write errors, and offload external cache I/O from async handlers.
+
+- Preserve keyword-only/default argument binding, resolve postponed annotations at registration and align Python 3.10 default-None annotations with newer interpreters.
+- Share one request body cache, finalize uploads after responses/background tasks, and close incomplete multipart resources.
+- Fix Unicode routing, per-method wildcard names and static dead-end fallback in Python and Cython; use Python numeric conversion semantics without C integer truncation.
+- Bind WebSocket dependencies explicitly; preserve scopes, class defaults, concurrent singleton construction and overrides after cache warmup.
+- Run background tasks after transmission without retaining prior-request tasks on reused responses; log unhandled errors without sending a second response after transmission failures.
+- Generate OpenAPI wire names, msgspec field defaults/inheritance/nullability and OpenAPI 3.0 constraints; reject conflicting component names and unsupported schema shapes clearly.
+- Honor JSON option=0 and validate generic JSON decoding; reject invalid boolean strings.
+- Preserve lifespan yielded state; fix read-only lint mode and clarify the limited OpenAPI CLI check.
+
+### Performance
+
+- Replace two 65,536-entry header dictionaries with bounded immutable tables; remove mutable payload preconversion and eager Uvicorn imports from the ASGI runtime.
+- Bound the default in-memory cache to 1,024 entries with monotonic expiry and LRU eviction; update entries without a cache-wide write scan.
+- Replace incomparable benchmark claims with validated async workloads, an ASGI baseline, per-scenario percentiles/errors and raw measurements. No new framework multiplier is claimed.
+
+### Changed
+
+- Synchronous endpoints, dependency factories, exception handlers and tasks run in a worker thread. Trivial sync endpoint latency includes scheduling overhead; blocking work no longer stalls the event loop.
+- Support Python 3.10–3.13 explicitly; retain existing base install dependencies and add a usable test extra and coherent fast extra.
+- Use setuptools for actual extension-aware wheel tags, with Poetry as metadata source. Portable wheels are py3-none-any; compiler failures remain visible.
+- Expand CI to minimum/maximum interpreters, installed-wheel behavior and sdist rebuilds. See docs/17-migration-1.4.md for compatibility details.
+
+### Removed
+
+- Unsafe direct transport extension and wire constants, the global route-dependent compiled-endpoint cache, shared 500 Response singleton, unused header helpers, and obsolete performance roadmap claims.
+
+---
+
 ## [1.3.1] — 2026-07-08
 
 **Security release + full codebase cleanup ahead of the 1.4.0 roadmap.**

@@ -26,15 +26,16 @@ Tachyon instala automáticamente:
 
 ### Precompiled extensions
 
-`pip install tachyon-api` already ships **27 precompiled Cython extensions** for Linux (x86_64, aarch64), macOS (arm64), and Windows (x86_64) on CPython 3.10–3.13. No extra step required — the compiled hot path is active by default.
-
-On platforms without a published wheel (e.g. macOS Intel), `pip` builds from source. That path requires a C compiler and Cython:
+La versión 1.4.0 está sin publicar; requiere validación y CI alojado.
+Los wheels nativos previstos incluyen extensiones Cython en CPython
+3.10–3.13 platforms. Source builds require a compiler; compilation errors are
+reported. For a pure Python build use:
 
 ```bash
-pip install tachyon-api[fast]   # pulls in Cython for source builds
+TACHYON_SKIP_CYTHON=1 pip install --no-binary=tachyon-api tachyon-api
 ```
 
-If compilation fails for any reason, Tachyon falls back to pure Python automatically — no code changes needed. The Cython extensions add ~14% throughput on top of the already-fast pure-Python baseline.
+See the [build guide](./16-cython-build.md) for platform and fallback details.
 
 For production servers, also use:
 
@@ -84,7 +85,7 @@ Tachyon incluye un CLI para generar proyectos:
 tachyon new my-api
 
 # Entrar al proyecto
-cd my-api
+cd my_api
 
 # Instalar dependencias
 pip install -r requirements.txt
@@ -96,7 +97,7 @@ python app.py
 Estructura generada:
 
 ```
-my-api/
+my_api/
 ├── app.py              # Entry point
 ├── config.py           # Configuración
 ├── requirements.txt    # Dependencias
@@ -113,6 +114,7 @@ my-api/
 ## 📝 Ejemplo Completo
 
 ```python
+import msgspec
 from tachyon_api import Tachyon, Struct, Body, Query, HTTPException
 
 app = Tachyon()
@@ -149,7 +151,7 @@ def create_item(item: Item = Body(...)):
     """Crea un nuevo item."""
     import uuid
     item_id = str(uuid.uuid4())
-    items_db[item_id] = {"id": item_id, **item.__dict__}
+    items_db[item_id] = {"id": item_id, **msgspec.structs.asdict(item)}
     return items_db[item_id]
 
 @app.delete("/items/{item_id}")

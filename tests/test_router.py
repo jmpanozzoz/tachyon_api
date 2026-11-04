@@ -13,7 +13,6 @@ from tachyon_api.router import Router
 from tachyon_api.models import Struct
 from tachyon_api.params import Query, Path, Body
 from tachyon_api.di import injectable, Depends
-from tests.helpers import create_client
 
 
 class TestBasicRouter:
@@ -331,7 +330,7 @@ class TestRouterErrorHandling:
 
 @pytest.mark.asyncio
 async def test_include_router_with_dependencies_popped():
-    """Cover the route_kwargs.pop('dependencies', None) path in include_router."""
+    """An untyped route dependency must fail instead of being silently ignored."""
     @injectable
     class Svc:
         def get(self):
@@ -344,12 +343,8 @@ async def test_include_router_with_dependencies_popped():
     def get_items(svc: Svc = Depends()):
         return svc.get()
 
-    app.include_router(router)
-
-    async with create_client(app) as client:
-        r = await client.get("/v1/items")
-
-    assert r.status_code == 200
+    with pytest.raises(TypeError, match="Depends\\(callable\\)"):
+        app.include_router(router)
 
 
 def test_include_router_type_error():

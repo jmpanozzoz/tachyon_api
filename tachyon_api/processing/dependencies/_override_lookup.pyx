@@ -29,3 +29,6 @@ cdef class OverrideLookup:
         if callable(override):
             return override()
         return override
+
+    def get_override(self, key):
+        return self._app.dependency_overrides.get(key, _SENTINEL)

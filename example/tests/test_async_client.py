@@ -2,7 +2,7 @@
 Async integration tests using `tachyon_api.testing.create_client`.
 
 Shows the modern pattern for testing Tachyon apps end-to-end with httpx
-under an ASGI transport — no real network, full ASGI lifecycle exercised.
+under an ASGI transport — no real network, HTTP ASGI path exercised (lifespan is tested separately).
 
 Run with:
     pytest example/tests/test_async_client.py -v
@@ -19,15 +19,15 @@ from example.config import settings
 
 def _auth_headers() -> dict:
     """Build a Bearer Authorization header with a valid JWT."""
-    from datetime import datetime, timedelta
+    from datetime import datetime, timedelta, timezone
 
     token = jwt.encode(
         {
             "sub": "async_test_user",
             "email": "async@example.com",
             "role": "user",
-            "exp": datetime.utcnow() + timedelta(hours=1),
-            "iat": datetime.utcnow(),
+            "exp": datetime.now(timezone.utc) + timedelta(hours=1),
+            "iat": datetime.now(timezone.utc),
         },
         settings.secret_key,
         algorithm=settings.jwt_algorithm,

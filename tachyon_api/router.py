@@ -51,8 +51,8 @@ class Router:
                 "path": path,
                 "method": http_method,
                 "func": endpoint_func,
-                "dependencies": self.dependencies.copy(),
                 **kwargs,
+                "dependencies": self.dependencies + list(kwargs.get("dependencies", ())),
             }
 
             self.routes.append(route_info)

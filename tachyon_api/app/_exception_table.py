@@ -1,13 +1,17 @@
 # HOT PATH — compiled sibling exists (.pyx wins import resolution when built).
 # Registers user exception handlers and dispatches an exception to its handler.
 
-import asyncio
+from starlette._utils import is_async_callable
+from starlette.concurrency import run_in_threadpool
 import logging
 from typing import Callable, Dict, Optional, Type
 
 from starlette.responses import JSONResponse, Response
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from ..exceptions import HTTPException
+from ..processing._body_errors import RequestBodyTooLarge
+from ..responses import validation_error_response, internal_server_error_response
 
 logger = logging.getLogger(__name__)
 
@@ -21,13 +25,6 @@ class ExceptionTable:
         self._handlers: Dict[Type[Exception], Callable] = {}
 
     def register(self, exc_class: Type[Exception], func: Callable) -> None:
-        if not asyncio.iscoroutinefunction(func):
-            logger.warning(
-                "Exception handler %r for %s is synchronous and will block the event loop. "
-                "Consider making it async.",
-                func.__name__,
-                exc_class.__name__,
-            )
         self._handlers[exc_class] = func
 
     async def dispatch(self, exc: Exception, request) -> Optional[Response]:
@@ -45,17 +42,26 @@ class ExceptionTable:
         """
         for exc_class, handler in self._handlers.items():
             if isinstance(exc, exc_class):
-                return await self._invoke(handler, request, exc)
+                try:
+                    return await self._invoke(handler, request, exc)
+                except RequestBodyTooLarge as limit:
+                    return validation_error_response(str(limit))
+                except Exception:
+                    logger.exception("Exception handler %r failed", handler)
+                    return internal_server_error_response()
 
-        if isinstance(exc, HTTPException):
+        if isinstance(exc, RequestBodyTooLarge):
+            return validation_error_response(str(exc))
+        if isinstance(exc, (HTTPException, StarletteHTTPException)):
             return self._http_exception_response(exc)
+        logger.error("Unhandled endpoint exception", exc_info=(type(exc), exc, exc.__traceback__))
         return None
 
     @staticmethod
     async def _invoke(handler: Callable, request, exc: Exception) -> Response:
-        if asyncio.iscoroutinefunction(handler):
+        if is_async_callable(handler):
             return await handler(request, exc)
-        return handler(request, exc)
+        return await run_in_threadpool(handler, request, exc)
 
     @staticmethod
     def _http_exception_response(exc: HTTPException) -> Response:

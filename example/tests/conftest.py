@@ -11,7 +11,7 @@ import copy
 
 import pytest
 import jwt
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from tachyon_api.testing import TachyonTestClient
 
@@ -43,8 +43,8 @@ def auth_token():
         "sub": "test_user_001",
         "email": "test@example.com",
         "role": "user",
-        "exp": datetime.utcnow() + timedelta(hours=1),
-        "iat": datetime.utcnow(),
+        "exp": datetime.now(timezone.utc) + timedelta(hours=1),
+        "iat": datetime.now(timezone.utc),
     }
     
     return jwt.encode(

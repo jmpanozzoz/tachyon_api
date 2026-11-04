@@ -1,0 +1,46 @@
+[
+  {
+    "implementation": "baseline",
+    "path": "/hello",
+    "ns_per_lookup": [
+      234.69167,
+      239.48417,
+      230.28958,
+      231.67792,
+      233.86542
+    ]
+  },
+  {
+    "implementation": "baseline",
+    "path": "/users/42/profile",
+    "ns_per_lookup": [
+      490.7775,
+      490.02958,
+      489.46625,
+      488.89458,
+      487.61459
+    ]
+  },
+  {
+    "implementation": "current",
+    "path": "/hello",
+    "ns_per_lookup": [
+      337.4075,
+      337.56625,
+      333.32708,
+      334.44334,
+      337.13375
+    ]
+  },
+  {
+    "implementation": "current",
+    "path": "/users/42/profile",
+    "ns_per_lookup": [
+      864.68125,
+      854.7175,
+      853.845,
+      857.82542,
+      853.58791
+    ]
+  }
+]

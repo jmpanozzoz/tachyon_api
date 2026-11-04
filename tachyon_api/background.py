@@ -1,36 +1,34 @@
-"""Tasks queued to run after the response is sent."""
+"""Tasks executed after response transmission, before request cleanup."""
 
-import asyncio
+import inspect
 import logging
-from typing import Any, Callable, List, Tuple
+
+from starlette.concurrency import run_in_threadpool
+from starlette._utils import is_async_callable
 
 logger = logging.getLogger(__name__)
 
 
 class BackgroundTasks:
-    """Collects sync/async tasks to execute after the response is sent."""
-
     __slots__ = ("_tasks",)
 
     def __init__(self):
-        self._tasks: List[Tuple[Callable, bool, tuple, dict]] = []
+        self._tasks = []
 
-    def add_task(self, func: Callable[..., Any], *args: Any, **kwargs: Any) -> None:
-        # Cache async flag at add_task time to avoid checking the result after calling
-        self._tasks.append((func, asyncio.iscoroutinefunction(func), args, kwargs))
+    def add_task(self, func, *args, **kwargs):
+        self._tasks.append((func, is_async_callable(func), args, kwargs))
 
-    async def run_tasks(self) -> None:
+    async def run_tasks(self):
         for func, is_async, args, kwargs in self._tasks:
             try:
-                if is_async:
-                    await func(*args, **kwargs)
-                else:
-                    func(*args, **kwargs)
-            except Exception as exc:
-                logger.warning("Background task %s failed: %s", func.__name__, exc, exc_info=True)
+                result = await func(*args, **kwargs) if is_async else await run_in_threadpool(func, *args, **kwargs)
+                if inspect.isawaitable(result):
+                    await result
+            except Exception:
+                logger.exception("Background task %r failed", func)
 
-    def __len__(self) -> int:
+    def __len__(self):
         return len(self._tasks)
 
-    def __bool__(self) -> bool:
+    def __bool__(self):
         return bool(self._tasks)

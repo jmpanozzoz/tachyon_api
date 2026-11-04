@@ -97,6 +97,11 @@ class OpenAPIConfig:
         "https://cdn.jsdelivr.net/npm/redoc@next/bundles/redoc.standalone.js"
     )
 
+    def __post_init__(self) -> None:
+        parts = self.openapi_version.split(".")
+        if len(parts) != 3 or parts[:2] != ["3", "0"] or not parts[2].isdigit():
+            raise ValueError("Only OpenAPI 3.0.x is supported")
+
     def to_openapi_dict(self) -> Dict[str, Any]:
         openapi_dict: Dict[str, Any] = {
             "openapi": self.openapi_version,

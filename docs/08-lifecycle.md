@@ -14,7 +14,7 @@
 Ideal para recursos que necesitan cleanup:
 
 ```python
-from tachyon_api import Tachyon
+from tachyon_api import Tachyon, Body
 from contextlib import asynccontextmanager
 
 @asynccontextmanager
@@ -51,7 +51,7 @@ def root():
 Más simple, pero sin cleanup automático:
 
 ```python
-from tachyon_api import Tachyon
+from tachyon_api import Tachyon, Body
 
 app = Tachyon()
 
@@ -78,7 +78,7 @@ def sync_startup():
 `app.state` permite guardar objetos compartidos:
 
 ```python
-from tachyon_api import Tachyon
+from tachyon_api import Tachyon, Body
 from contextlib import asynccontextmanager
 
 # Simulación de conexiones
@@ -196,7 +196,7 @@ async def lifespan(app):
 app = Tachyon(lifespan=lifespan)
 
 @app.post("/predict")
-def predict(data: InputData):
+def predict(data: InputData = Body()):
     return app.state.model(data.tensor)
 ```
 

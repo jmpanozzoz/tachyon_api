@@ -103,6 +103,7 @@ Las mismas reglas de DI de los HTTP handlers aplican a los WebSockets — incluy
 `@injectable` (con sus tres scopes) y `Depends(callable)`:
 
 ```python
+from starlette.websockets import WebSocket
 from tachyon_api import injectable, Depends
 
 @injectable                                       # singleton
@@ -118,7 +119,7 @@ class RoomBroadcaster:
         for ws in self._rooms.get(key, []):
             await ws.send_json(msg)
 
-async def get_optional_user(websocket):
+async def get_optional_user(websocket: WebSocket):
     """Factory que extrae usuario (o None) antes de aceptar la conexión."""
     token = websocket.query_params.get("token")
     return verify(token) if token else None
@@ -352,3 +353,7 @@ await websocket.close(code=4001)  # Custom: unauthorized
 
 - [Testing](./11-testing.md) - Testear WebSockets
 - [Best Practices](./15-best-practices.md) - Patrones recomendados
+
+El scope `request` dura toda la conexión WebSocket, no cada mensaje. Renovar o revalidar autorización de conexiones largas según la política de la aplicación. Las factories reciben el socket con la anotación `starlette.websockets.WebSocket`; el shortcut por nombre `websocket` solo aplica al endpoint.
+
+El contrato de fechas es igual en Python 3.10–3.13: date usa `YYYY-MM-DD`; datetime usa `YYYY-MM-DDTHH:MM:SS` (también admite espacio ASCII en lugar de `T`), con fracción opcional de 1–6 dígitos y zona opcional `Z` o `±HH:MM`. Se rechazan fechas compactas o de semana, precisión de minutos, coma decimal y fracciones mayores a seis dígitos. Ejemplos: `2026-11-04`, `2026-11-04T12:30:00Z`, `2026-11-04 12:30:00.123456+03:00`.

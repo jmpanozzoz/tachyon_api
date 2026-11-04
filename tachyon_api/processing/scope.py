@@ -1,100 +1,87 @@
-"""
-TachyonScope — thin ASGI scope wrapper for the request hot path.
-
-Replaces Starlette's Request in process_parameters. Identical lazy properties
-but no class hierarchy, no __init__ assertions, and __slots__ for C-level
-attribute storage (faster None checks, smaller per-object footprint).
-
-call as_request() to get a full Starlette Request when explicitly needed:
-  - KIND_REQUEST params (user declared `request: Request`)
-  - Exception handlers that expect a Request
-  - Form parsing (delegates to Starlette's multipart implementation)
-"""
+"""Lazy request metadata with one bounded, shared Starlette body stream."""
 from __future__ import annotations
 
-from http.cookies import SimpleCookie
 from typing import Any
 
+from anyio import CancelScope
 from starlette.datastructures import Headers, QueryParams
-from starlette.requests import Request
+from starlette.requests import cookie_parser
+from ._request import ManagedRequest
+
+from ._body_errors import RequestBodyTooLarge
 
 
 class TachyonScope:
     __slots__ = (
-        "_scope", "_receive", "_send",
-        "_body", "_query_params", "_headers", "_cookies",
-        "_form_data", "_request",
+        "_scope", "_receive", "_send", "_query_params", "_headers", "_cookies",
+        "_request", "_received_bytes", "_max_body_size",
     )
 
     def __init__(self, scope: dict, receive: Any, send: Any) -> None:
         self._scope = scope
         self._receive = receive
         self._send = send
-        self._body: bytes | None = None
         self._query_params = None
         self._headers = None
         self._cookies = None
-        self._form_data = None
-        self._request: Request | None = None
-
-    # ── Properties read directly from scope / lazy-parsed ────────────────────
+        self._request = None
+        self._received_bytes = 0
+        self._max_body_size = getattr(scope.get("app"), "max_body_size", 2 * 1024 * 1024)
 
     @property
-    def path_params(self) -> dict:
+    def path_params(self):
         return self._scope["path_params"]
 
     @property
-    def query_params(self) -> QueryParams:
+    def query_params(self):
         if self._query_params is None:
             self._query_params = QueryParams(self._scope.get("query_string", b""))
         return self._query_params
 
     @property
-    def headers(self) -> Headers:
+    def headers(self):
         if self._headers is None:
             self._headers = Headers(scope=self._scope)
         return self._headers
 
     @property
-    def cookies(self) -> dict:
+    def cookies(self):
         if self._cookies is None:
-            cookies: dict = {}
-            cookie_header = self.headers.get("cookie")
-            if cookie_header:
-                try:
-                    sc = SimpleCookie(cookie_header)
-                    for key, morsel in sc.items():
-                        cookies[key] = morsel.value
-                except Exception:
-                    pass
-            self._cookies = cookies
+            self._cookies = cookie_parser(self.headers.get("cookie", ""))
         return self._cookies
 
-    # ── Async body / form ────────────────────────────────────────────────────
+    async def _bounded_receive(self):
+        if self._received_bytes == 0:
+            content_length = self.headers.get("content-length")
+            if content_length is not None:
+                try:
+                    declared_size = int(content_length)
+                except ValueError:
+                    declared_size = 0
+                if declared_size > self._max_body_size:
+                    raise RequestBodyTooLarge(f"Request body too large (max {self._max_body_size} bytes)")
+        if self._received_bytes > self._max_body_size:
+            raise RequestBodyTooLarge(f"Request body too large (max {self._max_body_size} bytes)")
+        message = await self._receive()
+        if message["type"] == "http.request":
+            self._received_bytes += len(message.get("body", b""))
+            if self._received_bytes > self._max_body_size:
+                raise RequestBodyTooLarge(f"Request body too large (max {self._max_body_size} bytes)")
+        return message
 
-    async def body(self) -> bytes:
-        if self._body is None:
-            chunks = []
-            while True:
-                message = await self._receive()
-                chunk = message.get("body", b"")
-                if chunk:
-                    chunks.append(chunk)
-                if not message.get("more_body", False):
-                    break
-            self._body = b"".join(chunks)
-        return self._body
+    async def body(self):
+        return await self.as_request().body()
 
-    async def form(self) -> Any:
-        # Multipart/form-url-encoded parsing is complex — delegate to Starlette
-        if self._form_data is None:
-            self._form_data = await self.as_request().form()
-        return self._form_data
+    async def form(self):
+        return await self.as_request().form()
 
-    # ── Escape hatch ─────────────────────────────────────────────────────────
+    async def close(self):
+        if self._request is not None:
+            # File cleanup must complete even if response transmission is cancelled.
+            with CancelScope(shield=True):
+                await self._request.close()
 
-    def as_request(self) -> Request:
-        """Lazily materialise a full Starlette Request — only when needed."""
+    def as_request(self):
         if self._request is None:
-            self._request = Request(self._scope, self._receive, self._send)
+            self._request = ManagedRequest(self._scope, self._bounded_receive, self._send)
         return self._request

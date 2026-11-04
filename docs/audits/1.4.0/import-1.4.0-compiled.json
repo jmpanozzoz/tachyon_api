@@ -1,0 +1,17 @@
+{
+  "python": "3.13.18",
+  "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+  "import_ms_with_tracemalloc": 364.3602919910336,
+  "traced_current_bytes_after_import": 10122810,
+  "traced_peak_bytes_after_import": 10265350,
+  "uvicorn_imported": false,
+  "header_cache_shallow_bytes": 16464,
+  "largest_allocation_sources": [
+    "<frozen importlib._bootstrap_external>:0: size=5400 KiB, count=46664, average=118 B",
+    "<frozen importlib._bootstrap>:0: size=1245 KiB, count=12106, average=105 B",
+    "/Users/juanmanuelpanozzozenere/.local/share/uv/python/cpython-3.13.18-macos-aarch64-none/lib/python3.13/enum.py:0: size=279 KiB, count=1577, average=181 B",
+    "/Users/juanmanuelpanozzozenere/.local/share/uv/python/cpython-3.13.18-macos-aarch64-none/lib/python3.13/typing.py:0: size=198 KiB, count=1413, average=143 B",
+    "<frozen abc>:0: size=153 KiB, count=745, average=210 B",
+    "/Users/juanmanuelpanozzozenere/.local/share/uv/python/cpython-3.13.18-macos-aarch64-none/lib/python3.13/collections/__init__.py:0: size=111 KiB, count=1084, average=105 B"
+  ]
+}

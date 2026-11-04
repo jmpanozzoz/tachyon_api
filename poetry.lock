@@ -66,11 +66,12 @@ version = "2025.8.3"
 description = "Python package for providing Mozilla's CA Bundle."
 optional = false
 python-versions = ">=3.7"
-groups = ["dev"]
+groups = ["main", "dev"]
 files = [
     {file = "certifi-2025.8.3-py3-none-any.whl", hash = "sha256:f6c12493cfb1b06ba2ff328595af9350c65d6644968e5d3a2ffd78699af217a5"},
     {file = "certifi-2025.8.3.tar.gz", hash = "sha256:e564105f78ded564e3ae7c923924435e1daa7463faeab5bb932bc53ffae63407"},
 ]
+markers = {main = "extra == \"test\""}
 
 [[package]]
 name = "click"
@@ -106,7 +107,7 @@ version = "3.2.4"
 description = "The Cython compiler for writing C extensions in the Python language."
 optional = false
 python-versions = ">=3.8"
-groups = ["dev"]
+groups = ["main", "dev"]
 files = [
     {file = "cython-3.2.4-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:02cb0cc0f23b9874ad262d7d2b9560aed9c7e2df07b49b920bda6f2cc9cb505e"},
     {file = "cython-3.2.4-cp310-cp310-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:f136f379a4a54246facd0eb6f1ee15c3837cb314ce87b677582ec014db4c6845"},
@@ -148,6 +149,7 @@ files = [
     {file = "cython-3.2.4-py3-none-any.whl", hash = "sha256:732fc93bc33ae4b14f6afaca663b916c2fdd5dcbfad7114e17fb2434eeaea45c"},
     {file = "cython-3.2.4.tar.gz", hash = "sha256:84226ecd313b233da27dc2eb3601b4f222b8209c3a7216d8733b031da1dc64e6"},
 ]
+markers = {main = "extra == \"fast\""}
 
 [[package]]
 name = "exceptiongroup"
@@ -211,11 +213,12 @@ version = "1.0.9"
 description = "A minimal low-level HTTP client."
 optional = false
 python-versions = ">=3.8"
-groups = ["dev"]
+groups = ["main", "dev"]
 files = [
     {file = "httpcore-1.0.9-py3-none-any.whl", hash = "sha256:2d400746a40668fc9dec9810239072b40b4484b640a8c38fd654a024c7a1bf55"},
     {file = "httpcore-1.0.9.tar.gz", hash = "sha256:6e34463af53fd2ab5d807f399a9b45ea31c3dfa2276f15a2c3f00afff6e176e8"},
 ]
+markers = {main = "extra == \"test\""}
 
 [package.dependencies]
 certifi = "*"
@@ -293,11 +296,12 @@ version = "0.28.1"
 description = "The next generation HTTP client."
 optional = false
 python-versions = ">=3.8"
-groups = ["dev"]
+groups = ["main", "dev"]
 files = [
     {file = "httpx-0.28.1-py3-none-any.whl", hash = "sha256:d909fcccc110f8c7faf814ca82a9a4d816bc5a6dbfea25d6591d6985b8ba59ad"},
     {file = "httpx-0.28.1.tar.gz", hash = "sha256:75e98c5f16b0f35b567856f597f06ff2270a374470a5c2392242528e3e3e42fc"},
 ]
+markers = {main = "extra == \"test\""}
 
 [package.dependencies]
 anyio = "*"
@@ -981,9 +985,10 @@ standard = ["colorama (>=0.4) ; sys_platform == \"win32\"", "httptools (>=0.6.3)
 
 [extras]
 benchmark = ["fastapi", "pydantic"]
-fast = []
+fast = ["cython"]
+test = ["httpx"]
 
 [metadata]
 lock-version = "2.1"
-python-versions = "^3.10"
-content-hash = "364cec878b44359aa263745c28553bb6bbec2718b276926d9e1e1553e3252dc3"
+python-versions = ">=3.10,<3.14"
+content-hash = "a6abfe7f049046611ef65f9e26e091732adba41e9705b0ea1d2f6c6a18a89d0d"

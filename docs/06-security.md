@@ -237,3 +237,5 @@ def editor_or_admin(user: dict = Depends(require_roles("editor", "admin"))):
 
 - [Caching](./07-caching.md) - Sistema de cache
 - [Testing](./11-testing.md) - Testear endpoints protegidos
+
+`OAuth2PasswordBearer` extrae credenciales Bearer; no valida JWT ni permisos. `tokenUrl` actualmente no genera `components.securitySchemes` ni `operation.security` en OpenAPI y no configura automáticamente autenticación en la UI.

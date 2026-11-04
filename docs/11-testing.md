@@ -2,6 +2,16 @@
 
 > Guía completa de testing para Tachyon
 
+Instalación: `pip install 'tachyon-api[test]'` (HTTPX); agregar pytest y
+pytest-asyncio para ejecutar los ejemplos.
+
+Los helpers async no ejecutan startup/shutdown ASGI. Para probar recursos de
+lifespan, envolverlos en `asgi_lifespan.LifespanManager(app)` (dependencia opcional
+separada) o usar `with TachyonTestClient(app) as client:`. Crear un cliente
+síncrono sin `with` tampoco activa lifespan. Ambos helpers async comparten la
+misma implementación HTTPX y cierran el cliente al salir del contexto.
+
+
 ## 🎯 TachyonTestClient
 
 Cliente de test síncrono:

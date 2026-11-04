@@ -20,13 +20,31 @@ from ..templates.ai_skill import (
 
 def _write(path: Path, content: str, label: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    existed = path.exists()
-    if existed and path.read_text() == content:
+    start = "<!-- tachyon-api:begin -->"
+    end = "<!-- tachyon-api:end -->"
+    existing = path.read_text() if path.exists() else ""
+    section = f"{start}\n{content.rstrip()}\n{end}"
+    if start in existing or end in existing:
+        if (
+            existing.count(start) != 1
+            or existing.count(end) != 1
+            or existing.index(end) < existing.index(start)
+        ):
+            typer.secho(
+                f"  ⚠ {label} — malformed managed section; left unchanged",
+                fg=typer.colors.YELLOW,
+            )
+            return
+        first = existing.index(start)
+        last = existing.index(end) + len(end)
+        updated = existing[:first] + section + existing[last:]
+    else:
+        updated = existing + ("\n\n" if existing else "") + section + "\n"
+    if updated == existing:
         typer.secho(f"  ✓ {label} — already up to date", fg=typer.colors.BRIGHT_BLACK)
         return
-    path.write_text(content)
-    verb = "Updated" if existed else "Created"
-    typer.secho(f"  📄 {verb} {label}", fg=typer.colors.GREEN)
+    path.write_text(updated)
+    typer.secho(f"  📄 Updated {label}", fg=typer.colors.GREEN)
 
 
 def install_skill(
@@ -40,7 +58,9 @@ def install_skill(
 ) -> None:
     do_all = all_tools or not any([cursor, claude, copilot, opencode, agents])
 
-    typer.echo(f"\n🤖 Installing Tachyon AI skill in: {typer.style(str(output_dir), bold=True)}\n")
+    typer.echo(
+        f"\n🤖 Installing Tachyon AI skill in: {typer.style(str(output_dir), bold=True)}\n"
+    )
 
     if do_all or cursor:
         _write(
@@ -50,17 +70,9 @@ def install_skill(
         )
 
     if do_all or claude:
-        target = output_dir / "CLAUDE.md"
-        if target.exists():
-            # Append the snippet if CLAUDE.md already exists and doesn't have Tachyon section
-            existing = target.read_text()
-            if "Tachyon API — Project Context" not in existing:
-                target.write_text(existing.rstrip() + "\n\n---\n\n" + claude_md_snippet())
-                typer.secho("  📄 Appended Tachyon section to CLAUDE.md  (Claude Code)", fg=typer.colors.GREEN)
-            else:
-                typer.secho("  ✓ CLAUDE.md already contains Tachyon context", fg=typer.colors.BRIGHT_BLACK)
-        else:
-            _write(target, claude_md_snippet(), "CLAUDE.md  (Claude Code)")
+        _write(
+            output_dir / "CLAUDE.md", claude_md_snippet(), "CLAUDE.md  (Claude Code)"
+        )
 
     if do_all or copilot:
         _write(
@@ -84,8 +96,14 @@ def install_skill(
         )
 
     typer.echo("\n✅ Done! The AI context files teach your assistant:\n")
-    typer.secho("   • Tachyon syntax and key differences from FastAPI", fg=typer.colors.CYAN)
-    typer.secho("   • Body() requirement, Struct usage, DI patterns", fg=typer.colors.CYAN)
-    typer.secho("   • CLI commands (tachyon run, generate, routes, ...)", fg=typer.colors.CYAN)
+    typer.secho(
+        "   • Tachyon syntax and key differences from FastAPI", fg=typer.colors.CYAN
+    )
+    typer.secho(
+        "   • Body() requirement, Struct usage, DI patterns", fg=typer.colors.CYAN
+    )
+    typer.secho(
+        "   • CLI commands (tachyon run, generate, routes, ...)", fg=typer.colors.CYAN
+    )
     typer.secho("   • Common anti-patterns to avoid", fg=typer.colors.CYAN)
     typer.echo()

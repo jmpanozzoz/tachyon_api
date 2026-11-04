@@ -17,7 +17,7 @@ cdef class BodySizeChecker:
 
     cpdef check_content_length(self, object request):
         cdef object cl = request.headers.get("content-length")
-        cdef long parsed
+        cdef object parsed
         if cl is not None:
             try:
                 parsed = int(cl)
