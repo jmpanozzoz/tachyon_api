@@ -2,6 +2,16 @@
 
 > Guía completa de testing para Tachyon
 
+Instalación: `pip install 'tachyon-api[test]'` (HTTPX); agregar pytest y
+pytest-asyncio para ejecutar los ejemplos.
+
+Los helpers async no ejecutan startup/shutdown ASGI. Para probar recursos de
+lifespan, envolverlos en `asgi_lifespan.LifespanManager(app)` (dependencia opcional
+separada) o usar `with TachyonTestClient(app) as client:`. Crear un cliente
+síncrono sin `with` tampoco activa lifespan. Ambos helpers async comparten la
+misma implementación HTTPX y cierran el cliente al salir del contexto.
+
+
 ## 🎯 TachyonTestClient
 
 Cliente de test síncrono:
@@ -35,7 +45,7 @@ Tachyon expone dos formas equivalentes de testear async — ambas montan
 ### `create_client()` *(recomendado — v1.2.0+)*
 
 Async context manager que devuelve directamente el `httpx.AsyncClient`,
-acepta cualquier kwarg de httpx:
+acepta las opciones de `httpx.AsyncClient` (el transporte ASGI y `base_url` tienen defaults):
 
 ```python
 import pytest
@@ -75,7 +85,7 @@ async def test_async():
 ```
 
 Cuál elegir es preferencia de estilo — `create_client` es el helper canónico
-y el que usa la suite del framework + el example.
+y `AsyncTachyonTestClient` delega en la misma implementación.
 
 ---
 
@@ -163,12 +173,13 @@ response = client.post(
     files={"file": ("test.txt", b"content", "text/plain")}
 )
 
-# Con form data
-response = client.post(
-    "/upload",
-    data={"title": "My File"},
-    files={"file": ("doc.pdf", open("doc.pdf", "rb"), "application/pdf")}
-)
+# Con form data; el test también cierra su archivo local
+with open("doc.pdf", "rb") as document:
+    response = client.post(
+        "/upload",
+        data={"title": "My File"},
+        files={"file": ("doc.pdf", document, "application/pdf")},
+    )
 ```
 
 ---
@@ -213,6 +224,8 @@ def test_with_mock():
 app.dependency_overrides[RealDatabase] = lambda: MockDatabase()
 ```
 
+Las factories de override directas se resuelven por request/conexión. Si un singleton padre captura esa dependencia, el override debe ser una instancia compartida explícita o un provider `@injectable` singleton; una lambda/factory ordinaria se rechaza aunque no declare parámetros. Usar un padre request-scoped si necesita datos por usuario. Limpiar overrides con `finally` o una fixture para no contaminar otros tests.
+
 ### Override Callable Dependencies
 
 ```python
@@ -251,7 +264,7 @@ def test_websocket_json():
 
 ## ⚡ Lifespan en Tests
 
-El TestClient ejecuta lifespan automáticamente:
+El TestClient ejecuta lifespan al entrar en su contexto `with`:
 
 ```python
 from starlette.testclient import TestClient
@@ -277,17 +290,17 @@ from app import app
 @pytest.fixture
 def client():
     """Cliente de test."""
-    return TachyonTestClient(app)
+    with TachyonTestClient(app) as test_client:
+        yield test_client
 
 @pytest.fixture
 def auth_client():
     """Cliente autenticado."""
-    client = TachyonTestClient(app)
-    # Login
-    response = client.post("/login", json={"user": "test", "pass": "test"})
-    token = response.json()["token"]
-    client.headers["Authorization"] = f"Bearer {token}"
-    return client
+    with TachyonTestClient(app) as test_client:
+        response = test_client.post("/login", json={"user": "test", "pass": "test"})
+        token = response.json()["token"]
+        test_client.headers["Authorization"] = f"Bearer {token}"
+        yield test_client
 
 @pytest.fixture(autouse=True)
 def clean_overrides():
@@ -322,9 +335,12 @@ def test_db():
 @pytest.fixture
 def client(test_db):
     """Cliente con DB mockeada."""
-    app.dependency_overrides[Database] = lambda: test_db
-    yield TachyonTestClient(app)
-    app.dependency_overrides.clear()
+    app.dependency_overrides[Database] = test_db
+    try:
+        with TachyonTestClient(app) as test_client:
+            yield test_client
+    finally:
+        app.dependency_overrides.clear()
 ```
 
 ---
@@ -346,6 +362,14 @@ tests/
 ```
 
 ---
+
+## Verificación del framework y de los artefactos
+
+Desde un checkout con dependencias de test y del ejemplo instaladas, ejecutar `pytest tests/ example/tests/`. `scripts/quality_cycle.py --engine python --output /tmp/quality-python.json` comprueba además paridad y los orígenes importados; repetir con `--engine native` después de compilar en otro snapshot. `TACHYON_SKIP_CYTHON=1` controla el build y no desactiva extensiones que ya existen.
+
+La validación local de 1.4.0 del **2026-11-04** registró **809 tests por combinación** en CPython 3.10, 3.11, 3.12 y 3.13, cada uno con ambos motores, y **174 contratos por instalación** de wheel portable/native fuera del checkout. Son resultados de ese snapshot, no un número mínimo fijo para futuras suites. Los jobs ordinarios de CI están configurados para 3.10 y 3.13; la corrida local cubrió las cuatro versiones. Ver [evidencia y límites de plataforma](audits/1.4.0/LOCAL_RELEASE.md) y [reproducción local](quality/local-release.md).
+
+Las regresiones incluyen routing montado con `root_path`, parámetros heredados y Unicode, URLs de documentación y `servers` aislados por request, y rechazo temprano de markers no soportados en endpoints WebSocket (`tests/test_local_release_runtime.py`).
 
 ## 🔗 Próximos Pasos
 

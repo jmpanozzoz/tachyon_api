@@ -1,10 +1,19 @@
 """String-to-type conversion for URL/query parameters."""
 
+from datetime import date, datetime
+import re
 from typing import Type, Union, Any
 from starlette.responses import JSONResponse
 
 from ..responses import validation_error_response
 from .type_utils import TypeUtils
+
+
+_ISO_DATE = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")
+_ISO_DATETIME = re.compile(
+    r"[0-9]{4}-[0-9]{2}-[0-9]{2}[T ][0-9]{2}:[0-9]{2}:[0-9]{2}"
+    r"(?:\.(?P<fraction>[0-9]{1,6}))?(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])?"
+)
 
 
 class TypeConverter:
@@ -38,7 +47,27 @@ class TypeConverter:
     ) -> Union[Any, JSONResponse]:
         try:
             if base_type is bool:
-                return value_str.lower() in ("true", "1", "t", "yes")
+                value = value_str.lower()
+                if value in ("true", "1", "t", "yes", "on"):
+                    return True
+                if value in ("false", "0", "f", "no", "off"):
+                    return False
+                raise ValueError("Invalid boolean")
+            if base_type is date:
+                if _ISO_DATE.fullmatch(value_str) is None:
+                    raise ValueError("Expected YYYY-MM-DD")
+                return date.fromisoformat(value_str)
+            if base_type is datetime:
+                matched = _ISO_DATETIME.fullmatch(value_str)
+                if matched is None:
+                    raise ValueError("Expected YYYY-MM-DD[T or space]HH:MM:SS with optional fractional seconds and timezone")
+                fraction = matched.group("fraction")
+                if fraction is not None:
+                    # Python 3.10 accepts only three or six fractional digits.
+                    value_str = value_str[:matched.start("fraction")] + fraction.ljust(6, "0") + value_str[matched.end("fraction"):]
+                if value_str.endswith("Z"):
+                    value_str = value_str[:-1] + "+00:00"
+                return datetime.fromisoformat(value_str)
             if base_type is not str:
                 return base_type(value_str)
             return value_str

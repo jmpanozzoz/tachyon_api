@@ -28,15 +28,18 @@ class QueryListExtractor:
 
         values: list = []
         for v in raw_values:
-            if isinstance(v, str) and "," in v:
-                values.extend(v.split(","))
-            else:
-                values.append(v)
-            if len(values) > MAX_QUERY_LIST_SIZE:
+            # Count before splitting so oversized CSV never creates an
+            # unbounded intermediate list of substrings.
+            count = v.count(",") + 1 if isinstance(v, str) else 1
+            if len(values) + count > MAX_QUERY_LIST_SIZE:
                 return (None, validation_error_response(
                     f"Query parameter '{name}' exceeds maximum list size "
                     f"({MAX_QUERY_LIST_SIZE} items)"
                 ))
+            if isinstance(v, str) and count > 1:
+                values.extend(v.split(","))
+            else:
+                values.append(v)
 
         if not values:
             return missing(descriptor, "query parameter", name)

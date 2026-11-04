@@ -3,7 +3,7 @@ tachyon run - Start the development or production server.
 """
 
 import typer
-from pathlib import Path
+from ..utils import normalize_app_target
 
 
 def run_server(
@@ -19,12 +19,13 @@ def run_server(
     try:
         import uvicorn
     except ImportError:
-        typer.secho("❌ uvicorn is not installed. Run: pip install uvicorn[standard]", fg=typer.colors.RED)
+        typer.secho(
+            "❌ uvicorn is not installed. Run: pip install uvicorn[standard]",
+            fg=typer.colors.RED,
+        )
         raise typer.Exit(1)
 
-    # Resolve app path relative to cwd
-    if Path("app.py").exists() and ":" not in app_path:
-        app_path = f"{app_path}:{app_path}" if app_path != "app" else "app:app"
+    app_path = normalize_app_target(app_path)
 
     effective_workers = workers if (prod or workers > 1) else 1
     effective_reload = reload and not prod
@@ -41,11 +42,13 @@ def run_server(
     # Use uvloop + httptools when available
     try:
         import uvloop  # noqa: F401
+
         kwargs["loop"] = "uvloop"
     except ImportError:
         pass
     try:
         import httptools  # noqa: F401
+
         kwargs["http"] = "httptools"
     except ImportError:
         pass
@@ -54,10 +57,17 @@ def run_server(
     if tachyon_server:
         try:
             from tachyon_api.server import TachyonHTTPProtocol
+
             kwargs["http"] = TachyonHTTPProtocol
-            typer.secho("  ⚡ TachyonServer active (direct transport write)", fg=typer.colors.CYAN)
+            typer.secho(
+                "  ⚡ TachyonServer compatibility mode (standard Uvicorn h11)",
+                fg=typer.colors.CYAN,
+            )
         except ImportError:
-            typer.secho("  ℹ TachyonServer not available, using standard uvicorn", fg=typer.colors.BRIGHT_BLACK)
+            typer.secho(
+                "  ℹ TachyonServer not available, using standard uvicorn",
+                fg=typer.colors.BRIGHT_BLACK,
+            )
 
     mode = "production" if prod else "development"
     typer.echo(f"\n🚀 Starting Tachyon in {typer.style(mode, bold=True)} mode")

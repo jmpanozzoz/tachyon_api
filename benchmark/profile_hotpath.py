@@ -4,10 +4,8 @@ Measures each layer independently.
 """
 import asyncio
 import time
-import sys, os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from unittest.mock import MagicMock, AsyncMock
+from unittest.mock import AsyncMock
 
 
 async def make_mock_request(path: str, method: str = "GET",
@@ -79,14 +77,6 @@ async def main():
     print("  TACHYON HOT PATH MICRO-BENCHMARKS")
     print("═"*65)
 
-    # ── 1. compile_endpoint (should be one-time, but measure anyway) ──
-    N = 10_000
-    t0 = time.perf_counter()
-    from tachyon_api.processing.compiler import _COMPILED
-    for _ in range(N):
-        _COMPILED.get(hello)  # simulate cache lookup
-    timed("compile_endpoint cache lookup", N, time.perf_counter() - t0)
-
     # ── 2. process_parameters — hello (no params) ──
     N = ITERATIONS
     dep_cache = {}
@@ -120,35 +110,35 @@ async def main():
     payload_dict = {"message": "Hello, World!"}
     t0 = time.perf_counter()
     for _ in range(N):
-        resp = await ResponseProcessor.process_response(payload_dict, None, None)
+        await ResponseProcessor.process_response(payload_dict, None, None)
     timed("process_response — dict payload", N, time.perf_counter() - t0)
 
     # ── 7. process_response — Struct ──
     payload_struct = Item(name="x", price=1.0)
     t0 = time.perf_counter()
     for _ in range(N):
-        resp = await ResponseProcessor.process_response(payload_struct, None, None)
+        await ResponseProcessor.process_response(payload_struct, None, None)
     timed("process_response — Struct payload", N, time.perf_counter() - t0)
 
     # ── 8. TachyonJSONResponse render ──
     from tachyon_api.responses import TachyonJSONResponse
     t0 = time.perf_counter()
     for _ in range(N):
-        r = TachyonJSONResponse(payload_dict)
+        TachyonJSONResponse(payload_dict)
     timed("TachyonJSONResponse(dict)", N, time.perf_counter() - t0)
 
     # ── 9. msgspec.json.encode Struct directly ──
     import msgspec
     t0 = time.perf_counter()
     for _ in range(N):
-        b = msgspec.json.encode(payload_struct)
+        msgspec.json.encode(payload_struct)
     timed("msgspec.json.encode(Struct)", N, time.perf_counter() - t0)
 
     # ── 10. orjson.dumps dict ──
     import orjson
     t0 = time.perf_counter()
     for _ in range(N):
-        b = orjson.dumps(payload_dict)
+        orjson.dumps(payload_dict)
     timed("orjson.dumps(dict)", N, time.perf_counter() - t0)
 
     # ── 11. starlette Response(bytes) ──
@@ -156,7 +146,7 @@ async def main():
     content_bytes = b'{"message":"Hello, World!"}'
     t0 = time.perf_counter()
     for _ in range(N):
-        r = Response(content=content_bytes, media_type="application/json")
+        Response(content=content_bytes, media_type="application/json")
     timed("starlette.Response(bytes)", N, time.perf_counter() - t0)
 
     # ── 12. Full handler round-trip (our code only, no network) ──
@@ -165,7 +155,7 @@ async def main():
     for _ in range(N):
         args, err, bg = await proc.process_parameters(compiled_hello, req_hello, dep_cache)
         payload = await ResponseProcessor.call_endpoint(compiled_hello, args)
-        resp = await ResponseProcessor.process_response(payload, None, bg)
+        await ResponseProcessor.process_response(payload, None, bg)
     timed("FULL HANDLER (no network, no routing)", N, time.perf_counter() - t0)
 
     print("═"*65 + "\n")

@@ -1,0 +1,72 @@
+{
+  "source_revision": "1b89bf134a1a418145c200162c4ca4d5dded46a6",
+  "working_tree_dirty": true,
+  "checks": {
+    "310-python": {
+      "evidence": "docs/audits/1.4.0/continuous-python310-python.json",
+      "inputs_sha256": "50934a4435f281c742c8004b4e39caff162005b8b732a0b4497ebdacafda51f8",
+      "tests": 772,
+      "modules_verified": 25
+    },
+    "310-native": {
+      "evidence": "docs/audits/1.4.0/continuous-python310-native.json",
+      "inputs_sha256": "50934a4435f281c742c8004b4e39caff162005b8b732a0b4497ebdacafda51f8",
+      "tests": 772,
+      "modules_verified": 25
+    },
+    "313-python": {
+      "evidence": "docs/audits/1.4.0/continuous-python313-python.json",
+      "inputs_sha256": "50934a4435f281c742c8004b4e39caff162005b8b732a0b4497ebdacafda51f8",
+      "tests": 772,
+      "modules_verified": 25
+    },
+    "313-native": {
+      "evidence": "docs/audits/1.4.0/continuous-python313-native.json",
+      "inputs_sha256": "50934a4435f281c742c8004b4e39caff162005b8b732a0b4497ebdacafda51f8",
+      "tests": 772,
+      "modules_verified": 25
+    }
+  },
+  "installed_wheels": {
+    "pure": 142,
+    "native_from_sdist": 142,
+    "starlette": "1.10.0",
+    "runtime_sources_match_checkout": true
+  },
+  "artifacts": [
+    {
+      "file": "tachyon_api-1.4.0.tar.gz",
+      "bytes": 2338450,
+      "sha256": "ee9030c49c021e17aef9fd3823d6deb407e11ba2634fd563e7080b6294992189"
+    },
+    {
+      "file": "tachyon_api-1.4.0-py3-none-any.whl",
+      "bytes": 110350,
+      "sha256": "d597523ceb6609c7c4480eee6369474e00a261ca59d96c14bdcc46eff2cf8e6e"
+    },
+    {
+      "file": "tachyon_api-1.4.0-cp313-cp313-macosx_11_0_arm64.whl",
+      "bytes": 1028101,
+      "sha256": "f3aad430adb2ba15e3378fa374034d1e34ef912c5cb350585ee4c69a449e9813"
+    }
+  ],
+  "runtime_source": {
+    "files": 137,
+    "lines": 8790
+  },
+  "benchmark": {
+    "artifact": "benchmark/results/continuous-1.4.0-native.json",
+    "total_requests": 9600,
+    "tachyon_requests": 3200,
+    "errors": 0
+  },
+  "pending": [
+    "Hosted Linux/Windows/macOS CI wheel matrix",
+    "Long-duration network soak and memory stability",
+    "Formal release review and publication"
+  ],
+  "limitations": [
+    "No ISO conformity/certification claim",
+    "Synchronous low-level dependency resolution is bootstrap-only; do not mix concurrently with async resolution"
+  ]
+}

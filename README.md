@@ -1,14 +1,18 @@
 # 🚀 Tachyon API
 
-![Version](https://img.shields.io/badge/version-1.2.x-blue.svg)
-![Python](https://img.shields.io/badge/python-3.10+-brightgreen.svg)
+![Version](https://img.shields.io/badge/version-1.4.0-blue.svg)
+![Python](https://img.shields.io/badge/python-3.10--3.13-brightgreen.svg)
 ![License](https://img.shields.io/badge/license-GPL--3.0-orange.svg)
-![Tests](https://img.shields.io/badge/tests-370%20passed-brightgreen.svg)
-![Status](https://img.shields.io/badge/status-stable-brightgreen.svg)
 
 **A lightweight, high-performance API framework for Python with the elegance of FastAPI and the speed of light.**
 
-Tachyon API combines the intuitive decorator-based syntax you love with minimal dependencies and maximal performance. Built with Test-Driven Development from the ground up, it offers a cleaner, faster alternative with full ASGI compatibility.
+Tachyon API combines decorator-based routing, msgspec validation, and ASGI integration on Starlette. Endpoint metadata is prepared at registration to reduce request-time introspection.
+
+[1.4.0 is published on PyPI](https://pypi.org/project/tachyon-api/1.4.0/): four macOS ARM64 native wheels for CPython 3.10–3.13, one portable Python wheel and one source distribution. The [local release record](docs/audits/1.4.0/LOCAL_RELEASE.md) describes validation on this Mac; it does not establish Linux or Windows validation.
+
+[Source repository](https://github.com/jmpanozzoz/tachyon_api/tree/feature/v1.4.0-audit-cleanup) · [Documentation](https://github.com/jmpanozzoz/tachyon_api/tree/feature/v1.4.0-audit-cleanup/docs). These links point to the release preparation branch; no release tag or merge to `main` is implied.
+
+The [1.4 migration guide](docs/17-migration-1.4.md) describes execution, body limits, resource lifetime, schema support and packaging changes.
 
 ## 🚀 Quick Start
 
@@ -35,94 +39,49 @@ def search(q: str = Query(...), limit: int = Query(10)):
 ```
 
 ```bash
-pip install tachyon-api
-tachyon run                 # uvloop + httptools + reload, served at :8000
+pip install tachyon-api==1.4.0
+# Testing helpers: pip install "tachyon-api[test]"
+tachyon run                 # reload on; optional uvloop/httptools detected, served at :8000
 ```
 
 📖 **Docs:** http://localhost:8000/docs
 
 ---
 
-## ⚡ Performance
+## ⚡ Performance and builds
 
-Benchmarked against **FastAPI 0.136.1 (Pydantic v2)** · 1 worker · 100 concurrent connections · uvloop + httptools · precompiled Cython extensions (shipped by default — see below)
+Tachyon precompiles endpoint metadata and provides optional native Cython
+extensions. Performance depends on the application, workload, and deployment.
+Benchmarks must compare equivalent handler execution and dependency scopes. See
+[`benchmark/`](./benchmark/) for the benchmark harness and its limitations.
 
-| Scenario | FastAPI | Tachyon | Speedup |
-|---|---:|---:|---:|
-| Hello World | 10,314 req/s | **49,755 req/s** | **4.82x** |
-| Path + query params | 7,166 req/s | **37,598 req/s** | **5.25x** |
-| Body validation (Struct) | 8,371 req/s | **40,916 req/s** | **4.89x** |
-| Nested body (complex Struct) | 8,027 req/s | **39,994 req/s** | **4.98x** |
-| Response model serialization | 6,343 req/s | **47,561 req/s** | **7.50x** |
-| Header param + auth | 8,701 req/s | **45,415 req/s** | **5.22x** |
-| Dependency injection | 6,449 req/s | **45,610 req/s** | **7.07x** |
-| Multiple query params | 6,264 req/s | **34,111 req/s** | **5.45x** |
-| **Total throughput** | **61,635 req/s** | **340,960 req/s** | **5.53x** |
+Published native wheels cover macOS arm64 and CPython 3.10–3.13. On other platforms, pip can select the published portable wheel, subject to dependency compatibility. A source build with native extensions requires a C compiler; compilation errors fail explicitly. Linux and Windows native wheels are not part of this local release.
+For a portable pure Python installation from source:
 
-**Latency:** ~2.3ms (Tachyon) vs ~13ms (FastAPI) on average.
+```bash
+TACHYON_SKIP_CYTHON=1 pip install --no-binary=tachyon-api tachyon-api
+```
 
-> Benchmark code in [`benchmark/`](./benchmark/). Run with `bash benchmark/run_benchmark.sh`.
-
-### Precompiled wheels — zero setup
-
-`pip install tachyon-api` ships **prebuilt wheels with all 27 Cython extensions already compiled** for:
-
-| Platform | Architectures | CPython |
-|---|---|---|
-| Linux | x86_64, aarch64 | 3.10 · 3.11 · 3.12 · 3.13 |
-| macOS | arm64 (Apple Silicon) | 3.10 · 3.11 · 3.12 · 3.13 |
-| Windows | x86_64 | 3.10 · 3.11 · 3.12 · 3.13 |
-
-No manual build step. No Cython required. The numbers above are what you get out of the box.
-
-> **Not on the list?** (macOS Intel, Alpine, etc.) `pip` falls back to the sdist and compiles from `.pyx` source — requires a C compiler and `pip install tachyon-api[fast]` (which pulls in Cython). If compilation fails, the framework still works: runtime falls back to the pure-Python siblings of every `.pyx` module automatically.
-
-### Compiled vs pure-Python delta
-
-Same code, same workload — the only difference is whether the 27 Cython `.so` extensions are loaded:
-
-| Scenario | Compiled | Pure-Python | Δ |
-|---|---:|---:|---:|
-| Hello World | 49,755 req/s | 47,899 req/s | +3.9% |
-| Path + query params | 37,598 req/s | 31,901 req/s | **+17.9%** |
-| Body — simple Struct | 40,916 req/s | 35,623 req/s | **+14.9%** |
-| Body — nested Struct | 39,994 req/s | 35,204 req/s | **+13.6%** |
-| Response model | 47,561 req/s | 40,604 req/s | **+17.1%** |
-| Header param + auth | 45,415 req/s | 39,380 req/s | **+15.3%** |
-| **Dependency injection** | 45,610 req/s | 38,552 req/s | **+18.3%** |
-| Multiple query params | 34,111 req/s | 29,803 req/s | **+14.5%** |
-| **TOTAL** | **340,960 req/s** | **298,966 req/s** | **+14.0%** |
-
-The biggest wins concentrate on real framework work — DI resolution (+18.3%), path/query parsing (+17.9%), response model (+17.1%), and validation (+13–15%). Hello-world barely moves (+3.9%): the framework is already a tiny slice of that request.
-
-### Why is Tachyon faster?
-
-- **Radix trie routing** — O(k) path matching vs Starlette's O(N×regex) scan; trie compiled to C
-- **Middleware bypass** — HTTP requests skip Starlette's `ServerErrorMiddleware` and `ExceptionMiddleware` entirely; exceptions handled directly in each closure
-- **Endpoint pre-compilation** — `inspect.signature()`, `isinstance` chains, type resolution, and `msgspec.Decoder` creation run once at startup, not per request
-- **No-Request fast path** — endpoints with no parameters skip `Request()` creation and call the ASGI handler directly
-- **msgspec** — validation and deserialization in C, 5–10x faster than Pydantic
-- **Direct serialization** — `Struct` responses use `msgspec.json.encode()` directly (no Python intermediate step)
-- **Pre-built ASGI dicts** — response send payloads constructed once in `__init__`, not recreated per request
-- **No middleware bloat** — Tachyon mounts only what you register; FastAPI adds ~15 middlewares by default
-
----
+The environment variable controls builds; it does not disable native modules
+already installed. `[fast]` supplies Cython for development; isolated source
+builds already install Cython as a build dependency. See the
+[Cython build guide](./docs/16-cython-build.md).
 
 ## ✨ Features
 
 | Category | Features |
 |----------|----------|
 | **Core** | Decorators API, Routers, Middlewares, ASGI compatible |
-| **Parameters** | Path, Query, Body (incl. `Body(List[Struct])`), Header, Cookie, Form, File (all with `alias=`) |
-| **Validation** | msgspec Struct (ultra-fast), automatic 422 errors, configurable body size limit (default 2 MB) |
+| **Parameters** | Path, Query, Body (`items: list[Model] = Body()`), Header, Cookie, Form, File; `alias=` only on Header/Cookie/Form/File |
+| **Validation** | msgspec Struct (ultra-fast), automatic 422 errors, configurable body size limit (default 2 MiB) |
 | **DI** | `@injectable` (3 scopes: singleton / **request** / **transient**), `Depends()` (sync + async), circular dep detection |
 | **Security** | HTTPBearer, HTTPBasic, OAuth2, API Keys (Header / Query / Cookie), `SecurityHeadersMiddleware` (X-Frame-Options, CSP, HSTS, …) |
 | **Async** | Background Tasks (failures logged, not silenced), WebSockets with **typed path params + DI** |
-| **Performance** | orjson serialization, `@cache` decorator, endpoint pre-compilation, 27 precompiled Cython extensions (shipped by default) |
+| **Performance** | orjson serialization, `@cache` decorator, endpoint pre-compilation, optional Cython extensions |
 | **Docs** | OpenAPI 3.0 (incl. `List[Struct]` arrays + `multipart/form-data`), Scalar UI, Swagger, ReDoc (XSS-safe HTML generation) |
 | **CLI** | Project scaffolding, code generation, linting, AI-agent skill installer |
 | **Testing** | `TachyonTestClient` (sync), `create_client()` (async, full httpx kwargs), `dependency_overrides` |
-| **Architecture** | Atomic SRP modules across `app/`, `processing/`, `responses/`, `openapi/`, `security/` — 27 compiled to `.so` for the hot path (v1.2.x refactor + v1.2.9 Cython sprint) |
+| **Architecture** | Atomic SRP modules across `app/`, `processing/`, `responses/`, `openapi/`, `security/` — optional native modules for the hot path |
 
 ---
 
@@ -151,24 +110,23 @@ The biggest wins concentrate on real framework work — DI resolution (+18.3%), 
 
 ## 🏦 Example: KYC Demo API
 
-A complete example demonstrating all Tachyon features is available in [`example/`](./example/):
+An example demonstrating selected Tachyon features is available in [`example/`](./example/):
 
 ```bash
-cd example
-pip install -r requirements.txt
+# From the repository root
+pip install -r example/requirements.txt
 tachyon run example.app:app
 ```
 
-The KYC Demo exercises every v1.2.x feature:
+The KYC Demo exercises:
 - 🔐 JWT Authentication + API Keys
-- 👤 Customer CRUD + bulk endpoint (`Body(List[Struct])`)
+- 👤 Customer CRUD and list response models
 - 📋 KYC Verification with Background Tasks
-- 📁 Document Uploads (`multipart/form-data`)
-- 🌐 WebSocket — legacy plain-string + modern DI-injected with `room_id: uuid.UUID`
-- 💉 DI scopes — `singleton` (services), `request` (correlation context), `transient` (ID generator)
+- 🌐 Customer notification WebSocket with a string customer ID
+- 💉 DI scopes — `singleton` services and `request` correlation context
 - 🛡️ Security headers + opt-in CORS allow-list
 - 🚨 Custom exception handler for the `KYCException` hierarchy
-- 🧪 17 tests (`pytest example/tests/`), including async tests via `create_client`
+- 🧪 HTTP, async-client, WebSocket and lifespan tests (`pytest example/tests/`)
 
 **Demo credentials:** `demo@example.com` / `demo123`
 
@@ -189,40 +147,24 @@ The KYC Demo exercises every v1.2.x feature:
 
 ## 🏛️ Architecture
 
-Tachyon's request hot path is a thin chain of composed collaborators — every
-piece is single-responsibility and ready for Cython compilation:
+The normal HTTP request path is composed from these collaborators:
 
-```
-client
-  │
-  ├─→ Tachyon.__call__ (ASGI entry — sets scope["app"])
-  │     │
-  │     ├─→ ASGIEntry         lazy build of HTTP app
-  │     │
-  │     ├─→ HTTPDispatcher    HTTP → trie  ·  WS/lifespan → Starlette
-  │     │
-  │     ├─→ MiddlewareStack   user-registered middlewares (CORS, Security…)
-  │     │
-  │     └─→ TachyonDispatcher (Cython cdef)  ← radix trie match O(k)
-  │           │
-  │           ├─→ _ASGIHandler (no-param fast path, 2 sends only)
-  │           │
-  │           └─→ handler closure
-  │                 ├─→ ParameterPipeline → 8 atomic extractors
-  │                 │     (body / query / query-list / header / cookie / form / file / path)
-  │                 ├─→ DependencyResolver → OverrideLookup / ScopeCache /
-  │                 │                        ClassFactory / CallableFactory
-  │                 ├─→ ResponseProcessor (msgspec encode if Struct)
-  │                 └─→ ExceptionTable (walks subclass handlers)
-  │
-  └─→ TachyonJSONResponse | TachyonBytesResponse | _InternalErrorResponse
-        (pre-built ASGI dicts, zero extra allocations per response)
+```text
+Tachyon.__call__ → ASGIEntry → MiddlewareStack → TachyonDispatcher
+  → route guards → ParameterProcessor → DependencyResolver
+  → ResponseProcessor → request-owned ASGI response messages
 ```
 
-The v1.2.x SRP refactor decomposed the monolithic hot path into atomic modules
-with `__slots__` and full type hints — direct `cdef class` candidates.  The
-v1.2.9 Cython sprint then compiled 27 of them to `.so`, keeping every `.py`
-sibling as a transparent fallback (Python prefers `.so` automatically).
+WebSocket and lifespan scopes delegate to Starlette. `HTTPDispatcher` supports
+the Starlette compatibility flow. Registration prepares signatures, converters
+and decoders. Trie matching prefers complete static matches and may explore
+alternative branches when a static prefix reaches a dead end. Error responses
+are created per call; immutable payload bytes and bounded header tables may be
+shared. Response messages and mutable headers belong to each send.
+
+The hot path has Python implementations with optional native Cython siblings.
+Python prefers native modules when installed. See the build guide for explicit
+pure Python builds.
 
 👉 [Full architecture documentation](./docs/02-architecture.md)
 
@@ -297,7 +239,8 @@ from tachyon_api import injectable, Depends
 
 @injectable
 class RoomBroadcaster:
-    async def join(self, ws, room_key: str): ...
+    async def join(self, ws, room_key: str):
+        await ws.accept()
 
 @app.websocket("/ws/rooms/{room_id}")           # typed UUID path param
 async def room(
@@ -319,15 +262,16 @@ async def room(
 ```bash
 # Create project (generates .env.example, config.py with dotenv, clean arch)
 tachyon new my-api
+cd my_api
 
-# Start development server (uvloop + httptools auto-detected, reload on)
+# Start development server (optional uvloop + httptools detected, reload on)
 tachyon run
 
 # List all registered routes
 tachyon routes
 
 # Generate a full CRUD module
-tachyon g service users --crud
+tachyon g service user --crud
 
 # Generate an ASGI middleware skeleton
 tachyon g middleware auth
@@ -378,26 +322,10 @@ async def test_hello_async():
 ```
 
 ```bash
-pytest tests/ -v
+pytest tests/ example/tests/ -v
 ```
 
 👉 [Full Testing documentation](./docs/11-testing.md)
-
----
-
-## 📊 Why Tachyon?
-
-| Feature | Tachyon | FastAPI |
-|---------|---------|---------|
-| **Throughput** | ~341k req/s total | ~62k req/s total |
-| **Latency** | ~2.3ms avg | ~14ms avg |
-| **Routing** | Radix trie O(k) | Regex scan O(N) |
-| **Serialization** | msgspec + orjson | Pydantic v2 |
-| **Request compilation** | Once at startup | Per request |
-| **Middleware overhead** | User-only stack | +2 auto middleware layers |
-| **Bundle size** | Minimal (4 deps) | Larger (~15 deps) |
-| **Learning curve** | Easy (FastAPI-like) | Easy |
-| **Type safety** | Full (msgspec Struct) | Full (Pydantic) |
 
 ---
 
@@ -407,7 +335,7 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 1. Fork the repository
 2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Run tests (`pytest tests/ -v`)
+3. Run tests (`pytest tests/ example/tests/ -v`)
 4. Commit your changes
 5. Push to the branch (`git push origin feature/amazing-feature`)
 6. Open a Pull Request
@@ -425,7 +353,7 @@ This project is licensed under the GNU General Public License v3.0 - see the [LI
 See [CHANGELOG.md](./CHANGELOG.md) for version history.
 
 Upcoming:
-- Response streaming
+- A dedicated streaming API; Starlette `StreamingResponse` already passes through the ASGI response path
 - GraphQL support
 - Multi-worker benchmarks
 - Benchmark suite vs Litestar / BlackSheep / Robyn

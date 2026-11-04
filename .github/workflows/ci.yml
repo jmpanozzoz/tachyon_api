@@ -17,27 +17,31 @@ jobs:
           python-version: "3.10"
       - name: Run parity script
         run: python scripts/check_py_pyx_parity.py
+      - name: Check Python source quality
+        run: |
+          pip install ruff==0.14.9
+          ruff check tachyon_api tests benchmark scripts
 
   test-pure-python:
-    name: Tests (pure-Python fallback)
+    name: Tests (pure Python, ${{ matrix.python }})
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.10", "3.13"]
     runs-on: ubuntu-latest
     needs: parity
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.10"
+          python-version: ${{ matrix.python }}
       - name: Install package (no Cython compilation)
         env:
-          # _build.py honors this and skips ext_modules even if Cython is
-          # available in the PEP 517 build env. Without it, build-system
-          # requires would pull Cython in and the editable install would
-          # compile .so files — defeating the purpose of this job.
           TACHYON_SKIP_CYTHON: "1"
         run: |
           pip install --upgrade pip
           pip install -e .
-          pip install pytest pytest-asyncio httpx
+          pip install pytest pytest-asyncio httpx PyJWT
       - name: Verify no .so files present
         run: |
           if find tachyon_api -name "*.so" | grep -q .; then
@@ -46,23 +50,32 @@ jobs:
             exit 1
           fi
       - name: Run test suite
-        run: pytest tests/ -v
+        run: python scripts/quality_cycle.py --engine python --output quality-python.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: quality-python-${{ matrix.python }}
+          path: quality-python.json
 
   test-compiled:
-    name: Tests (Cython-compiled .so)
+    name: Tests (Cython, ${{ matrix.python }})
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.10", "3.13"]
     runs-on: ubuntu-latest
     needs: parity
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.10"
+          python-version: ${{ matrix.python }}
       - name: Install build deps + package
         run: |
           pip install --upgrade pip
           pip install Cython
           pip install -e .
-          pip install pytest pytest-asyncio httpx
+          pip install pytest pytest-asyncio httpx PyJWT
       - name: Compile Cython extensions
         run: python setup.py build_ext --inplace
       - name: Verify compiled artefacts exist
@@ -80,4 +93,26 @@ jobs:
           fi
           exit $missing
       - name: Run test suite
-        run: pytest tests/ -v
+        run: python scripts/quality_cycle.py --engine native --output quality-native.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: quality-native-${{ matrix.python }}
+          path: quality-native.json
+
+  portable-wheel:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: pip install build pytest pytest-asyncio httpx
+      - name: Build portable wheel and install outside checkout
+        env:
+          TACHYON_SKIP_CYTHON: "1"
+        run: |
+          python -m build --wheel
+          test -f dist/tachyon_api-*-py3-none-any.whl
+          pip install dist/*.whl
+          python scripts/test_installed_wheel.py --engine python

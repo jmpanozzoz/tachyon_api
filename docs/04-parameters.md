@@ -18,7 +18,7 @@ def get_user(user_id: int):
 
 # Explícito (con Path())
 @app.get("/items/{item_id}")
-def get_item(item_id: str = Path(..., description="The item ID")):
+def get_item(item_id: str = Path(description="The item ID")):
     return {"item_id": item_id}
 
 # Múltiples path params
@@ -86,11 +86,11 @@ class UserUpdate(Struct):
 app = Tachyon()
 
 @app.post("/users")
-def create_user(user: UserCreate = Body(...)):
+def create_user(user: UserCreate = Body()):
     return {"created": user.name, "email": user.email}
 
 @app.put("/users/{user_id}")
-def update_user(user_id: str, data: UserUpdate = Body(...)):
+def update_user(user_id: str, data: UserUpdate = Body()):
     return {"updated": user_id, "data": data}
 ```
 
@@ -258,7 +258,7 @@ def create_item(
     # Header
     authorization: str = Header(...),
     # Body
-    item: ItemCreate = Body(...)
+    item: ItemCreate = Body()
 ):
     return {
         "store": store_id,
@@ -288,3 +288,9 @@ def create_item(
 
 - [Validation](./05-validation.md) - Validación con Struct
 - [Security](./06-security.md) - Headers de autenticación
+
+Las listas query admiten hasta 1.000 elementos en total, incluyendo valores repetidos y separados por comas. Exceder el límite devuelve 422. El body total tiene un límite independiente de 2 MiB por defecto.
+
+File admite `UploadFile`, `list[UploadFile]` y sus versiones opcionales. La lista conserva el orden de partes repetidas. El scalar rechaza archivos duplicados o partes de texto con 422; la lista rechaza cualquier parte que no sea archivo. Defaults admitidos: requerido (`...`) o `None`; solo para `list[UploadFile]` también se admite una lista vacía, copiada por request. Los uploads recibidos son Tachyon UploadFile; se eliminan directorios Unix/Windows y bytes NUL del filename. Elegir un nombre y destino de almacenamiento propios, con política de colisiones.
+
+Los parámetros date/datetime usan el mismo formato en Python 3.10–3.13: date `YYYY-MM-DD`; datetime `YYYY-MM-DD[T o espacio ASCII]HH:MM:SS`, fracción opcional de 1–6 dígitos y zona opcional `Z` o `±HH:MM`. Un valor inválido en path no coincide con la ruta (404); los valores query inválidos producen 422.

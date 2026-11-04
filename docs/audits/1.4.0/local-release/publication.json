@@ -1,0 +1,56 @@
+{
+  "verified_utc": "2026-11-04T16:12:04.966454+00:00",
+  "name": "tachyon-api",
+  "version": "1.4.0",
+  "url": "https://pypi.org/project/tachyon-api/1.4.0/",
+  "product_source_commit": "484118972a0dd186bbbdafd22ec3a51f8b26c0d2",
+  "source_branch": "feature/v1.4.0-audit-cleanup",
+  "artifacts": [
+    {
+      "filename": "tachyon_api-1.4.0-cp310-cp310-macosx_11_0_arm64.whl",
+      "sha256": "aa673b2948f00750e9ed3803762bec52e8807cc3ca7c05fd8d38c45422081d21",
+      "url": "https://files.pythonhosted.org/packages/e2/fd/14ac5604863238176592904c94ea43db9bf0a3ae521e199a4e871e441bc3/tachyon_api-1.4.0-cp310-cp310-macosx_11_0_arm64.whl",
+      "upload_time": "2026-11-04T16:07:59.991347Z"
+    },
+    {
+      "filename": "tachyon_api-1.4.0-cp311-cp311-macosx_11_0_arm64.whl",
+      "sha256": "ba044c9a3a8f3e85de8a6c6f608c7adfbb43845ecb2bb49e9111a1b7c7fe7ec0",
+      "url": "https://files.pythonhosted.org/packages/52/f9/c58846f8cc867b7cfd7fd357eaf08a59f4605d5275d0a88cc929030da247/tachyon_api-1.4.0-cp311-cp311-macosx_11_0_arm64.whl",
+      "upload_time": "2026-11-04T16:08:01.879817Z"
+    },
+    {
+      "filename": "tachyon_api-1.4.0-cp312-cp312-macosx_11_0_arm64.whl",
+      "sha256": "af623681b224c987cf64bab74f9c2cf40302124a6863f22d45d0e3b0dac75d34",
+      "url": "https://files.pythonhosted.org/packages/20/c0/9ce2c2b2627df978e1febf1e6d04f6de94ef9f2a1213d78a040dfec73f0c/tachyon_api-1.4.0-cp312-cp312-macosx_11_0_arm64.whl",
+      "upload_time": "2026-11-04T16:08:04.794383Z"
+    },
+    {
+      "filename": "tachyon_api-1.4.0-cp313-cp313-macosx_11_0_arm64.whl",
+      "sha256": "09ef2aa78f1e28049d82a9777ba946e5ac230de2ec3c5e98d6f4b058b39924d4",
+      "url": "https://files.pythonhosted.org/packages/51/8b/0c82cc5c78ee05a9c942aab5781ac0fdb9b585110082fa8459adf2993fa2/tachyon_api-1.4.0-cp313-cp313-macosx_11_0_arm64.whl",
+      "upload_time": "2026-11-04T16:08:06.463089Z"
+    },
+    {
+      "filename": "tachyon_api-1.4.0-py3-none-any.whl",
+      "sha256": "1d689e5ed70d87d3265e97bf6da8606ae67552087a022340988ade38037fab8b",
+      "url": "https://files.pythonhosted.org/packages/b8/3c/283c206d42c48da8c04e0549d2de5cdb30e0f3fb968626b81e089fa9b444/tachyon_api-1.4.0-py3-none-any.whl",
+      "upload_time": "2026-11-04T16:08:08.583850Z"
+    },
+    {
+      "filename": "tachyon_api-1.4.0.tar.gz",
+      "sha256": "f07035a2e348990be4e6260767bb3a27d56bc8c01c8a8e56de042cc5e14d4930",
+      "url": "https://files.pythonhosted.org/packages/4a/08/0fd411192baa7cb08eb050e7788db3f3952498228204a99f68c8c9383bb6/tachyon_api-1.4.0.tar.gz",
+      "upload_time": "2026-11-04T16:08:09.819662Z"
+    }
+  ],
+  "pypi_downloaded_contracts": {
+    "python": "3.13.18",
+    "native": 174,
+    "portable": 174
+  },
+  "native_platform_scope": "macOS arm64; CPython 3.10,3.11,3.12,3.13",
+  "unverified_native_platforms": [
+    "Linux",
+    "Windows"
+  ]
+}

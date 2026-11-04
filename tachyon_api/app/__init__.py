@@ -81,6 +81,8 @@ class Tachyon:
         lifespan: Optional[Callable] = None,
         max_body_size: int = 2 * 1024 * 1024,
     ):
+        if isinstance(max_body_size, bool) or not isinstance(max_body_size, int) or max_body_size < 0:
+            raise ValueError("max_body_size must be a non-negative integer")
         self.max_body_size = max_body_size
         self._lifecycle_manager = LifecycleManager(lifespan)
 
@@ -111,9 +113,9 @@ class Tachyon:
         )
 
         # Collaborators
-        self._websocket_manager = WebSocketManager(self._router)
         self._parameter_processor = ParameterProcessor(self)
         self._dependency_resolver = DependencyResolver(self)
+        self._websocket_manager = WebSocketManager(self._router, self._dependency_resolver)
 
         self._registry = RouteRegistry()
         self._exc_table = ExceptionTable()
@@ -195,17 +197,21 @@ class Tachyon:
             return endpoint_func
         return decorator
 
-    def include_router(self, router, **kwargs: Any) -> None:
+    def include_router(self, router, *, prefix="", tags=None, dependencies=None, responses=None) -> None:
         from ..router import Router
 
         if not isinstance(router, Router):
             raise TypeError("Expected Router instance")
+        if prefix and not prefix.startswith("/"):
+            raise ValueError("Router include prefix must start with '/'")
 
         for route_info in router.routes:
-            full_path = router.get_full_path(route_info["path"])
+            full_path = prefix.rstrip("/") + router.get_full_path(route_info["path"])
 
             if route_info.get("is_websocket"):
-                self._websocket_manager.add_websocket_route(full_path, route_info["func"])
+                self._websocket_manager.add_websocket_route(
+                    full_path, route_info["func"], dependencies=list(dependencies or ()) + router.dependencies
+                )
                 continue
 
             route_kwargs = route_info.copy()
@@ -213,6 +219,10 @@ class Tachyon:
             route_kwargs.pop("method", None)
             route_kwargs.pop("func", None)
             route_kwargs.pop("is_websocket", None)
+            route_kwargs["dependencies"] = list(dependencies or ()) + list(route_kwargs.get("dependencies", ()))
+            if tags:
+                route_kwargs["tags"] = list(tags) + list(route_kwargs.get("tags", ()))
+            route_kwargs["responses"] = {**router.responses, **(responses or {}), **route_kwargs.get("responses", {})}
 
             self._installer.install(
                 full_path, route_info["method"], route_info["func"], **route_kwargs

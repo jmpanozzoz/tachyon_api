@@ -28,14 +28,13 @@ async def lifespan(app):
     # Inicializar cache
     app.state.cache = await create_cache()
     
-    yield  # La app corre aquí
-    
-    # === SHUTDOWN ===
-    print("🛑 Shutting down...")
-    
-    # Cerrar conexiones
-    await app.state.db.close()
-    await app.state.cache.close()
+    try:
+        yield  # La app corre aquí
+    finally:
+        # === SHUTDOWN ===
+        print("🛑 Shutting down...")
+        await app.state.cache.close()
+        await app.state.db.close()
 
 app = Tachyon(lifespan=lifespan)
 
@@ -48,7 +47,7 @@ def root():
 
 ## 🎭 @app.on_event Decorators
 
-Más simple, pero sin cleanup automático:
+Los handlers se ejecutan en orden de registro; cada recurso necesita su cierre explícito:
 
 ```python
 from tachyon_api import Tachyon
@@ -98,9 +97,10 @@ async def lifespan(app):
     app.state.db = DatabaseConnection()
     await app.state.db.connect()
     
-    yield
-    
-    await app.state.db.close()
+    try:
+        yield
+    finally:
+        await app.state.db.close()
 
 app = Tachyon(lifespan=lifespan)
 
@@ -128,10 +128,10 @@ async def lifespan(app):
         "postgresql://user:pass@localhost/db"
     )
     
-    yield
-    
-    # Cerrar pool
-    await app.state.pool.close()
+    try:
+        yield
+    finally:
+        await app.state.pool.close()
 
 app = Tachyon(lifespan=lifespan)
 ```
@@ -147,9 +147,10 @@ async def lifespan(app):
     # Cliente HTTP reutilizable
     app.state.http_client = httpx.AsyncClient()
     
-    yield
-    
-    await app.state.http_client.aclose()
+    try:
+        yield
+    finally:
+        await app.state.http_client.aclose()
 
 app = Tachyon(lifespan=lifespan)
 
@@ -169,9 +170,10 @@ from contextlib import asynccontextmanager
 async def lifespan(app):
     app.state.redis = redis.Redis.from_url("redis://localhost")
     
-    yield
-    
-    await app.state.redis.close()
+    try:
+        yield
+    finally:
+        await app.state.redis.aclose()
 
 app = Tachyon(lifespan=lifespan)
 ```
@@ -180,6 +182,7 @@ app = Tachyon(lifespan=lifespan)
 
 ```python
 from contextlib import asynccontextmanager
+from tachyon_api import Tachyon, Body
 
 @asynccontextmanager
 async def lifespan(app):
@@ -188,15 +191,15 @@ async def lifespan(app):
     app.state.model = torch.load("model.pt")
     app.state.model.eval()
     
-    yield
-    
-    # Cleanup si es necesario
-    del app.state.model
+    try:
+        yield
+    finally:
+        del app.state.model
 
 app = Tachyon(lifespan=lifespan)
 
 @app.post("/predict")
-def predict(data: InputData):
+def predict(data: InputData = Body()):
     return app.state.model(data.tensor)
 ```
 
@@ -226,13 +229,17 @@ def additional_startup():
 
 ---
 
+Los handlers `on_event` síncronos usan el thread pool; los async se awaitean en el event loop. El cuerpo de un lifespan async corre en el event loop: mover cargas bloqueantes, como cargar un modelo, a un worker si corresponde.
+
+Un startup handler que falla aborta el arranque con `RuntimeError`; la fase de shutdown de Tachyon todavía no se inició. Liberar recursos adquiridos parcialmente en el propio inicializador, por ejemplo con `AsyncExitStack`. Una vez iniciada la fase de lifespan, Tachyon ejecuta sus shutdown handlers en `finally`, registra sus excepciones y continúa con los siguientes. El objeto `app` recibido por el lifespan es la instancia Starlette delegada; comparte `state` con Tachyon.
+
 ## 🧪 Testing con Lifespan
 
 ```python
 from starlette.testclient import TestClient
 
 def test_with_lifespan():
-    # TestClient ejecuta lifespan automáticamente
+    # El contexto activa lifespan; instanciar TestClient sin with no lo activa
     with TestClient(app) as client:
         response = client.get("/")
         assert response.status_code == 200
@@ -255,3 +262,5 @@ def test_with_lifespan():
 
 - [Background Tasks](./09-background-tasks.md) - Tareas async
 - [Testing](./11-testing.md) - Testear con lifespan
+
+Referencias de APIs externas: [lifespan y TestClient de Starlette](https://github.com/kludex/starlette/blob/main/docs/lifespan.md), [cierre explícito del cliente Redis async](https://github.com/redis/redis-py/blob/master/docs/examples/asyncio_examples.ipynb). Los drivers de los ejemplos son dependencias opcionales de la aplicación.

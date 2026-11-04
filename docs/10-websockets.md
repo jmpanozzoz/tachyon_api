@@ -103,6 +103,7 @@ Las mismas reglas de DI de los HTTP handlers aplican a los WebSockets — incluy
 `@injectable` (con sus tres scopes) y `Depends(callable)`:
 
 ```python
+from starlette.websockets import WebSocket
 from tachyon_api import injectable, Depends
 
 @injectable                                       # singleton
@@ -114,11 +115,18 @@ class RoomBroadcaster:
         await ws.accept()
         self._rooms.setdefault(key, []).append(ws)
 
+    def leave(self, ws, key: str):
+        room = self._rooms.get(key, [])
+        if ws in room:
+            room.remove(ws)
+        if not room:
+            self._rooms.pop(key, None)
+
     async def broadcast(self, key: str, msg: dict):
-        for ws in self._rooms.get(key, []):
+        for ws in list(self._rooms.get(key, [])):
             await ws.send_json(msg)
 
-async def get_optional_user(websocket):
+async def get_optional_user(websocket: WebSocket):
     """Factory que extrae usuario (o None) antes de aceptar la conexión."""
     token = websocket.query_params.get("token")
     return verify(token) if token else None
@@ -130,15 +138,19 @@ async def room_stream(
     broadcaster: RoomBroadcaster = Depends(),         # @injectable singleton
     user: dict = Depends(get_optional_user),          # callable per-connection
 ):
-    await broadcaster.join(websocket, str(room_id))
-    while True:
-        data = await websocket.receive_json()
-        await broadcaster.broadcast(str(room_id), data)
+    key = str(room_id)
+    await broadcaster.join(websocket, key)
+    try:
+        while True:
+            data = await websocket.receive_json()
+            await broadcaster.broadcast(key, data)
+    finally:
+        broadcaster.leave(websocket, key)
 ```
 
 ### Cómo se resuelven los deps
 
-- **Descriptores pre-computados al registrar** la ruta (cero `inspect` por conexión).
+- **Firmas y descriptores preparados al registrar** la ruta; no se vuelve a resolver la firma por conexión.
 - **`@injectable` (singleton)**: misma instancia que comparte con el resto de la app.
 - **`Depends(callable)`**: se invoca **una vez por conexión** durante el setup
   del handler, no por cada `receive` / `send`.
@@ -148,6 +160,10 @@ async def room_stream(
 > exclusivamente para HTTP pueden fallar al acceder `request.method`, etc.
 
 ---
+
+Los singletons no pueden capturar `Request`, `WebSocket`, providers request/transient ni factories por conexión en su constructor. Las conexiones que la aplicación guarda explícitamente, como en el broadcaster, requieren su propia eliminación al desconectarse.
+
+`Query`, `Header`, `Body`, `Cookie`, `Form` y `File` como defaults del endpoint WebSocket se rechazan al registrar. Leer `websocket.query_params`/`websocket.headers`, o usar `Query`/`Header` dentro de una factory `Depends`. Los parámetros requeridos sin binding y los endpoints positional-only también se rechazan. Las funciones sync se ejecutan en un worker.
 
 ## ❓ Query Parameters
 
@@ -255,6 +271,8 @@ app.include_router(router)
 # Conectar a: ws://localhost:8000/api/v1/notifications
 ```
 
+También puede montarse la aplicación ASGI bajo un prefijo externo. Las rutas internas permanecen relativas a esa aplicación; HTTP y WebSocket respetan `root_path` y conservan los parámetros del mount. Las páginas de documentación adaptan las URLs locales del schema y el servidor por defecto a cada request; los servidores OpenAPI explícitos mantienen precedencia. Ver [migración 1.4](17-migration-1.4.md).
+
 ---
 
 ## 📦 JSON Messages
@@ -352,3 +370,7 @@ await websocket.close(code=4001)  # Custom: unauthorized
 
 - [Testing](./11-testing.md) - Testear WebSockets
 - [Best Practices](./15-best-practices.md) - Patrones recomendados
+
+El scope `request` dura toda la conexión WebSocket, no cada mensaje. Renovar o revalidar autorización de conexiones largas según la política de la aplicación. Las factories reciben el socket con la anotación `starlette.websockets.WebSocket`; el shortcut por nombre `websocket` solo aplica al endpoint.
+
+El contrato de fechas es igual en Python 3.10–3.13: date usa `YYYY-MM-DD`; datetime usa `YYYY-MM-DDTHH:MM:SS` (también admite espacio ASCII en lugar de `T`), con fracción opcional de 1–6 dígitos y zona opcional `Z` o `±HH:MM`. Se rechazan fechas compactas o de semana, precisión de minutos, coma decimal y fracciones mayores a seis dígitos. Ejemplos: `2026-11-04`, `2026-11-04T12:30:00Z`, `2026-11-04 12:30:00.123456+03:00`.

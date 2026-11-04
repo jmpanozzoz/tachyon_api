@@ -1,0 +1,15 @@
+Checking 
+/private/tmp/tachyon-local-release-140/dist/tachyon_api-1.4.0-cp310-cp310-macosx
+_11_0_arm64.whl: [32mPASSED[0m
+Checking 
+/private/tmp/tachyon-local-release-140/dist/tachyon_api-1.4.0-cp311-cp311-macosx
+_11_0_arm64.whl: [32mPASSED[0m
+Checking 
+/private/tmp/tachyon-local-release-140/dist/tachyon_api-1.4.0-cp312-cp312-macosx
+_11_0_arm64.whl: [32mPASSED[0m
+Checking 
+/private/tmp/tachyon-local-release-140/dist/tachyon_api-1.4.0-cp313-cp313-macosx
+_11_0_arm64.whl: [32mPASSED[0m
+Checking 
+/private/tmp/tachyon-local-release-140/dist/tachyon_api-1.4.0-py3-none-any.whl: [32mPASSED[0m
+Checking /private/tmp/tachyon-local-release-140/dist/tachyon_api-1.4.0.tar.gz: [32mPASSED[0m

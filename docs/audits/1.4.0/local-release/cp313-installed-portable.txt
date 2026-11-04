@@ -1,0 +1,10 @@
+........................................................................ [ 41%]
+........................................................................ [ 82%]
+..............................                                           [100%]
+=============================== warnings summary ===============================
+tests/test_local_release_runtime.py:7
+  /private/var/folders/pq/mx14w_8j4tz1613dtkp90gvc0000gn/T/tachyon-wheel-contracts-3pct_uwv/tests/test_local_release_runtime.py:7: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+174 passed, 1 warning in 0.30s

@@ -1,0 +1,126 @@
+"""Prepare and test a local release in isolated snapshots; never uploads files."""
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import re
+import tarfile
+import tempfile
+from datetime import datetime, timezone
+
+ROOT = Path(__file__).resolve().parents[1]
+IGNORED = shutil.ignore_patterns(".git", ".venv", ".release", ".env", ".env.*", ".pypirc", "__pycache__", "*.so", "*.pyd",
+                                 "*.c", "build", "dist", "*.egg-info", ".pytest_cache", ".ruff_cache")
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--python", action="append", required=True, help="Interpreter path; repeat for the matrix")
+    parser.add_argument("--uv", type=Path, required=True)
+    parser.add_argument("--output", type=Path, required=True, help="New directory outside the checkout")
+    parser.add_argument("--duration", type=float, default=60)
+    parser.add_argument("--concurrency", type=int, default=8)
+    args = parser.parse_args()
+    output = args.output.resolve()
+    if output.exists() or output.is_relative_to(ROOT):
+        parser.error("output must be a new directory outside the checkout")
+    if args.duration < 1 or args.concurrency < 1:
+        parser.error("duration and concurrency must be positive")
+    output.mkdir(parents=True)
+    dist = output / "dist"
+    dist.mkdir()
+    report = {"started": datetime.now(timezone.utc).isoformat(), "complete": False,
+              "revision": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip(),
+              "checks": [], "matrix": [], "artifacts": [], "platform_limit": "Native wheels tested on this host only"}
+    release_version = re.search(r'^version = "([^"]+)"', (ROOT / "pyproject.toml").read_text(), re.M).group(1)
+    report["version"] = release_version
+    environment = dict(os.environ, MACOSX_DEPLOYMENT_TARGET="11.0", PYTHONPATH="")
+    environment.pop("TACHYON_SKIP_CYTHON", None)
+
+    def run(label, command, cwd, env=None):
+        log = output / f"{label}.log"
+        print(label, flush=True)
+        with log.open("w") as stream:
+            result = subprocess.run([str(x) for x in command], cwd=cwd,
+                                    env=env or environment, stdout=stream, stderr=subprocess.STDOUT)
+        report["checks"].append({"name": label, "exit_code": result.returncode, "log": log.name})
+        if result.returncode:
+            print(log.read_text()[-6000:], flush=True)
+            raise RuntimeError(f"{label} failed; see {log}")
+
+    try:
+        with tempfile.TemporaryDirectory(prefix="tachyon-local-release-") as temporary:
+            work = Path(temporary)
+            frozen = work / "source"
+            subprocess.run(["git", "clone", "--quiet", "--no-checkout", "--no-hardlinks", str(ROOT), str(frozen)], check=True)
+            shutil.copytree(ROOT, frozen, dirs_exist_ok=True, ignore=IGNORED)
+            versions = set()
+            for index, interpreter in enumerate(args.python):
+                version = subprocess.check_output([interpreter, "-c", "import sys; print('.'.join(map(str,sys.version_info[:2])))"], text=True).strip()
+                if version not in {"3.10", "3.11", "3.12", "3.13"} or version in versions:
+                    raise ValueError(f"Unsupported or duplicate interpreter {version}")
+                versions.add(version)
+                label = "cp" + version.replace(".", "")
+                source = work / label
+                shutil.copytree(frozen, source)
+                venv = output / f"env-{label}"
+                run(f"{label}-venv", [args.uv, "venv", "--python", interpreter, venv], source)
+                python = venv / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
+                run(f"{label}-dependencies", [args.uv, "pip", "install", "--python", python,
+                    str(source) + "[test]", "pytest", "pytest-asyncio", "PyJWT", "build", "Cython",
+                    "setuptools", "wheel", "poetry-core", "ruff==0.14.9", "twine"], source,
+                    environment | {"TACHYON_SKIP_CYTHON": "1"})
+                run(f"{label}-ruff", [python, "-m", "ruff", "check", "tachyon_api", "tests", "benchmark", "scripts"], source)
+                run(f"{label}-python", [python, "scripts/quality_cycle.py", "--engine", "python", "--output", output / f"{label}-python.json"], source)
+                if index == 0:
+                    run("portable-sdist-build", [python, "-m", "build", "--no-isolation", "--outdir", dist], source,
+                        environment | {"TACHYON_SKIP_CYTHON": "1"})
+                run(f"{label}-compile", [python, "setup.py", "build_ext", "--inplace"], source)
+                run(f"{label}-native", [python, "scripts/quality_cycle.py", "--engine", "native", "--output", output / f"{label}-native.json"], source)
+                for engine in ("python", "native") if index == 0 else ():
+                    # A separate fallback snapshot avoids accidental imports of
+                    # the extensions just built in the native snapshot.
+                    if engine == "python":
+                        soak_source = work / "soak-python"
+                        shutil.copytree(frozen, soak_source)
+                    else:
+                        soak_source = source
+                    run(f"soak-{engine}", [python, "-m", "benchmark.run_soak", "--duration", args.duration,
+                        "--concurrency", args.concurrency, "--output", output / f"soak-{engine}.json"], soak_source)
+                extracted = work / f"sdist-{label}"
+                extracted.mkdir()
+                with tarfile.open(next(dist.glob("*.tar.gz"))) as archive:
+                    # Only this run's freshly built archive is accepted.
+                    for member in archive.getmembers():
+                        path = Path(member.name)
+                        if path.is_absolute() or ".." in path.parts or member.issym() or member.islnk():
+                            raise ValueError(f"Unsafe sdist member {member.name}")
+                    archive.extractall(extracted)
+                build_source = next(extracted.iterdir())
+                run(f"{label}-sdist-wheel", [python, "-m", "build", "--wheel", "--no-isolation", "--outdir", dist], build_source)
+                wheel = next(dist.glob(f"*-{label}-{label}-*.whl"))
+                run(f"{label}-install-native", [args.uv, "pip", "install", "--python", python, "--no-deps", "--reinstall", wheel], source)
+                run(f"{label}-installed-native", [python, "scripts/test_installed_wheel.py", "--engine", "native"], source)
+                portable = next(dist.glob("*-py3-none-any.whl"))
+                run(f"{label}-install-portable", [args.uv, "pip", "install", "--python", python, "--no-deps", "--reinstall", portable], source)
+                run(f"{label}-installed-portable", [python, "scripts/test_installed_wheel.py", "--engine", "python"], source)
+                report["matrix"].append({"python": version, "engines": ["python", "native"], "wheel": wheel.name})
+            run("artifact-check", [python, "scripts/check_release_artifacts.py", "--version", release_version, "--require-native", dist], frozen)
+            run("metadata-check", [python, "-m", "twine", "check", "--strict", *sorted(dist.iterdir())], frozen)
+            for artifact in sorted(dist.iterdir()):
+                report["artifacts"].append({"file": "dist/" + artifact.name,
+                    "sha256": hashlib.sha256(artifact.read_bytes()).hexdigest(), "bytes": artifact.stat().st_size})
+            report["complete"] = True
+    finally:
+        report["finished"] = datetime.now(timezone.utc).isoformat()
+        (output / "manifest.json").write_text(json.dumps(report, indent=2) + "\n")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

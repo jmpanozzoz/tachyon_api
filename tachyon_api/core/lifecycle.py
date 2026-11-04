@@ -1,64 +1,54 @@
-"""Startup/shutdown lifecycle management."""
-
-import asyncio
+"""Startup/shutdown handlers and user lifespan state."""
 import logging
 from contextlib import asynccontextmanager
-from typing import Callable, List, Optional
+
+from starlette._utils import is_async_callable
+from starlette.concurrency import run_in_threadpool
 
 logger = logging.getLogger(__name__)
 
 
 class LifecycleManager:
-    def __init__(self, user_lifespan: Optional[Callable] = None):
+    def __init__(self, user_lifespan=None):
         self._user_lifespan = user_lifespan
-        self._startup_handlers: List[Callable] = []
-        self._shutdown_handlers: List[Callable] = []
+        self._startup_handlers = []
+        self._shutdown_handlers = []
 
     def create_combined_lifespan(self):
-        # Captures self by reference so handlers registered after this call are still run
-        lifecycle_manager = self
-
         @asynccontextmanager
         async def combined_lifespan(app):
-            for handler in lifecycle_manager._startup_handlers:
+            for handler in self._startup_handlers:
                 try:
-                    if asyncio.iscoroutinefunction(handler):
+                    if is_async_callable(handler):
                         await handler()
                     else:
-                        handler()
+                        await run_in_threadpool(handler)
                 except Exception as exc:
-                    raise RuntimeError(
-                        f"Startup handler {handler.__name__!r} raised: {exc}"
-                    ) from exc
-
-            if lifecycle_manager._user_lifespan is not None:
-                async with lifecycle_manager._user_lifespan(app):
+                    raise RuntimeError(f"Startup handler {getattr(handler, '__name__', repr(handler))!r} raised: {exc}") from exc
+            try:
+                if self._user_lifespan is not None:
+                    async with self._user_lifespan(app) as state:
+                        yield state
+                else:
                     yield
-            else:
-                yield
-
-            for handler in lifecycle_manager._shutdown_handlers:
-                try:
-                    if asyncio.iscoroutinefunction(handler):
-                        await handler()
-                    else:
-                        handler()
-                except Exception as exc:
-                    logger.warning("Shutdown handler %r failed: %s", handler.__name__, exc, exc_info=True)
-
+            finally:
+                for handler in self._shutdown_handlers:
+                    try:
+                        if is_async_callable(handler):
+                            await handler()
+                        else:
+                            await run_in_threadpool(handler)
+                    except Exception:
+                        logger.exception("Shutdown handler %r failed", handler)
         return combined_lifespan
 
-    def on_event_decorator(self, event_type: str):
-        def decorator(func: Callable):
+    def on_event_decorator(self, event_type):
+        def decorator(func):
             if event_type == "startup":
                 self._startup_handlers.append(func)
             elif event_type == "shutdown":
                 self._shutdown_handlers.append(func)
             else:
-                raise ValueError(
-                    f"Invalid event type: {event_type}. Use 'startup' or 'shutdown'."
-                )
+                raise ValueError(f"Invalid event type: {event_type}. Use 'startup' or 'shutdown'.")
             return func
-
         return decorator
-

@@ -4,7 +4,7 @@
 
 ## Installation
 
-The CLI is included with `tachyon-api`:
+The CLI is included with `tachyon-api`. Ruff is a separate developer tool: install `ruff` before using `tachyon lint` (the repository validates with Ruff 0.14.9).
 
 ```bash
 pip install tachyon-api
@@ -49,7 +49,7 @@ tachyon new my-api --path ./projects
 ### Generated structure
 
 ```
-my-api/
+my_api/
 ├── .env.example            # Environment variable template — copy to .env
 ├── app.py                  # Application entry point
 ├── config.py               # Settings (reads from .env via python-dotenv)
@@ -68,7 +68,7 @@ my-api/
 ### Next steps after `tachyon new`
 
 ```bash
-cd my-api
+cd my_api
 cp .env.example .env          # configure your environment
 pip install -r requirements.txt
 tachyon run                   # starts at http://localhost:8000
@@ -93,7 +93,7 @@ tachyon run --prod --workers 4
 # Custom host
 tachyon run --host 127.0.0.1
 
-# TachyonServer — enables F12b direct transport writes
+# Legacy compatibility flag — standard Uvicorn h11 protocol
 tachyon run --tachyon-server
 ```
 
@@ -104,8 +104,8 @@ tachyon run --tachyon-server
 | `--port` / `-p` | `8000` | Bind port |
 | `--reload / --no-reload` | `True` | Auto-reload on file changes |
 | `--workers` / `-w` | `1` | Worker processes |
-| `--prod` | `False` | Production mode — disables reload, sets workers to 4 if unset |
-| `--tachyon-server` | `False` | Use `TachyonHTTPProtocol` for direct socket writes |
+| `--prod` | `False` | Production mode — disables reload; workers remain 1 unless explicitly set |
+| `--tachyon-server` | `False` | Compatibility mode using standard Uvicorn h11; no direct socket writer |
 
 > **Note:** `--prod` overrides `--reload` regardless of flags order.
 
@@ -113,7 +113,7 @@ tachyon run --tachyon-server
 
 ## 📋 tachyon routes
 
-Inspect all registered routes without starting the server.
+Import the application and list its registered HTTP routes without starting the server. Import-time application code still executes; WebSocket routes are held by the delegated Starlette router and are not included in this HTTP registry.
 
 ```bash
 tachyon routes          # reads app:app in current directory
@@ -149,37 +149,37 @@ Generate code components. All names accept hyphens (auto-converted to snake_case
 ### Full service module
 
 ```bash
-tachyon g service users
-tachyon generate service users   # same thing
+tachyon g service user
+tachyon generate service user   # same thing
 ```
 
 Generates:
 
 ```
-modules/users/
+modules/user/
 ├── __init__.py
-├── users_controller.py     # Router with endpoints
-├── users_service.py        # Business logic (@injectable)
-├── users_repository.py     # Data access layer
-├── users_dto.py            # Struct models
+├── user_controller.py     # Router with endpoints
+├── user_service.py        # Business logic (@injectable)
+├── user_repository.py     # Data access layer
+├── user_dto.py            # Struct models
 └── tests/
-    └── test_users_service.py
+    └── test_user_service.py
 ```
 
 Then register the router in `app.py`:
 
 ```python
-from modules.users import router as users_router
+from modules.user import router as users_router
 app.include_router(users_router)
 ```
 
 ### With CRUD endpoints (`--crud`)
 
 ```bash
-tachyon g service products --crud
+tachyon g service product --crud
 ```
 
-Adds full CRUD to the controller and service:
+Adds full CRUD to the controller and service. Use a singular component name: the generated router appends `s` (`product` → `/products`). `users` would generate `/userss`.
 
 | Method | Path | Description |
 |--------|------|-------------|
@@ -193,7 +193,7 @@ Adds full CRUD to the controller and service:
 
 ```bash
 tachyon g service auth --no-tests    # skip test file
-tachyon g service users --path src/modules   # custom output path
+tachyon g service user --path src/modules   # custom output path
 ```
 
 ### Individual components
@@ -258,6 +258,8 @@ tachyon openapi export app:app -o schema.json
 tachyon openapi export app:app -o schema.json --indent 4
 ```
 
+Export uses the application's cached schema, without a request-specific `root_path` server overlay. Configure OpenAPI servers explicitly when an exported file needs a deployment prefix; the HTTP schema endpoint supplies its automatic mount prefix per request.
+
 ### Validate schema
 
 ```bash
@@ -265,7 +267,7 @@ tachyon openapi validate schema.json
 ```
 
 ```
-✅ Schema is valid!
+✅ Basic schema structure is valid (not full OpenAPI specification validation).
    OpenAPI version: 3.0.0
    Title: My API
    Paths: 12
@@ -294,7 +296,7 @@ tachyon lint all                # lint + format together
 tachyon lint all --no-fix       # report only
 ```
 
-### Recommended `ruff.toml`
+### Recommended Ruff configuration in `pyproject.toml`
 
 ```toml
 [tool.ruff]
@@ -353,6 +355,7 @@ tachyon install-skill --claude     # only CLAUDE.md
 tachyon install-skill --copilot    # only .github/copilot-instructions.md
 tachyon install-skill --opencode   # only .opencode/rules.md
 tachyon install-skill --agents     # only AGENTS.md (Codex, Aider, generic)
+tachyon install-skill --agents --path ./project  # choose the target directory
 ```
 
 ### What it generates
@@ -360,7 +363,7 @@ tachyon install-skill --agents     # only AGENTS.md (Codex, Aider, generic)
 | Tool | File |
 |------|------|
 | **Cursor** | `.cursorrules` |
-| **Claude Code** | `CLAUDE.md` (creates or appends Tachyon section) |
+| **Claude Code** | `CLAUDE.md` (creates or updates its managed Tachyon section) |
 | **GitHub Copilot** | `.github/copilot-instructions.md` |
 | **OpenCode** | `.opencode/rules.md` |
 | **Codex / Aider / generic** | `AGENTS.md` |
@@ -378,3 +381,18 @@ anti-patterns, and CLI commands. Safe to run multiple times — idempotent.
 - [Architecture](./02-architecture.md) — clean architecture patterns
 - [Dependency Injection](./03-dependency-injection.md) — `@injectable` and `Depends()`
 - [Testing](./11-testing.md) — `TachyonTestClient` and fixtures
+
+
+## Audit contract notes
+
+`tachyon lint all --no-fix` checks lint and formatting without modifying files.
+`tachyon openapi validate` checks basic object/field types only, not full OpenAPI
+specification conformance; use an external OpenAPI validator for that purpose.
+`run`, `routes` and `openapi export` accept `module:attribute` or a bare module
+(default attribute: `app`).
+
+`install-skill` preserves existing files and manages only the section between
+`<!-- tachyon-api:begin -->` and `<!-- tachyon-api:end -->`. Reinstalling updates
+that section. Legacy unmarked content is preserved; remove duplicate old
+Tachyon text manually if desired. Malformed/duplicated markers leave the file
+unchanged with a diagnostic.

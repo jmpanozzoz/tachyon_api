@@ -1,60 +1,37 @@
-# 📚 Tachyon API Documentation
+# Tachyon API documentation
 
-> **Tachyon** - A lightweight, high-performance web framework inspired by FastAPI
+The current published version is [1.4.0 on PyPI](https://pypi.org/project/tachyon-api/1.4.0/).
+Python 3.10–3.13 is supported. The release includes a portable Python wheel and
+macOS ARM64 native wheels. Local validation does not establish Linux/Windows
+native compatibility. See the [release evidence](audits/1.4.0/LOCAL_RELEASE.md)
+and [changelog](../CHANGELOG.md) for scope and history.
 
-## 🚀 Quick Navigation
+## Guides
 
-### Getting Started
-- [01. Getting Started](./01-getting-started.md) - Instalación y primer proyecto
-- [02. Architecture](./02-architecture.md) - Arquitectura Clean y estructura de proyecto
+| Guide | Scope |
+| --- | --- |
+| [01. Getting started](01-getting-started.md) | Installation and first application |
+| [02. Architecture](02-architecture.md) | Project structure, controllers and services |
+| [03. Dependency injection](03-dependency-injection.md) | Providers, scopes, overrides and lifetime restrictions |
+| [04. Parameters](04-parameters.md) | Path, query, body, header, cookie, form and file inputs |
+| [05. Validation](05-validation.md) | msgspec models, response models and errors |
+| [06. Security](06-security.md) | Credential extraction and application authentication |
+| [07. Caching](07-caching.md) | TTL, namespaces and external backend contracts |
+| [08. Lifecycle](08-lifecycle.md) | Startup, shutdown and lifespan |
+| [09. Background tasks](09-background-tasks.md) | Execution after transmission and resource ownership |
+| [10. WebSockets](10-websockets.md) | Connections, paths and supported injection |
+| [11. Testing](11-testing.md) | Sync/async clients, overrides and lifespan |
+| [12. CLI](12-cli.md) | Scaffolding, inspection and development tools |
+| [13. Request lifecycle](13-request-lifecycle.md) | Registration, dispatch, validation and cleanup |
+| [14. FastAPI migration](14-migration-fastapi.md) | API and execution differences |
+| [15. Best practices](15-best-practices.md) | Application design and deployment considerations |
+| [16. Cython builds](16-cython-build.md) | Source compilation, fallback and installed-wheel checks |
+| [17. Migration to 1.4](17-migration-1.4.md) | Changed behavior and explicit limitations |
 
-### Core Concepts
-- [03. Dependency Injection](./03-dependency-injection.md) - Sistema de DI con `@injectable`
-- [04. Parameters](./04-parameters.md) - Path, Query, Body, Header, Cookie, Form, File
-- [05. Validation](./05-validation.md) - Validación con `Struct` (msgspec)
-
-### Features
-- [06. Security](./06-security.md) - Autenticación (Bearer, Basic, OAuth2, API Keys)
-- [07. Caching](./07-caching.md) - Sistema de cache con decorador `@cache`
-- [08. Lifecycle Events](./08-lifecycle.md) - Startup/Shutdown y lifespan
-- [09. Background Tasks](./09-background-tasks.md) - Tareas en segundo plano
-- [10. WebSockets](./10-websockets.md) - Comunicación en tiempo real
-
-### Development
-- [11. Testing](./11-testing.md) - Testing con `TachyonTestClient`
-- [12. CLI Tools](./12-cli.md) - Herramientas de línea de comandos
-
-### Advanced
-- [13. Request Lifecycle](./13-request-lifecycle.md) - Ciclo de vida de una request
-- [14. Migration from FastAPI](./14-migration-fastapi.md) - Guía de migración
-- [15. Best Practices](./15-best-practices.md) - Buenas prácticas
-- [16. Cython Build](./16-cython-build.md) - Compilar el hot path `[fast]`
-
----
-
-## 🎯 Why Tachyon?
-
-| Feature | Tachyon | FastAPI |
-|---------|---------|---------|
-| **Serialization** | msgspec + orjson | pydantic |
-| **Performance** | ⚡ ~5.6x throughput on the published benchmarks | Fast |
-| **Routing** | Radix trie O(k), Cython-compiled | Regex scan O(N) |
-| **Bundle Size** | 7 runtime deps (starlette, msgspec, orjson, uvicorn, httptools, typer, python-multipart) | ~15 deps |
-| **DI scopes** | 3 (singleton / request / transient) | 1 |
-| **Learning Curve** | Easy (FastAPI-like decorators) | Easy |
-| **Type Safety** | Full (msgspec Struct) | Full (Pydantic) |
-| **OpenAPI** | Automatic (incl. `List[Struct]`, multipart) | Automatic |
-
-## 📦 Installation
-
-```bash
-pip install tachyon-api
-```
-
-## 🏃 Quick Start
+## Start an application
 
 ```python
-from tachyon_api import Tachyon, Struct, Body
+from tachyon_api import Body, Struct, Tachyon
 
 app = Tachyon()
 
@@ -62,27 +39,27 @@ class User(Struct):
     name: str
     email: str
 
-@app.get("/")
-def hello():
-    return {"message": "Hello, Tachyon!"}
-
-@app.post("/users")
-def create_user(user: User = Body(...)):
-    return {"created": user.name}
+@app.post("/users", response_model=User)
+async def create_user(user: User = Body()):
+    return user
 ```
 
-```bash
-uvicorn app:app --reload
-```
+Save as `app.py`, install `tachyon-api`, then run `uvicorn app:app --reload`.
+Interactive documentation is available at `/docs`.
 
-Visit: http://localhost:8000/docs
+## Verification and maintenance
 
----
+- [Executable example](../example/README.md): demonstration application and test scope.
+- [Benchmark methodology](../benchmark/README.md): validated measurements and limits.
+- [Continuous improvement](quality/continuous-improvement.md): repair/review gates.
+- [Local release](quality/local-release.md): builds and publication without Actions.
+- [Documentation maintenance](quality/documentation.md): source comparisons, links and executable examples.
+- [Historical audits](audits/1.4.0/AUDITORIA.md): dated findings with current-status links.
 
-## 📖 Version
+The framework uses Starlette ASGI integration, msgspec validation, a radix trie
+with optional Cython implementations, and bounded request/cache behavior. The
+supported OpenAPI subset and API differences are described in the migration
+guides. Performance results are workload-specific; no universal multiplier or
+competitor dependency-count comparison is asserted.
 
-Current: **1.3.x** — see [CHANGELOG](../CHANGELOG.md) for full history.
-
-## 📄 License
-
-GPL-3.0-or-later
+License: GPL-3.0-or-later.

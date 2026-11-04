@@ -14,8 +14,8 @@ from ._config import (
 from ._generator import OpenAPIGenerator
 from ._param_schemas import build_param_schema
 from ._struct_schemas import (
-    _generate_struct_schema,
-    _schema_for_python_type,
+    _generate_struct_schema as _generate_struct_schema,
+    _schema_for_python_type as _schema_for_python_type,
     build_components_for_struct,
 )
 

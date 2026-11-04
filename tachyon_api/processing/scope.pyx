@@ -1,39 +1,30 @@
 # cython: language_level=3
-"""
-Cython-compiled TachyonScope.
+"""Lazy request metadata with one bounded, shared Starlette body stream."""
 
-cdef class: fields are C-level struct members — None checks are direct C reads
-rather than Python attribute lookups through the slot descriptor protocol.
-"""
-from http.cookies import SimpleCookie
 
+from anyio import CancelScope
 from starlette.datastructures import Headers, QueryParams
-from starlette.requests import Request
+from starlette.requests import cookie_parser
+from ._request import ManagedRequest
+
+from ._body_errors import RequestBodyTooLarge
 
 
 cdef class TachyonScope:
-    """Thin ASGI scope wrapper — replaces Starlette Request in the hot path."""
-
     cdef public object _scope
-    cdef public object _receive
-    cdef public object _send
-    cdef object _body
-    cdef object _query_params
-    cdef object _headers
-    cdef object _cookies
-    cdef object _form_data
-    cdef object _request
+    cdef object _receive, _send, _query_params, _headers, _cookies, _request
+    cdef object _received_bytes, _max_body_size
 
     def __init__(self, scope, receive, send):
         self._scope = scope
         self._receive = receive
         self._send = send
-        self._body = None
         self._query_params = None
         self._headers = None
         self._cookies = None
-        self._form_data = None
         self._request = None
+        self._received_bytes = 0
+        self._max_body_size = getattr(scope.get("app"), "max_body_size", 2 * 1024 * 1024)
 
     @property
     def path_params(self):
@@ -53,40 +44,42 @@ cdef class TachyonScope:
 
     @property
     def cookies(self):
-        cdef dict cookies
         if self._cookies is None:
-            cookies = {}
-            cookie_header = self.headers.get("cookie")
-            if cookie_header:
-                try:
-                    sc = SimpleCookie(cookie_header)
-                    for key, morsel in sc.items():
-                        cookies[key] = morsel.value
-                except Exception:
-                    pass
-            self._cookies = cookies
+            self._cookies = cookie_parser(self.headers.get("cookie", ""))
         return self._cookies
 
+    async def _bounded_receive(self):
+        if self._received_bytes == 0:
+            content_length = self.headers.get("content-length")
+            if content_length is not None:
+                try:
+                    declared_size = int(content_length)
+                except ValueError:
+                    declared_size = 0
+                if declared_size > self._max_body_size:
+                    raise RequestBodyTooLarge(f"Request body too large (max {self._max_body_size} bytes)")
+        if self._received_bytes > self._max_body_size:
+            raise RequestBodyTooLarge(f"Request body too large (max {self._max_body_size} bytes)")
+        message = await self._receive()
+        if message["type"] == "http.request":
+            self._received_bytes += len(message.get("body", b""))
+            if self._received_bytes > self._max_body_size:
+                raise RequestBodyTooLarge(f"Request body too large (max {self._max_body_size} bytes)")
+        return message
+
     async def body(self):
-        cdef list chunks
-        if self._body is None:
-            chunks = []
-            while True:
-                message = await self._receive()
-                chunk = message.get("body", b"")
-                if chunk:
-                    chunks.append(chunk)
-                if not message.get("more_body", False):
-                    break
-            self._body = b"".join(chunks)
-        return self._body
+        return await self.as_request().body()
 
     async def form(self):
-        if self._form_data is None:
-            self._form_data = await self.as_request().form()
-        return self._form_data
+        return await self.as_request().form()
+
+    async def close(self):
+        if self._request is not None:
+            # File cleanup must complete even if response transmission is cancelled.
+            with CancelScope(shield=True):
+                await self._request.close()
 
     def as_request(self):
         if self._request is None:
-            self._request = Request(self._scope, self._receive, self._send)
+            self._request = ManagedRequest(self._scope, self._bounded_receive, self._send)
         return self._request

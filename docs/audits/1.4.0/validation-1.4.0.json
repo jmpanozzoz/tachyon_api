@@ -1,0 +1,32 @@
+{
+  "version": "1.4.0",
+  "python": "3.13.18",
+  "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+  "packages": {
+    "starlette": "1.3.1",
+    "msgspec": "0.19.0",
+    "orjson": "3.11.1",
+    "uvicorn": "0.35.0",
+    "Cython": "3.3.1"
+  },
+  "header_cache_traced_bytes": 110775,
+  "wheels": {
+    "tachyon_api-1.4.0-py3-none-any.whl": {
+      "native_modules": 0,
+      "contains_server_fast": false
+    },
+    "tachyon_api-1.4.0-cp313-cp313-macosx_11_0_arm64.whl": {
+      "native_modules": 26,
+      "contains_server_fast": false
+    }
+  },
+  "suite_results": {
+    "py310_pure": "473 passed, 8 warnings in 1.16s",
+    "py313_pure": "473 passed, 33 warnings in 1.04s",
+    "py310_compiled": "473 passed, 8 warnings in 1.13s",
+    "py313_compiled": "473 passed, 33 warnings in 1.03s",
+    "py313_starlette_1_10_compiled": "473 passed, 32 warnings in 1.04s",
+    "portable_wheel": "82 passed, 2 warnings in 0.17s",
+    "native_sdist_wheel": "82 passed, 2 warnings in 5.60s"
+  }
+}

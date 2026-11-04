@@ -1,313 +1,63 @@
 # 13. Request Lifecycle
 
-> Cómo Tachyon procesa cada request
+La firma se inspecciona y compila una vez en `RouteInstaller.install`, al
+registrar la ruta. El request usa descriptores y decoders preparados.
 
-## 🔄 Flujo Completo
-
-```
-                    ┌─────────────────────────────────────────┐
-                    │           INCOMING REQUEST              │
-                    └─────────────────┬───────────────────────┘
-                                      │
-                    ┌─────────────────▼───────────────────────┐
-                    │            MIDDLEWARES                  │
-                    │  (CORS, Logger, Custom...)              │
-                    └─────────────────┬───────────────────────┘
-                                      │
-                    ┌─────────────────▼───────────────────────┐
-                    │          ROUTE MATCHING                 │
-                    │  Find handler for path + method         │
-                    └─────────────────┬───────────────────────┘
-                                      │
-                    ┌─────────────────▼───────────────────────┐
-                    │       PARAMETER EXTRACTION              │
-                    │  Path, Query, Headers, Cookies          │
-                    └─────────────────┬───────────────────────┘
-                                      │
-                    ┌─────────────────▼───────────────────────┐
-                    │        BODY PARSING (if any)            │
-                    │  JSON → Struct validation               │
-                    └─────────────────┬───────────────────────┘
-                                      │
-                    ┌─────────────────▼───────────────────────┐
-                    │      DEPENDENCY RESOLUTION              │
-                    │  @injectable, Depends(callable)         │
-                    └─────────────────┬───────────────────────┘
-                                      │
-                    ┌─────────────────▼───────────────────────┐
-                    │         ENDPOINT EXECUTION              │
-                    │  Your handler function runs             │
-                    └─────────────────┬───────────────────────┘
-                                      │
-                    ┌─────────────────▼───────────────────────┐
-                    │        BACKGROUND TASKS                 │
-                    │  Run queued tasks                       │
-                    └─────────────────┬───────────────────────┘
-                                      │
-                    ┌─────────────────▼───────────────────────┐
-                    │       RESPONSE SERIALIZATION            │
-                    │  Struct → JSON (orjson)                 │
-                    └─────────────────┬───────────────────────┘
-                                      │
-                    ┌─────────────────▼───────────────────────┐
-                    │            MIDDLEWARES                  │
-                    │  (Response processing)                  │
-                    └─────────────────┬───────────────────────┘
-                                      │
-                    ┌─────────────────▼───────────────────────┐
-                    │           SEND RESPONSE                 │
-                    └─────────────────────────────────────────┘
+```text
+scope HTTP → ASGIEntry → middleware del usuario → TachyonDispatcher
+  → trie: ruta y método
+  → guards de ruta
+  → ParameterProcessor: descriptores en orden de firma (incluye DI)
+  → endpoint async en event loop / endpoint sync en thread pool
+  → response_model y serialización, o Response ASGI del usuario
+  → envío de respuesta
+  → BackgroundTasks en orden
+  → cierre de formularios y uploads
 ```
 
----
-
-## 1️⃣ Middlewares (Pre-request)
-
-Los middlewares del usuario se ejecutan primero, en orden de registro:
-
-```python
-app.add_middleware(CORSMiddleware)   # 1ro
-app.add_middleware(LoggerMiddleware) # 2do
-app.add_middleware(CustomMiddleware) # 3ro
-```
-
-Cada middleware puede modificar, rechazar o pasar la request al siguiente.
-
-> **Nota de rendimiento (Phase 4):** Tachyon construye su propio HTTP stack con solo
-> los middlewares del usuario, sin las capas automáticas de Starlette
-> (`ServerErrorMiddleware` + `ExceptionMiddleware`). Las excepciones ya se manejan
-> dentro de cada handler closure con `try/except`. Esto ahorra ~1.5–2µs por request.
-> WebSockets y lifespan sí usan el stack completo de Starlette.
-
----
-
-## 2️⃣ Route Matching — Radix Trie (O(k))
-
-Tachyon usa un radix trie para resolver paths en O(k) donde k = número de segmentos del path (típicamente 2–5). Esto reemplaza el escaneo lineal O(N×regex) de Starlette.
-
-```
-GET /users/123
-  → root → "users" → {user_id=123} → handler_get_user
-  (cada segmento es un dict lookup O(1))
-```
-
-Si el path no existe → `404 Not Found`  
-Si el path existe pero no el método → `405 Method Not Allowed`
-
-```python
-@app.get("/users/{user_id}")  # Registrado en el trie al arrancar
-def get_user(user_id: str):
-    ...
-```
-
-Las rutas se registran una sola vez en `_add_route()`. En cada request, el trie resuelve en microsegundos sin importar cuántas rutas tenga la app.
-
----
-
-## 3️⃣ Parameter Extraction
-
-Tachyon inspecciona la firma del handler:
-
-```python
-@app.get("/items/{item_id}")
-def get_item(
-    item_id: str,                      # Path param
-    q: str = Query(...),               # Query param
-    auth: str = Header(...),           # Header
-    session: str = Cookie("default"),  # Cookie
-):
-```
-
-### Orden de extracción:
-1. Path parameters (`{param}` en URL)
-2. Query parameters (`?key=value`)
-3. Headers
-4. Cookies
-5. Form/File (si aplica)
-
----
-
-## 4️⃣ Body Parsing
-
-Si hay `Body()`, Tachyon:
-1. Lee el body JSON
-2. Decodifica con msgspec
-3. Valida contra el Struct
-
-```python
-class UserCreate(Struct):
-    name: str
-    email: str
-
-@app.post("/users")
-def create_user(user: UserCreate = Body(...)):
-    # user ya está validado
-    ...
-```
-
-Si falla la validación: `422 Validation Error`
-
----
-
-## 5️⃣ Dependency Resolution
-
-Tachyon resuelve dependencias en orden:
-
-```python
-@app.get("/data")
-def get_data(
-    request: Request,              # 1. Inyectar Request
-    bg: BackgroundTasks,           # 2. Inyectar BackgroundTasks
-    db: Database = Depends(),      # 3. Resolver @injectable
-    user: dict = Depends(get_user) # 4. Ejecutar callable
-):
-```
-
-### Algoritmo:
-1. Check `dependency_overrides` (testing)
-2. Check cache (singleton para @injectable)
-3. Resolver dependencias anidadas (recursivo)
-4. Instanciar/ejecutar
-
----
-
-## 6️⃣ Endpoint Execution
-
-Se llama al handler con todos los params inyectados:
-
-```python
-# Sync
-result = handler(**kwargs)
-
-# Async
-result = await handler(**kwargs)
-```
-
-### Excepciones:
-- `HTTPException` → Response con status code
-- Custom exception → Check `exception_handlers`
-- Unhandled → `500 Internal Server Error`
-
----
-
-## 7️⃣ Background Tasks
-
-Después del endpoint, pero antes de responder:
-
-```python
-if background_tasks:
-    await background_tasks.run_tasks()
-```
-
-Las tareas se ejecutan en orden.
-
----
-
-## 8️⃣ Response Serialization
-
-Tachyon serializa el resultado por el camino más eficiente según el tipo:
-
-```python
-# Struct → msgspec.json.encode() directo (C puro, sin paso intermedio)
-if isinstance(result, Struct):
-    return TachyonBytesResponse(msgspec.json.encode(result))
-
-# Dict → orjson.dumps() (serialización C)
-return TachyonJSONResponse(result)
-```
-
-`TachyonJSONResponse` bypasea el `__init__` estándar de Starlette para evitar la
-construcción de `MutableHeaders` (~0.96µs ahorrados por response).
-
-Si hay `response_model`, valida con `msgspec.convert()` antes de serializar.
-
----
-
-## 9️⃣ Middlewares (Post-response)
-
-Los middlewares procesan la response en orden inverso:
-
-```python
-# Request:  CORS → Logger → Custom → Handler
-# Response: Handler → Custom → Logger → CORS
-```
-
----
-
-## ⚠️ Error Handling
-
-```
-                    ┌─────────────────────────────────────────┐
-                    │            EXCEPTION RAISED             │
-                    └─────────────────┬───────────────────────┘
-                                      │
-                    ┌─────────────────▼───────────────────────┐
-                    │         Is HTTPException?               │
-                    │  YES → Check exception_handlers         │
-                    │        → Default: {"detail": ...}       │
-                    └─────────────────┬───────────────────────┘
-                                      │ NO
-                    ┌─────────────────▼───────────────────────┐
-                    │    Check custom exception_handlers      │
-                    │    for this exception type              │
-                    └─────────────────┬───────────────────────┘
-                                      │ Not found
-                    ┌─────────────────▼───────────────────────┐
-                    │       500 Internal Server Error         │
-                    └─────────────────────────────────────────┘
-```
-
----
-
-## ⚡ Optimizaciones del hot path
-
-### Endpoint Pre-Compilation (v1.0.0)
-Tachyon compila cada endpoint **una sola vez al registrarlo** en `_add_route()`. Esto mueve fuera del hot path:
-
-- `inspect.signature()`, `iscoroutinefunction()`, `isinstance` chains
-- `typing.get_origin/args` — genéricos (`List[T]`, `Optional[T]`)
-- `msgspec.json.Decoder(model)` — decoder de body
-- Resolución de aliases para headers/cookies/form/files
-- `has_params` y `has_callable_deps` — flags para fast-paths en cada request
-
-En request time, el handler recorre una `List[ParamDescriptor]` precompilada con tipos C-level.
-
-### Middleware bypass (Phase 4)
-Para requests HTTP, Tachyon saltea `ServerErrorMiddleware` y `ExceptionMiddleware` de
-Starlette. Solo aplica los middlewares del usuario. Ahorra ~1.5–2µs por request.
-
-### Cython extensions (optional — `pip install tachyon-api[fast]`)
-Con extensiones compiladas:
-- `ParamDescriptor` y `CompiledEndpoint` → `cdef class` (struct C, acceso a campos directo)
-- `routing/trie.pyx` → trie en C, match loop sin overhead Python por segmento
-- `KIND_*` constants → enteros (comparación C de una instrucción)
-- Sync helpers → `cdef` functions (sin frame Python por llamada)
-- `process_parameters` path+query: **2.32µs → 0.82µs** (-65%) con Cython
-
-### No-Request fast path (Phase 5)
-Endpoints sin parámetros ni dependencias callable se registran como `_ASGIHandler`:
-el dispatcher llama `handler(scope, receive, send)` directamente, sin crear el objeto
-`Request(scope, receive, send)`. Una allocación menos por request.
-
-### Pre-built ASGI response dicts (Phase 2)
-`TachyonJSONResponse` y `TachyonBytesResponse` pre-construyen los dicts `http.response.start`
-y `http.response.body` en `__init__`. El `__call__` solo hace 2 `await send(prebuilt_dict)`.
-
----
-
-## ⚡ Performance Tips
-
-1. **Dependencies**: Usa `@injectable` (singleton) para clases pesadas — se crean una vez y se reutilizan
-2. **Body parsing**: Tachyon respeta el límite `max_body_size` (default 10MB); ajústalo con `Tachyon(max_body_size=...)`
-3. **Background tasks**: Mueve trabajo pesado a background para no bloquear la response
-4. **Response model**: Evítalo si no necesitas validar el output — la serialización directa es más rápida
-5. **Middlewares**: Menos es mejor; cada middleware agrega overhead a todos los requests
-6. **Structs sobre dicts**: Retornar un `Struct` usa `msgspec.json.encode()` directo (más rápido que un dict)
-7. **Compilación Cython**: `pip install tachyon-api[fast]` para -11% en el hot path Python
-
----
-
-## 🔗 Próximos Pasos
-
-- [Migration from FastAPI](./14-migration-fastapi.md)
-- [Best Practices](./15-best-practices.md)
+`ASGIEntry` construye el stack HTTP de forma lazy. HTTP normal usa el stack
+propio; WebSocket y lifespan se delegan a Starlette. `HTTPDispatcher` participa
+en el flujo de compatibilidad Starlette. Los middlewares envuelven el envío y
+pueden modificar o rechazar solicitudes antes del dispatcher.
+
+El trie prefiere coincidencias estáticas completas y explora alternativas si
+una rama estática llega a un callejón sin salida. Su costo depende de los
+segmentos y ramas exploradas; no se garantiza O(k) incondicional. Una ruta
+inexistente produce 404 y un método no admitido para la ruta produce 405. El dispatcher calcula el path de routing con `root_path`, conserva parámetros heredados de mounts y no altera el path original usado por Request.
+
+Los guards se resuelven antes de los parámetros del endpoint. El procesador
+recorre descriptores en orden de firma, no agrupados por Path/Query/Body. La
+resolución de dependencias consulta overrides y caches según scope. Endpoints,
+factories y handlers de excepción síncronos se ejecutan en un thread pool;
+trabajo bloqueante dentro de `async def` bloquea el event loop.
+
+El body total admite **2 MiB por defecto**, acumulados entre chunks y compartidos
+por JSON, forms, archivos y lecturas de Request. Superar el límite devuelve 422.
+Un Request y su body/form cacheados se reutilizan durante la solicitud. La
+validación de JSON usa msgspec; errores de entrada producen 422.
+
+`ResponseProcessor` valida el JSON de `response_model` mediante encode/decode de msgspec y serializa con msgspec todos los resultados validados. Sin `response_model`, los Struct usan msgspec y otros valores JSON usan orjson. Un Struct construido o mutado manualmente también se
+revalida cuando hay `response_model`. Una `starlette.responses.Response`,
+incluyendo `StreamingResponse`, se invoca por ASGI. En streaming, el envío y los
+errores del iterador pertenecen a ese flujo; un error después del inicio no debe
+producir una segunda respuesta. Las tareas agregadas por Tachyon se ejecutan
+cuando el callable de respuesta termina.
+
+Los mensajes ASGI y headers mutables pertenecen a cada envío. Solo se comparten
+bytes inmutables y tablas pequeñas acotadas: no hay singleton mutable de errores
+ni garantía de cero asignaciones por respuesta. El cache de content-length cubre longitudes 0–1023; cuerpos mayores calculan su header al construir la respuesta.
+
+Las rutas de documentación se instalan de forma lazy. Sus URLs locales de schema siguen `root_path`; URLs externas conservan su destino. La respuesta del schema agrega un `servers` con el prefijo del request solo cuando no se configuraron servidores explícitos, mediante una copia superficial que no muta el schema cacheado.
+
+Después del envío, `BackgroundTasks` ejecuta las tareas en orden y registra sus
+excepciones sin impedir la tarea siguiente. El request espera su finalización
+antes del cierre de uploads. Si el envío falla o la solicitud se cancela, las tareas no tienen ejecución garantizada; el cierre del request se intenta en `finally`, también para errores de validación o transmisión. No es una cola persistente ni un scheduler separado.
+
+Las excepciones del endpoint se traducen mediante los handlers registrados;
+`HTTPException` conserva su status. Los errores de envío o stream no se convierten
+en otra respuesta. Medir latencia y contención con workloads equivalentes; no se
+atribuyen ahorros históricos a esta implementación sin un antes/después válido.
+
+- [Background Tasks](09-background-tasks.md)
+- [Migration to 1.4](17-migration-1.4.md)
+- [Benchmark method](../benchmark/README.md)

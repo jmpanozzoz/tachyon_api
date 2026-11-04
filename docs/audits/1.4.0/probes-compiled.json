@@ -1,0 +1,140 @@
+{
+  "environment": {
+    "python": "3.13.18",
+    "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+    "trie_module": "/Users/juanmanuelpanozzozenere/Projects/personal/tachyon_api/tachyon_api/routing/trie.cpython-313-darwin.so",
+    "msgspec": "0.19.0"
+  },
+  "results": {
+    "keyword_only": {
+      "status": 500,
+      "body": {
+        "success": false,
+        "error": "Internal Server Error",
+        "code": "INTERNAL_SERVER_ERROR"
+      }
+    },
+    "shifted_default": {
+      "status": 200,
+      "body": {
+        "x": 3,
+        "q_type": "Query"
+      }
+    },
+    "path_cache": {
+      "same_object": true,
+      "path_param_count": 0
+    },
+    "request_body": {
+      "timeout": true
+    },
+    "cors_404": {
+      "exception": "TypeError",
+      "message": "'mappingproxy' object does not support item assignment"
+    },
+    "cors_500": [
+      [
+        "https://a.test"
+      ],
+      [
+        "https://a.test",
+        "https://b.test"
+      ],
+      [
+        "https://a.test",
+        "https://b.test"
+      ]
+    ],
+    "background_order": [
+      "background",
+      "http.response.start",
+      "http.response.body"
+    ],
+    "chunk_limit": {
+      "chunks_consumed": 5,
+      "status": 422
+    },
+    "form_limit_and_type": {
+      "status": 200,
+      "body": {
+        "type": "str",
+        "length": 1000
+      }
+    },
+    "postponed_annotations": {
+      "status": 422,
+      "body": {
+        "success": false,
+        "error": "Invalid value for int conversion",
+        "code": "VALIDATION_ERROR"
+      }
+    },
+    "route_names": {
+      "status": 200,
+      "body": {
+        "name": null
+      }
+    },
+    "route_backtrack": {
+      "status": 404,
+      "body": "Not Found"
+    },
+    "unicode_route": {
+      "status": 404,
+      "body": "Not Found"
+    },
+    "ignored_dependencies": {
+      "status": 200,
+      "body": {
+        "secret": true
+      },
+      "dependency_calls": 0
+    },
+    "payload_mutation": {
+      "status": 200,
+      "body": {
+        "item": {
+          "value": 1
+        }
+      },
+      "stored_type_after_response": "dict"
+    },
+    "redis_clear": {
+      "flushdb_calls": 1,
+      "flushall_calls": 1
+    },
+    "lifespan_state": {
+      "db": "MISSING"
+    },
+    "websocket_di": {
+      "injected_type": "Depends"
+    },
+    "direct_write": {
+      "accepted": true,
+      "head_has_body": true,
+      "custom_header_sent": false,
+      "default_server_header_sent": false
+    },
+    "middleware_bypass": {
+      "asgi_send_events": 0,
+      "cors_header_sent": false
+    },
+    "schema_defaults": {
+      "Example": {
+        "type": "object",
+        "properties": {
+          "required_nullable": {
+            "type": "string"
+          },
+          "defaulted": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "required_nullable",
+          "defaulted"
+        ]
+      }
+    }
+  }
+}

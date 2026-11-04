@@ -3,7 +3,7 @@
 
 
 cdef class BodySizeChecker:
-    cdef Py_ssize_t _max
+    cdef object _max
 
     cpdef check_content_length(self, object request)
     cpdef check_body_length(self, bytes body)

@@ -1,0 +1,80 @@
+{
+  "python": "3.13.18 (main, Oct 26 2026, 13:59:02) [Clang 23.1.3 ]",
+  "engine": "/tmp/tachyon-release-installed-native/tachyon_api/routing/trie.cpython-313-darwin.so",
+  "results": {
+    "documented_path_constructor": {
+      "type": "TypeError",
+      "message": "Path.__init__() got multiple values for argument 'description'"
+    },
+    "documented_query_alias": {
+      "type": "TypeError",
+      "message": "Query.__init__() got an unexpected keyword argument 'alias'"
+    },
+    "struct_mutable": 2,
+    "documented_struct_dict": "AttributeError",
+    "response_model_same_struct_type": {
+      "status": 200,
+      "body": {
+        "value": "wrong"
+      }
+    },
+    "header_inside_dependency": {
+      "status": 500,
+      "body": {
+        "success": false,
+        "error": "Internal Server Error",
+        "code": "INTERNAL_SERVER_ERROR"
+      }
+    },
+    "singleton_request_scope": [
+      {
+        "status": 200,
+        "body": {
+          "service_user": "alice",
+          "request_user": "alice",
+          "same_context": true
+        }
+      },
+      {
+        "status": 200,
+        "body": {
+          "service_user": "alice",
+          "request_user": "bob",
+          "same_context": false
+        }
+      }
+    ],
+    "filename_sanitization": {
+      "status": 200,
+      "body": {
+        "filename": "../../sensitive.txt",
+        "actual_type": "starlette.datastructures.UploadFile",
+        "tachyon_uploadfile": false
+      }
+    },
+    "multiple_files": {
+      "status": 500,
+      "body": {
+        "success": false,
+        "error": "Internal Server Error",
+        "code": "INTERNAL_SERVER_ERROR"
+      }
+    },
+    "date_path": {
+      "status": 404,
+      "body": {
+        "detail": "Not Found"
+      }
+    },
+    "optional_background_example_tasks": [],
+    "cache_function_identity": {
+      "first": "a",
+      "second": "a"
+    },
+    "documented_lowercase_ttl": "TypeError",
+    "untyped_ws_dependency": {
+      "type": "TypeError",
+      "message": "Cannot resolve dependency parameter 'websocket' in <function main.<locals>.untyped_websocket at 0x108ef3240>"
+    }
+  }
+}

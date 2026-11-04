@@ -1,8 +1,8 @@
 """
-Radix trie router — O(k) path matching where k = number of path segments.
+Path trie router with static priority and wildcard fallback.
 
 Replaces Starlette's O(N × regex) linear route scan. Each static segment is
-a dict lookup; each param segment is a single branch check.
+a dict lookup. Ambiguous branches backtrack when a static path dead-ends.
 
 Path format: /users/{user_id}/profile  (Starlette / FastAPI convention)
 """
@@ -25,12 +25,12 @@ _EMPTY_PARAMS = MappingProxyType({})
 class _Node:
     """One node in the radix trie — represents one path segment."""
 
-    __slots__ = ("static", "param_child", "param_name", "handlers", "allowed", "allow_header")
+    __slots__ = ("static", "param_child", "param_names", "handlers", "allowed", "allow_header")
 
     def __init__(self) -> None:
         self.static: Dict[str, _Node] = {}       # segment text → child
         self.param_child: Optional[_Node] = None  # {name} wildcard child
-        self.param_name: Optional[str] = None     # name extracted from {name}
+        self.param_names: Dict[str, tuple] = {}    # names for each terminal method
         self.handlers: Dict[str, Callable] = {}   # METHOD → async handler
         self.allowed: Set[str] = set()            # all registered methods (for 405)
         self.allow_header: str = ""               # pre-sorted Allow header value, e.g. "GET, POST"
@@ -38,7 +38,7 @@ class _Node:
 
 class RadixTrie:
     """
-    Register routes at startup, match in O(k) per request.
+    Register routes at startup; prefer static paths with wildcard fallback.
 
     Usage:
         trie = RadixTrie()
@@ -56,12 +56,13 @@ class RadixTrie:
     def add(self, path: str, method: str, handler: Callable) -> None:
         """Register a (path, method) → handler mapping."""
         node = self._root
+        names = []
         for seg in _segments(path):
             if seg[0] == "{" and seg[-1] == "}":
                 # Param segment — create param child if needed
                 if node.param_child is None:
                     node.param_child = _Node()
-                    node.param_child.param_name = seg[1:-1]
+                names.append(seg[1:-1])
                 node = node.param_child
             else:
                 # Static segment — O(1) dict lookup/insert
@@ -73,6 +74,7 @@ class RadixTrie:
 
         m = method.upper()
         node.handlers[m] = handler
+        node.param_names[m] = tuple(names)
         node.allowed.add(m)
         # Keep Allow header pre-sorted — avoids sorted() on every 405 response
         node.allow_header = ", ".join(sorted(node.allowed))
@@ -83,7 +85,7 @@ class RadixTrie:
         self, path: str, method: str
     ) -> Tuple[int, Optional[Callable], Dict[str, str], Optional[str]]:
         """
-        Match path + method in O(k).
+        Match path + method, backtracking only on ambiguous static branches.
 
         Returns (status, handler, path_params, allow_header):
         - status 0 (_NOT_FOUND):          no path match
@@ -93,43 +95,48 @@ class RadixTrie:
         path_params is _EMPTY_PARAMS (MappingProxyType) for routes with no path
         parameters — avoids a dict allocation on every static-route request.
         """
+        # Prefer the first complete static path, regardless of HTTP method.
+        # A static dead end must not hide a complete wildcard route.
         node = self._root
-        path_params = None  # deferred: only allocated on first param segment hit
-
+        pos = 0
+        values = ()
+        alternatives = None
         length = len(path)
-        pos = 1 if length > 0 and path[0] == "/" else 0
-
-        while pos < length:
-            slash = path.find("/", pos)
-            if slash == -1:
-                seg = path[pos:]
-                pos = length
+        while True:
+            while pos < length and path[pos] == "/":
+                pos += 1
+            if pos == length:
+                if node.allowed:
+                    m = method.upper()
+                    handler = node.handlers.get(m)
+                    if handler is None:
+                        return _METHOD_NOT_ALLOWED, None, _EMPTY_PARAMS, node.allow_header
+                    names = node.param_names[m]
+                    params = dict(zip(names, values)) if names else _EMPTY_PARAMS
+                    return _FOUND, handler, params, None
             else:
-                seg = path[pos:slash]
-                pos = slash + 1
-
-            if not seg:
-                continue
-
-            child = node.static.get(seg)
-            if child is not None:
-                node = child
-            elif node.param_child is not None:
-                if path_params is None:
-                    path_params = {}
-                path_params[node.param_child.param_name] = seg
-                node = node.param_child
-            else:
+                slash = path.find("/", pos)
+                end = length if slash == -1 else slash
+                seg = path[pos:end]
+                child = node.static.get(seg)
+                wildcard = node.param_child
+                if child is not None:
+                    if wildcard is not None:
+                        if alternatives is None:
+                            alternatives = []
+                        alternatives.append((wildcard, end, values + (seg,)))
+                    node = child
+                    pos = end
+                    continue
+                if wildcard is not None:
+                    node = wildcard
+                    values = values + (seg,)
+                    pos = end
+                    continue
+            if not alternatives:
                 return _NOT_FOUND, None, _EMPTY_PARAMS, None
+            node, pos, values = alternatives.pop()
 
-        handler = node.handlers.get(method.upper())
-        if handler is not None:
-            return _FOUND, handler, path_params if path_params is not None else _EMPTY_PARAMS, None
-
-        if node.allowed:
-            return _METHOD_NOT_ALLOWED, None, path_params if path_params is not None else _EMPTY_PARAMS, node.allow_header
-
-        return _NOT_FOUND, None, _EMPTY_PARAMS, None
 
 
 def _segments(path: str):

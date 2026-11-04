@@ -1,5 +1,7 @@
 # Include Cython source files in sdist so users can recompile
-recursive-include tachyon_api *.pyx
+recursive-include tachyon_api *.pyx *.pxd
 include setup.py
+include pyproject.toml
+recursive-include tests *.py
 include README.md
 include LICENSE

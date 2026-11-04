@@ -1,225 +1,70 @@
-# 07. Caching
+# 7. Caching
 
-> Sistema de cache con decorador `@cache`
-
-## 🎯 Uso Básico
-
-```python
-from tachyon_api import Tachyon, cache
-
-app = Tachyon()
-
-@app.get("/expensive")
-@cache(ttl=60)  # Cache por 60 segundos
-def expensive_operation():
-    # Operación costosa
-    import time
-    time.sleep(2)
-    return {"data": "result", "computed_at": time.time()}
-```
-
-Primera request: ~2 segundos
-Siguientes requests (dentro de 60s): ~0ms
-
----
-
-## ⚙️ Configuración
-
-### Cache Config Global
+`cache` supports synchronous and asynchronous functions. The first parameter
+is named `TTL` (uppercase), in seconds. A missing TTL uses `default_ttl`;
+zero and negative values mean no expiration. `None` results are cache misses.
 
 ```python
-from tachyon_api import Tachyon, CacheConfig, create_cache_config
+from tachyon_api import Tachyon, cache, create_cache_config
+from tachyon_api.cache import CacheConfig, InMemoryCacheBackend
 
-cache_config = create_cache_config(
-    default_ttl=300,  # 5 minutos por defecto
-    max_size=1000,    # Máximo 1000 entries
-)
-
-app = Tachyon(cache_config=cache_config)
-```
-
-### Backends Disponibles
-
-```python
-from tachyon_api import (
-    InMemoryCacheBackend,
-    RedisCacheBackend,
-    MemcachedCacheBackend,
-)
-
-# In-Memory (default)
-backend = InMemoryCacheBackend()
-
-# Redis
-backend = RedisCacheBackend(url="redis://localhost:6379/0")
-
-# Memcached
-backend = MemcachedCacheBackend(servers=["localhost:11211"])
-```
-
----
-
-## 🔑 Cache Keys
-
-Por defecto, la key se genera desde los argumentos:
-
-```python
-@app.get("/users/{user_id}")
-@cache(ttl=120)
-def get_user(user_id: str):
-    return {"user_id": user_id}
-
-# GET /users/123 → cache key incluye "123"
-# GET /users/456 → cache key diferente
-```
-
-### Custom Key
-
-```python
-@app.get("/data")
-@cache(ttl=60, key="custom_key")
-def get_data():
-    return {"data": "value"}
-```
-
-### Key con Función
-
-```python
-def make_cache_key(*args, **kwargs):
-    return f"user:{kwargs.get('user_id')}"
+config = CacheConfig(InMemoryCacheBackend(max_entries=1024), default_ttl=60)
+app = Tachyon(cache_config=config)
 
 @app.get("/users/{user_id}")
-@cache(ttl=60, key=make_cache_key)
-def get_user(user_id: str):
-    return {"user_id": user_id}
+@cache(TTL=120, config=config)
+async def user(user_id: int):
+    return {"id": user_id}
 ```
 
----
+`create_cache_config(backend=None, default_ttl=60, key_builder=None,
+enabled=True)` creates and installs a process-global config. `set_cache_config`
+replaces that global. Without `config=`, each decorator captures the current
+config object, backend, TTL and key builder at decoration time. Replacing the
+global later does not rebind existing decorators; mutating the captured
+`enabled` field takes effect. `Tachyon(cache_config=...)` also sets that global;
+it does not bind decorators to an app. Use explicit `config=` for independent
+apps in the same process. Config changes should happen during setup.
 
-## 🔄 Invalidación Manual
+The in-memory backend uses a monotonic clock, protects operations with a lock,
+and defaults to at most 1024 entries. Reads remove expired entries on access; capacity evicts the least recently used entry. Expired entries not accessed may remain within that bounded capacity. Its operations are thread safe, but
+concurrent misses may compute the same function more than once. Values are
+stored by reference and should be treated as immutable.
+
+Custom key builders receive `(function, args, kwargs)`. `unless` receives
+`(args, kwargs)` and skips caching when true:
 
 ```python
-from tachyon_api import get_cache_config
-
-# Obtener instancia del cache
-cache_instance = get_cache_config()
-
-# Invalidar una key específica
-await cache_instance.delete("my_cache_key")
-
-# Invalidar por patrón (si el backend lo soporta)
-await cache_instance.delete_pattern("user:*")
+@cache(TTL=30, config=config,
+       key_builder=lambda func, args, kwargs: f"user:{kwargs['user_id']}",
+       unless=lambda args, kwargs: kwargs.get("user_id") == 0)
+async def cached_user(*, user_id: int):
+    return {"id": user_id}
 ```
 
----
+Default keys include a random namespace per decoration and argument representations. Distinct closures or app wrappers therefore do not share keys even when module and qualname match. The default namespace changes across workers and restarts: use a custom stable `key_builder` when shared external cache reuse is intentional.
+Request objects and dependencies can affect those representations. Only cache
+responses whose authorization, tenant and user context are included in the key.
 
-## ⏰ TTL Dinámico
+Invalidation uses synchronous backend methods:
 
 ```python
-import random
-
-@app.get("/dynamic")
-@cache(ttl=lambda: random.randint(60, 300))
-def dynamic_ttl():
-    return {"cached": True}
+config.backend.delete("user:123")
+config.backend.clear()
 ```
 
----
-
-## 🚫 Condicional
-
-Cache solo bajo ciertas condiciones:
+Redis and Memcached adapters take an existing synchronous client:
 
 ```python
-@app.get("/conditional")
-@cache(
-    ttl=60,
-    condition=lambda result: result.get("success", False)
-)
-def conditional_cache():
-    # Solo se cachea si success=True
-    return {"success": True, "data": "..."}
+from tachyon_api.cache import RedisCacheBackend, MemcachedCacheBackend
+
+redis_backend = RedisCacheBackend(redis_client)
+memcached_backend = MemcachedCacheBackend(memcached_client)
 ```
 
----
-
-## 📊 Ejemplo Completo
-
-```python
-from tachyon_api import (
-    Tachyon,
-    cache,
-    CacheConfig,
-    create_cache_config,
-    Query,
-)
-
-# Configurar cache
-cache_config = create_cache_config(default_ttl=300)
-app = Tachyon(cache_config=cache_config)
-
-# Datos simulados
-def fetch_from_database(id: str):
-    import time
-    time.sleep(0.5)  # Simular latencia DB
-    return {"id": id, "name": f"Item {id}"}
-
-# Endpoint cacheado
-@app.get("/items/{item_id}")
-@cache(ttl=120)
-def get_item(item_id: str):
-    return fetch_from_database(item_id)
-
-# Lista con cache
-@app.get("/items")
-@cache(ttl=60)
-def list_items(page: int = Query(1), limit: int = Query(10)):
-    # La key incluirá page y limit
-    return {
-        "items": [f"item_{i}" for i in range(limit)],
-        "page": page
-    }
-
-# Sin cache (operaciones de escritura)
-@app.post("/items")
-def create_item():
-    # POST/PUT/DELETE no se cachean
-    return {"created": True}
-```
-
----
-
-## 🧪 Testing con Cache
-
-```python
-from tachyon_api.testing import TachyonTestClient
-
-def test_cached_endpoint():
-    client = TachyonTestClient(app)
-    
-    # Primera llamada
-    response1 = client.get("/items/123")
-    
-    # Segunda llamada (debería ser cacheada)
-    response2 = client.get("/items/123")
-    
-    assert response1.json() == response2.json()
-```
-
----
-
-## 📋 Resumen
-
-| Opción | Descripción | Default |
-|--------|-------------|---------|
-| `ttl` | Tiempo de vida en segundos | Config global |
-| `key` | Key manual o función | Auto-generada |
-| `condition` | Función para decidir si cachear | `True` |
-| `backend` | Backend de cache | `InMemoryCacheBackend` |
-
----
-
-## 🔗 Próximos Pasos
-
-- [Lifecycle Events](./08-lifecycle.md) - Inicializar cache en startup
-- [Background Tasks](./09-background-tasks.md) - Invalidar cache async
+Install/configure those clients separately. Positive fractional TTLs round up to whole seconds in these adapters; external expiration has approximately one-second resolution. Memcached durations above 30 days are translated to an absolute Unix expiration timestamp, as required by the [Memcached protocol](https://docs.memcached.org/protocols/basic/). Adapters do not serialize arbitrary
+Python results: supply values the client supports and matching serialization.
+Redis `clear()` calls `flushdb()` on the selected database only; it never falls
+back to `flushall()`. Use a dedicated database because `flushdb()` also removes
+other keys in that database. Memcached `clear()` flushes the selected server.
+Cache read/write failures are logged and fail open: the decorated function still computes its result. The adapter interface accepts synchronous clients only; do not pass an async client. Clients must support concurrent calls. Async decorated functions offload external backend get/set operations to the Starlette thread pool; the exact built-in in-memory backend stays inline. Direct adapter calls, delete and clear remain synchronous, so offload those explicitly when used from async code.

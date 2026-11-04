@@ -93,8 +93,10 @@ class TestPathParameters:
 
     def test_static_takes_priority_over_param(self):
         t = RadixTrie()
-        static_h = lambda: "static"
-        param_h = lambda: "param"
+        def static_h():
+            return "static"
+        def param_h():
+            return "param"
         t.add("/users/admin", "GET", static_h)
         t.add("/users/{id}", "GET", param_h)
         _, handler, params, _ = t.match("/users/admin", "GET")
@@ -103,8 +105,10 @@ class TestPathParameters:
 
     def test_param_route_falls_through_to_param(self):
         t = RadixTrie()
-        static_h = lambda: "static"
-        param_h = lambda: "param"
+        def static_h():
+            return "static"
+        def param_h():
+            return "param"
         t.add("/users/admin", "GET", static_h)
         t.add("/users/{id}", "GET", param_h)
         _, handler, params, _ = t.match("/users/123", "GET")
@@ -153,8 +157,10 @@ class TestMethodHandling:
         assert allow == "GET"
 
     def test_multiple_methods_same_path(self):
-        get_h = lambda: "get"
-        post_h = lambda: "post"
+        def get_h():
+            return "get"
+        def post_h():
+            return "post"
         t = RadixTrie()
         t.add("/data", "GET", get_h)
         t.add("/data", "POST", post_h)
@@ -162,8 +168,10 @@ class TestMethodHandling:
         assert t.match("/data", "POST")[1] is post_h
 
     def test_duplicate_registration_overwrites(self):
-        first = lambda: "first"
-        second = lambda: "second"
+        def first():
+            return "first"
+        def second():
+            return "second"
         t = RadixTrie()
         t.add("/path", "GET", first)
         t.add("/path", "GET", second)

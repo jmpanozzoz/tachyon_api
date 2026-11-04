@@ -45,6 +45,9 @@ def injectable(_cls: Optional[Type[T]] = None, *, scope: str = SCOPE_SINGLETON) 
         @injectable(scope="transient")     # new instance every time
         class UnitOfWork: ...
     """
+    if scope not in (SCOPE_SINGLETON, SCOPE_REQUEST, SCOPE_TRANSIENT):
+        raise ValueError(f"Invalid dependency scope {scope!r}; expected singleton, request, or transient")
+
     def decorator(cls: Type[T]) -> Type[T]:
         _registry.add(cls)
         _scopes[cls] = scope

@@ -81,7 +81,7 @@ cdef class ParameterProcessor:
     cdef QueryListExtractor _query_list
 
     def __init__(self, app_instance):
-        cdef int max_body_size = getattr(app_instance, "max_body_size", _DEFAULT_MAX_BODY_SIZE)
+        cdef object max_body_size = getattr(app_instance, "max_body_size", _DEFAULT_MAX_BODY_SIZE)
         self.app = app_instance
         # Use the Python-imported aliases for instantiation (cimport names
         # refer only to the C-level type, not callable as constructor here).
@@ -122,8 +122,8 @@ cdef class ParameterProcessor:
                 )
 
             elif kind == _KIND_DEP_CLASS:
-                args[i] = self.app._dependency_resolver.resolve_dependency(
-                    p.annotation, dependency_cache
+                args[i] = await self.app._dependency_resolver.resolve_class_dependency(
+                    p.annotation, dependency_cache, request
                 )
 
             elif kind == _KIND_BODY:

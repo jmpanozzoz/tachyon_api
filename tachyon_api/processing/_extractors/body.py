@@ -4,6 +4,8 @@ from typing import Optional
 
 import msgspec
 
+from .._body_errors import RequestBodyTooLarge
+
 from ..compiler import ParamDescriptor
 from ..scope import TachyonScope
 from ...responses import validation_error_response
@@ -26,6 +28,8 @@ class BodyExtractor:
 
         try:
             raw_body = await request.body()
+        except RequestBodyTooLarge as exc:
+            return (None, validation_error_response(str(exc)))
         except Exception:
             return (None, validation_error_response("Failed to read request body"))
 

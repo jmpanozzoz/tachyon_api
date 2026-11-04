@@ -20,10 +20,10 @@ class User(Struct):
 
 ### Características:
 - ✅ Ultra-rápido (compilado)
-- ✅ Validación automática de tipos
+- ✅ Validación de tipos al decodificar/convertir; el constructor normal no valida
 - ✅ Serialización JSON incluida
 - ✅ Defaults y Optional support
-- ✅ Inmutable por defecto
+- ✅ Mutable por defecto; usar `class User(Struct, frozen=True)` para impedir asignación de campos
 
 ---
 
@@ -67,7 +67,7 @@ class Product(Struct):
     warehouse: Optional[Address] = None
     
     # Datetime
-    created_at: datetime = None
+    created_at: Optional[datetime] = None
     
     # Union types
     discount: Union[int, float, None] = None
@@ -90,7 +90,7 @@ class CreateUser(Struct):
 app = Tachyon()
 
 @app.post("/users")
-def create_user(user: CreateUser = Body(...)):
+def create_user(user: CreateUser = Body()):
     return {"created": user.name}
 ```
 
@@ -108,7 +108,7 @@ def create_user(user: CreateUser = Body(...)):
 ```json
 {
   "success": false,
-  "error": "Expected `int`, got `str`",
+  "error": "Invalid JSON body: Expected `int`, got `str` - at `$.age`",
   "code": "VALIDATION_ERROR"
 }
 ```
@@ -118,8 +118,10 @@ def create_user(user: CreateUser = Body(...)):
 ## 🔄 Nested Validation
 
 ```python
-from tachyon_api import Struct
+from tachyon_api import Tachyon, Struct, Body
 from typing import List
+
+app = Tachyon()
 
 class Address(Struct):
     street: str
@@ -137,7 +139,7 @@ class Order(Struct):
     notes: str = ""
 
 @app.post("/orders")
-def create_order(order: Order = Body(...)):
+def create_order(order: Order = Body()):
     total = sum(item.price * item.quantity for item in order.items)
     return {
         "customer": order.customer_name,
@@ -166,10 +168,12 @@ Request:
 
 ## 🎭 Response Models
 
-Valida también las respuestas:
+Con `response_model`, Tachyon valida la representación JSON, incluso para Struct construidos o mutados manualmente. Un resultado incompatible produce 500. Sin `response_model`, serializar un Struct no valida sus tipos. Una Response ASGI devuelta por el usuario se conserva y no pasa por esta validación.
 
 ```python
-from tachyon_api import Struct
+from tachyon_api import Tachyon, Struct
+
+app = Tachyon()
 
 class UserResponse(Struct):
     id: str
@@ -197,10 +201,10 @@ Response:
 
 ## 🛡️ Custom Validation
 
-Para validaciones custom, hazlo en el service:
+Las restricciones de campos pueden expresarse con `typing.Annotated` y `msgspec.Meta`; `__post_init__` permite invariantes del modelo. La lógica de negocio y acceso a datos pertenecen al service. El constructor normal de Struct no valida tipos; la decodificación y conversión sí.
 
 ```python
-from tachyon_api import Struct, HTTPException
+from tachyon_api import Struct, HTTPException, injectable
 
 class UserCreate(Struct):
     email: str
@@ -225,10 +229,10 @@ class UserService:
 
 | Feature | Tachyon (msgspec) | FastAPI (pydantic) |
 |---------|------------------|-------------------|
-| Performance | ⚡⚡⚡ Ultra-fast | ⚡ Fast |
-| Validators | Manual en service | Decorators |
+| Performance | Medir workloads equivalentes | Medir workloads equivalentes |
+| Validators | `Meta`/`Annotated`, `__post_init__`, lógica de negocio en service | Decorators y restricciones |
 | JSON encoding | Built-in + orjson | JSON encoder |
-| Memory | Muy bajo | Moderado |
+| Memory | Depende del modelo y workload | Depende del modelo y workload |
 | Syntax | Simple | Feature-rich |
 
 ---
@@ -237,3 +241,5 @@ class UserService:
 
 - [Security](./06-security.md) - Autenticación
 - [Parameters](./04-parameters.md) - Tipos de parámetros
+
+Los defaults mutables vacíos (`[]`, `{}`) de msgspec se crean por instancia: no son el default compartido de una función Python. Para otros defaults dinámicos usar `msgspec.field(default_factory=...)`.

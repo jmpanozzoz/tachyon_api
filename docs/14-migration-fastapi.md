@@ -11,7 +11,7 @@
 | Router | `APIRouter` | `Router` |
 | DI Class | N/A | `@injectable` |
 | Response | `JSONResponse` | `TachyonJSONResponse` |
-| Files | `UploadFile` | `UploadFile` (same) |
+| Files | `UploadFile` | Starlette-compatible API; sanitized Tachyon filenames |
 
 ---
 
@@ -24,10 +24,11 @@ pip uninstall fastapi pydantic
 # Install Tachyon
 pip install tachyon-api
 
-# Cython extensions ship precompiled — no extra step on supported platforms
-# (Linux x86_64/aarch64, macOS arm64, Windows x86_64, CPython 3.10-3.13)
-# On other platforms, add [fast] to build from source:
-# pip install tachyon-api[fast]
+# 1.4.0 publishes macOS ARM64 native wheels for CPython 3.10-3.13,
+# plus a portable Python wheel for platforms without a native match.
+# Linux/Windows native builds were not validated by the local Mac release.
+# Source builds require a compiler and install Cython in isolation.
+# [fast] does not recompile an installed wheel; see docs/16-cython-build.md.
 ```
 
 ---
@@ -78,7 +79,7 @@ class User(BaseModel):
 from tachyon_api import Struct
 from typing import Optional, List
 
-class User(Struct):
+class User(Struct, forbid_unknown_fields=True):
     name: str
     email: str
     age: int = 18
@@ -88,8 +89,9 @@ class User(Struct):
 
 ### Notes:
 - No `Config` class
-- No `Field()` — use type annotations directly
-- Custom validators belong in the Service layer, not in the model
+- Translate field constraints with `Annotated`/`msgspec.Meta`; dynamic defaults use `msgspec.field`
+- Model invariants can use `__post_init__`; business rules belong in services
+- Struct constructors do not check annotated field types; typed decoding does. `response_model` validates the JSON representation before sending it.
 
 ---
 
@@ -134,16 +136,24 @@ def get_data(db: Database = Depends(get_db)):  # Also works
 ```
 
 ### Key difference
-`@injectable` creates an app-scoped singleton by default (created once, reused
+`@injectable` creates an app-scoped singleton by default (created lazily on first use, reused
 across all requests).  FastAPI's `Depends(get_db)` creates a new instance per
 request unless you add `@lru_cache`.
 
 For finer control, Tachyon v1.2.0+ accepts a `scope` keyword:
 
 ```python
-@injectable                          # default — one per app
-@injectable(scope="request")         # one per HTTP request (cached in dependency_cache)
+@injectable                          # lazy singleton per app
+class AppService:
+    pass
+
+@injectable(scope="request")         # one per HTTP request / WebSocket connection
+class RequestContext:
+    pass
+
 @injectable(scope="transient")       # new instance on every injection
+class Builder:
+    pass
 ```
 
 See [Dependency Injection](./03-dependency-injection.md) for when to use each.
@@ -169,14 +179,14 @@ app.add_middleware(
 )
 ```
 
-### Default `max_body_size` reduced to 2 MB *(v1.2.0+)*
+### Default `max_body_size` is 2 MiB *(v1.2.0+)*
 
 FastAPI doesn't enforce a body-size limit by default.  Tachyon v1.2.0 ships
-with a 2 MB cap (down from 10 MB).  Bodies larger than the cap return 422.
+with a 2 MiB cap.  Bodies larger than the cap return 422.
 Override per-app:
 
 ```python
-app = Tachyon(max_body_size=10 * 1024 * 1024)   # 10 MB
+app = Tachyon(max_body_size=10 * 1024 * 1024)   # 10 MiB
 ```
 
 ### `SecurityHeadersMiddleware` is opt-in
@@ -190,10 +200,10 @@ from tachyon_api.middlewares import SecurityHeadersMiddleware
 app.add_middleware(SecurityHeadersMiddleware)   # safe defaults
 ```
 
-### `UploadFile.filename` is sanitized *(v1.2.0+)*
+### Received `UploadFile.filename` is sanitized in 1.4
 
-Tachyon strips directory components and null bytes from
-`UploadFile.filename` at construction.  If your FastAPI code relied on the
+Tachyon strips Unix/Windows directory components and null bytes from
+`UploadFile.filename` for received multipart files as well as direct construction.  If your FastAPI code relied on the
 original filename for nested storage paths, you'll get the basename only
 (this is the secure behavior — applications should never trust filenames
 from clients).
@@ -208,7 +218,7 @@ class MyDomainError(HTTPException): ...
 
 @app.exception_handler(MyDomainError)
 async def domain_handler(request, exc):
-    return JSONResponse(status_code=exc.status_code, content={...})
+    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
 ```
 
 Before v1.2.811 this didn't work — only handlers registered for
@@ -219,20 +229,18 @@ Before v1.2.811 this didn't work — only handlers registered for
 ## ⚠️ Behavioral Differences vs FastAPI
 
 ### Routing
-Tachyon uses a radix trie (O(k)) instead of FastAPI's regex-based O(N) routing.
+Tachyon uses a radix trie with complete static-match priority and fallback across ambiguous branches. Matching cost depends on segments and explored branches.
 - Trailing slashes are treated as equivalent: `/users` and `/users/` both match the same route.
 - No automatic redirect for trailing slash mismatches.
 
 ### Middleware stack
 Tachyon skips FastAPI/Starlette's automatic `ServerErrorMiddleware` and `ExceptionMiddleware`
-for HTTP requests. Exception handling is done per-handler (more efficient). Your custom
+for HTTP requests. Endpoint exception handling is done per-handler. Your custom
 middlewares still run. This is transparent unless you relied on Starlette's internal
 exception middleware to catch errors from your own middleware.
 
 ### `scope["app"]`
-Tachyon sets `scope["app"] = self` where `self` is a `Tachyon` instance, not a `Starlette`
-instance. Third-party middleware doing `isinstance(scope["app"], Starlette)` will return False.
-Most middleware only uses `scope["app"]` for URL generation and is unaffected.
+For the HTTP flow in either engine, `scope["app"]` is the `Tachyon` instance. WebSocket and lifespan scopes delegate to Starlette, which sets its own instance. Third-party integrations must account for the scope type.
 
 ### Response types
 `TachyonJSONResponse` is a `JSONResponse` subclass but bypasses Starlette's `Response.__init__`
@@ -265,13 +273,13 @@ async def get_me(token: str = Depends(oauth2_scheme)):
     return {"token": token}
 ```
 
-**Only the import changes.**
+Credential extraction uses the same pattern. `tokenUrl` currently does not generate OpenAPI `securitySchemes` or operation security requirements; the UI has no automatic OAuth2 integration. Validate JWTs and permissions explicitly.
 
 ---
 
 ## 🔄 Lifecycle Events
 
-Identical API:
+Tachyon supports both APIs. When combined, startup decorators run before lifespan entry; shutdown decorators run after lifespan exit. Confirm lifecycle ordering during migration:
 
 ```python
 # Both decorators and lifespan context managers work
@@ -387,37 +395,40 @@ async def test_async():
 ```
 
 It's a thin wrapper around `httpx.AsyncClient(transport=ASGITransport(app=app), ...)`
-that forwards every httpx kwarg (cookies, auth, follow_redirects, timeout, …).
+that forwards httpx kwargs (cookies, auth, follow_redirects, timeout, …). It does not run lifespan; use `with TachyonTestClient(app)` or manage lifespan separately.
 
 ---
 
 ## 📋 Migration Checklist
 
 - [ ] Change imports from `fastapi` to `tachyon_api`
-- [ ] Change `BaseModel` to `Struct`
-- [ ] Remove `Field()` and `Config` from models
+- [ ] Change `BaseModel` to `Struct` and review constructor/decoding validation differences
+- [ ] Mark JSON inputs explicitly with `= Body()`; a DTO annotation alone does not bind the request body
+- [ ] Translate `Field` constraints/defaults and `extra="forbid"` (`forbid_unknown_fields=True`)
 - [ ] Add `@injectable` to DI classes
 - [ ] Change `FastAPI()` to `Tachyon()`
 - [ ] Change `APIRouter` to `Router`
-- [ ] Update security imports
+- [ ] Update security imports and account for missing OpenAPI OAuth2 integration
 - [ ] Change TestClient to TachyonTestClient
-- [ ] Move custom validators to Services
+- [ ] Preserve model invariants using Meta/Annotated or `__post_init__`; move business rules to services
 - [ ] Run tests
 
 ---
 
 ## ⚡ Performance After Migration
 
-Typical results after migrating from FastAPI:
-- **5.61x** higher throughput (benchmarked with 100 concurrent connections)
-- **~2ms** average latency vs ~14ms in FastAPI
-- Serialization via msgspec (C extension) vs Pydantic v2
+Measure equivalent handlers, dependency scopes and deployment settings in your
+own application. Historical multiplier and latency claims were removed because
+the benchmark handlers used different execution semantics. Both msgspec and
+Pydantic v2 use native validation engines; compare actual workload behavior.
 
-For maximum performance in production:
+For production, disable reload and measure server settings for your workload:
 ```bash
-pip install tachyon-api                                # precompiled extensions included
-uvicorn app:app --loop uvloop --http httptools          # fast server config
+pip install tachyon-api==1.4.0
+tachyon run app:app --prod
 ```
+
+The CLI detects optional uvloop and httptools when available. See the [build guide](16-cython-build.md) for the published native/portable wheel scope.
 
 ---
 
