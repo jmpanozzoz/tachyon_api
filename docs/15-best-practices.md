@@ -293,14 +293,13 @@ El CLI detecta uvloop/httptools opcionales; uvloop requiere una plataforma compa
 - `httptools`: parser HTTP opcional; comparar con h11 en el deployment real
 - `--workers N`: multiple processes for CPU-bound workloads
 
-### ✅ Install Cython extensions
+### ✅ Verify portable installations
 
-```bash
-pip install tachyon-api
-# Para compilar un checkout: seguir docs/16-cython-build.md
-```
-
-1.4.0 publica wheels nativos macOS ARM64 para CPython 3.10–3.13 y un wheel portable para el fallback Python; [fast] no recompila un wheel instalado. Los builds de fuente usan Cython y requieren compilador; el fallback portable se solicita con TACHYON_SKIP_CYTHON=1 al construir.
+La versión 1.4.1 conserva una sola implementación Python y distribuye wheel
+portable y sdist. `[fast]` queda como alias vacío
+deprecado. Las dependencias externas conservan sus requisitos nativos. Verificar
+el paquete instalado fuera del checkout y reiniciar workers después de actualizar;
+ver [packaging](16-cython-build.md).
 
 ### ✅ Elegir scope según el lifetime
 
@@ -344,7 +343,7 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"])  # if you need CORS
 - [ ] Cache donde aplique
 - [ ] Background tasks breves; cola externa para tareas largas o persistentes
 - [ ] Medir uvloop/httptools si están disponibles en la plataforma
-- [ ] Verificar wheel o build según la guía de Cython
+- [ ] Verificar wheel o build según la guía de packaging
 
 ---
 

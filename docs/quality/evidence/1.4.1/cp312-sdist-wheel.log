@@ -1,0 +1,381 @@
+* Getting build dependencies for wheel...
+running egg_info
+writing tachyon_api.egg-info/PKG-INFO
+writing dependency_links to tachyon_api.egg-info/dependency_links.txt
+writing entry points to tachyon_api.egg-info/entry_points.txt
+writing requirements to tachyon_api.egg-info/requires.txt
+writing top-level names to tachyon_api.egg-info/top_level.txt
+reading manifest file 'tachyon_api.egg-info/SOURCES.txt'
+reading manifest template 'MANIFEST.in'
+adding license file 'LICENSE'
+writing manifest file 'tachyon_api.egg-info/SOURCES.txt'
+* Building wheel...
+running bdist_wheel
+running build
+running build_py
+creating build/lib/tachyon_api
+copying tachyon_api/files.py -> build/lib/tachyon_api
+copying tachyon_api/params.py -> build/lib/tachyon_api
+copying tachyon_api/server.py -> build/lib/tachyon_api
+copying tachyon_api/models.py -> build/lib/tachyon_api
+copying tachyon_api/background.py -> build/lib/tachyon_api
+copying tachyon_api/di.py -> build/lib/tachyon_api
+copying tachyon_api/cache.py -> build/lib/tachyon_api
+copying tachyon_api/__init__.py -> build/lib/tachyon_api
+copying tachyon_api/exceptions.py -> build/lib/tachyon_api
+copying tachyon_api/router.py -> build/lib/tachyon_api
+copying tachyon_api/testing.py -> build/lib/tachyon_api
+creating build/lib/tachyon_api/core
+copying tachyon_api/core/__init__.py -> build/lib/tachyon_api/core
+copying tachyon_api/core/lifecycle.py -> build/lib/tachyon_api/core
+copying tachyon_api/core/websocket.py -> build/lib/tachyon_api/core
+creating build/lib/tachyon_api/app
+copying tachyon_api/app/_error_static.py -> build/lib/tachyon_api/app
+copying tachyon_api/app/_docs_routes.py -> build/lib/tachyon_api/app
+copying tachyon_api/app/_route_installer.py -> build/lib/tachyon_api/app
+copying tachyon_api/app/_asgi_handler.py -> build/lib/tachyon_api/app
+copying tachyon_api/app/_mw_stack.py -> build/lib/tachyon_api/app
+copying tachyon_api/app/_fast_asgi_factory.py -> build/lib/tachyon_api/app
+copying tachyon_api/app/__init__.py -> build/lib/tachyon_api/app
+copying tachyon_api/app/_registry.py -> build/lib/tachyon_api/app
+copying tachyon_api/app/_handler_factory.py -> build/lib/tachyon_api/app
+copying tachyon_api/app/_docs_schemas.py -> build/lib/tachyon_api/app
+copying tachyon_api/app/_http_dispatch.py -> build/lib/tachyon_api/app
+copying tachyon_api/app/_exception_table.py -> build/lib/tachyon_api/app
+copying tachyon_api/app/_asgi_entry.py -> build/lib/tachyon_api/app
+creating build/lib/tachyon_api/security
+copying tachyon_api/security/_credentials.py -> build/lib/tachyon_api/security
+copying tachyon_api/security/_bearer_parser.py -> build/lib/tachyon_api/security
+copying tachyon_api/security/__init__.py -> build/lib/tachyon_api/security
+copying tachyon_api/security/_oauth2_bearer.py -> build/lib/tachyon_api/security
+copying tachyon_api/security/_http_basic.py -> build/lib/tachyon_api/security
+copying tachyon_api/security/_http_bearer.py -> build/lib/tachyon_api/security
+copying tachyon_api/security/_api_keys.py -> build/lib/tachyon_api/security
+creating build/lib/tachyon_api/processing
+copying tachyon_api/processing/_body_errors.py -> build/lib/tachyon_api/processing
+copying tachyon_api/processing/compiler.py -> build/lib/tachyon_api/processing
+copying tachyon_api/processing/dispatch.py -> build/lib/tachyon_api/processing
+copying tachyon_api/processing/__init__.py -> build/lib/tachyon_api/processing
+copying tachyon_api/processing/_request.py -> build/lib/tachyon_api/processing
+copying tachyon_api/processing/parameters.py -> build/lib/tachyon_api/processing
+copying tachyon_api/processing/response_processor.py -> build/lib/tachyon_api/processing
+copying tachyon_api/processing/scope.py -> build/lib/tachyon_api/processing
+creating build/lib/tachyon_api/responses
+copying tachyon_api/responses/_background.py -> build/lib/tachyon_api/responses
+copying tachyon_api/responses/_constants.py -> build/lib/tachyon_api/responses
+copying tachyon_api/responses/_internal_error.py -> build/lib/tachyon_api/responses
+copying tachyon_api/responses/_error.py -> build/lib/tachyon_api/responses
+copying tachyon_api/responses/__init__.py -> build/lib/tachyon_api/responses
+copying tachyon_api/responses/_success.py -> build/lib/tachyon_api/responses
+copying tachyon_api/responses/_bytes_response.py -> build/lib/tachyon_api/responses
+copying tachyon_api/responses/_validation.py -> build/lib/tachyon_api/responses
+copying tachyon_api/responses/_json_response.py -> build/lib/tachyon_api/responses
+copying tachyon_api/responses/_caches.py -> build/lib/tachyon_api/responses
+creating build/lib/tachyon_api/middlewares
+copying tachyon_api/middlewares/cors.py -> build/lib/tachyon_api/middlewares
+copying tachyon_api/middlewares/security_headers.py -> build/lib/tachyon_api/middlewares
+copying tachyon_api/middlewares/__init__.py -> build/lib/tachyon_api/middlewares
+copying tachyon_api/middlewares/core.py -> build/lib/tachyon_api/middlewares
+copying tachyon_api/middlewares/logger.py -> build/lib/tachyon_api/middlewares
+creating build/lib/tachyon_api/utils
+copying tachyon_api/utils/type_utils.py -> build/lib/tachyon_api/utils
+copying tachyon_api/utils/__init__.py -> build/lib/tachyon_api/utils
+copying tachyon_api/utils/type_converter.py -> build/lib/tachyon_api/utils
+creating build/lib/tachyon_api/cli
+copying tachyon_api/cli/__init__.py -> build/lib/tachyon_api/cli
+copying tachyon_api/cli/utils.py -> build/lib/tachyon_api/cli
+copying tachyon_api/cli/main.py -> build/lib/tachyon_api/cli
+copying tachyon_api/cli/__main__.py -> build/lib/tachyon_api/cli
+creating build/lib/tachyon_api/openapi
+copying tachyon_api/openapi/_struct_schemas.py -> build/lib/tachyon_api/openapi
+copying tachyon_api/openapi/__init__.py -> build/lib/tachyon_api/openapi
+copying tachyon_api/openapi/_route_builder.py -> build/lib/tachyon_api/openapi
+copying tachyon_api/openapi/_html_renderers.py -> build/lib/tachyon_api/openapi
+copying tachyon_api/openapi/_generator.py -> build/lib/tachyon_api/openapi
+copying tachyon_api/openapi/_config.py -> build/lib/tachyon_api/openapi
+copying tachyon_api/openapi/_param_schemas.py -> build/lib/tachyon_api/openapi
+creating build/lib/tachyon_api/routing
+copying tachyon_api/routing/__init__.py -> build/lib/tachyon_api/routing
+copying tachyon_api/routing/trie.py -> build/lib/tachyon_api/routing
+creating build/lib/tachyon_api/processing/dependencies
+copying tachyon_api/processing/dependencies/_override_lookup.py -> build/lib/tachyon_api/processing/dependencies
+copying tachyon_api/processing/dependencies/_class_factory.py -> build/lib/tachyon_api/processing/dependencies
+copying tachyon_api/processing/dependencies/__init__.py -> build/lib/tachyon_api/processing/dependencies
+copying tachyon_api/processing/dependencies/_sig_cache.py -> build/lib/tachyon_api/processing/dependencies
+copying tachyon_api/processing/dependencies/_callable_factory.py -> build/lib/tachyon_api/processing/dependencies
+copying tachyon_api/processing/dependencies/_resolver.py -> build/lib/tachyon_api/processing/dependencies
+copying tachyon_api/processing/dependencies/_scope_cache.py -> build/lib/tachyon_api/processing/dependencies
+creating build/lib/tachyon_api/processing/_extractors
+copying tachyon_api/processing/_extractors/_missing.py -> build/lib/tachyon_api/processing/_extractors
+copying tachyon_api/processing/_extractors/body.py -> build/lib/tachyon_api/processing/_extractors
+copying tachyon_api/processing/_extractors/query.py -> build/lib/tachyon_api/processing/_extractors
+copying tachyon_api/processing/_extractors/header.py -> build/lib/tachyon_api/processing/_extractors
+copying tachyon_api/processing/_extractors/__init__.py -> build/lib/tachyon_api/processing/_extractors
+copying tachyon_api/processing/_extractors/query_list.py -> build/lib/tachyon_api/processing/_extractors
+copying tachyon_api/processing/_extractors/body_limit.py -> build/lib/tachyon_api/processing/_extractors
+copying tachyon_api/processing/_extractors/cookie.py -> build/lib/tachyon_api/processing/_extractors
+copying tachyon_api/processing/_extractors/file.py -> build/lib/tachyon_api/processing/_extractors
+copying tachyon_api/processing/_extractors/form.py -> build/lib/tachyon_api/processing/_extractors
+copying tachyon_api/processing/_extractors/path.py -> build/lib/tachyon_api/processing/_extractors
+creating build/lib/tachyon_api/cli/templates
+copying tachyon_api/cli/templates/service.py -> build/lib/tachyon_api/cli/templates
+copying tachyon_api/cli/templates/__init__.py -> build/lib/tachyon_api/cli/templates
+copying tachyon_api/cli/templates/ai_skill.py -> build/lib/tachyon_api/cli/templates
+copying tachyon_api/cli/templates/project.py -> build/lib/tachyon_api/cli/templates
+creating build/lib/tachyon_api/cli/commands
+copying tachyon_api/cli/commands/skill.py -> build/lib/tachyon_api/cli/commands
+copying tachyon_api/cli/commands/run.py -> build/lib/tachyon_api/cli/commands
+copying tachyon_api/cli/commands/generate.py -> build/lib/tachyon_api/cli/commands
+copying tachyon_api/cli/commands/openapi.py -> build/lib/tachyon_api/cli/commands
+copying tachyon_api/cli/commands/__init__.py -> build/lib/tachyon_api/cli/commands
+copying tachyon_api/cli/commands/new.py -> build/lib/tachyon_api/cli/commands
+copying tachyon_api/cli/commands/routes.py -> build/lib/tachyon_api/cli/commands
+copying tachyon_api/cli/commands/lint.py -> build/lib/tachyon_api/cli/commands
+installing to build/bdist.macosx-11.0-arm64/wheel
+running install
+running install_lib
+creating build/bdist.macosx-11.0-arm64/wheel
+creating build/bdist.macosx-11.0-arm64/wheel/tachyon_api
+copying build/lib/tachyon_api/files.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api
+copying build/lib/tachyon_api/params.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api
+copying build/lib/tachyon_api/server.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api
+creating build/bdist.macosx-11.0-arm64/wheel/tachyon_api/core
+copying build/lib/tachyon_api/core/__init__.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/core
+copying build/lib/tachyon_api/core/lifecycle.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/core
+copying build/lib/tachyon_api/core/websocket.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/core
+creating build/bdist.macosx-11.0-arm64/wheel/tachyon_api/app
+copying build/lib/tachyon_api/app/_error_static.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/app
+copying build/lib/tachyon_api/app/_docs_routes.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/app
+copying build/lib/tachyon_api/app/_route_installer.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/app
+copying build/lib/tachyon_api/app/_asgi_handler.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/app
+copying build/lib/tachyon_api/app/_mw_stack.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/app
+copying build/lib/tachyon_api/app/_fast_asgi_factory.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/app
+copying build/lib/tachyon_api/app/__init__.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/app
+copying build/lib/tachyon_api/app/_registry.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/app
+copying build/lib/tachyon_api/app/_handler_factory.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/app
+copying build/lib/tachyon_api/app/_docs_schemas.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/app
+copying build/lib/tachyon_api/app/_http_dispatch.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/app
+copying build/lib/tachyon_api/app/_exception_table.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/app
+copying build/lib/tachyon_api/app/_asgi_entry.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/app
+copying build/lib/tachyon_api/models.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api
+creating build/bdist.macosx-11.0-arm64/wheel/tachyon_api/security
+copying build/lib/tachyon_api/security/_credentials.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/security
+copying build/lib/tachyon_api/security/_bearer_parser.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/security
+copying build/lib/tachyon_api/security/__init__.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/security
+copying build/lib/tachyon_api/security/_oauth2_bearer.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/security
+copying build/lib/tachyon_api/security/_http_basic.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/security
+copying build/lib/tachyon_api/security/_http_bearer.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/security
+copying build/lib/tachyon_api/security/_api_keys.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/security
+creating build/bdist.macosx-11.0-arm64/wheel/tachyon_api/processing
+copying build/lib/tachyon_api/processing/_body_errors.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/processing
+copying build/lib/tachyon_api/processing/compiler.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/processing
+copying build/lib/tachyon_api/processing/dispatch.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/processing
+creating build/bdist.macosx-11.0-arm64/wheel/tachyon_api/processing/dependencies
+copying build/lib/tachyon_api/processing/dependencies/_override_lookup.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/processing/dependencies
+copying build/lib/tachyon_api/processing/dependencies/_class_factory.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/processing/dependencies
+copying build/lib/tachyon_api/processing/dependencies/__init__.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/processing/dependencies
+copying build/lib/tachyon_api/processing/dependencies/_sig_cache.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/processing/dependencies
+copying build/lib/tachyon_api/processing/dependencies/_callable_factory.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/processing/dependencies
+copying build/lib/tachyon_api/processing/dependencies/_resolver.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/processing/dependencies
+copying build/lib/tachyon_api/processing/dependencies/_scope_cache.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/processing/dependencies
+copying build/lib/tachyon_api/processing/__init__.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/processing
+copying build/lib/tachyon_api/processing/_request.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/processing
+copying build/lib/tachyon_api/processing/parameters.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/processing
+copying build/lib/tachyon_api/processing/response_processor.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/processing
+creating build/bdist.macosx-11.0-arm64/wheel/tachyon_api/processing/_extractors
+copying build/lib/tachyon_api/processing/_extractors/_missing.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/processing/_extractors
+copying build/lib/tachyon_api/processing/_extractors/body.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/processing/_extractors
+copying build/lib/tachyon_api/processing/_extractors/query.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/processing/_extractors
+copying build/lib/tachyon_api/processing/_extractors/header.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/processing/_extractors
+copying build/lib/tachyon_api/processing/_extractors/__init__.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/processing/_extractors
+copying build/lib/tachyon_api/processing/_extractors/query_list.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/processing/_extractors
+copying build/lib/tachyon_api/processing/_extractors/body_limit.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/processing/_extractors
+copying build/lib/tachyon_api/processing/_extractors/cookie.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/processing/_extractors
+copying build/lib/tachyon_api/processing/_extractors/file.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/processing/_extractors
+copying build/lib/tachyon_api/processing/_extractors/form.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/processing/_extractors
+copying build/lib/tachyon_api/processing/_extractors/path.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/processing/_extractors
+copying build/lib/tachyon_api/processing/scope.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/processing
+creating build/bdist.macosx-11.0-arm64/wheel/tachyon_api/responses
+copying build/lib/tachyon_api/responses/_background.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/responses
+copying build/lib/tachyon_api/responses/_constants.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/responses
+copying build/lib/tachyon_api/responses/_internal_error.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/responses
+copying build/lib/tachyon_api/responses/_error.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/responses
+copying build/lib/tachyon_api/responses/__init__.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/responses
+copying build/lib/tachyon_api/responses/_success.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/responses
+copying build/lib/tachyon_api/responses/_bytes_response.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/responses
+copying build/lib/tachyon_api/responses/_validation.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/responses
+copying build/lib/tachyon_api/responses/_json_response.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/responses
+copying build/lib/tachyon_api/responses/_caches.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/responses
+creating build/bdist.macosx-11.0-arm64/wheel/tachyon_api/middlewares
+copying build/lib/tachyon_api/middlewares/cors.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/middlewares
+copying build/lib/tachyon_api/middlewares/security_headers.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/middlewares
+copying build/lib/tachyon_api/middlewares/__init__.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/middlewares
+copying build/lib/tachyon_api/middlewares/core.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/middlewares
+copying build/lib/tachyon_api/middlewares/logger.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/middlewares
+copying build/lib/tachyon_api/background.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api
+copying build/lib/tachyon_api/di.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api
+copying build/lib/tachyon_api/cache.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api
+copying build/lib/tachyon_api/__init__.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api
+creating build/bdist.macosx-11.0-arm64/wheel/tachyon_api/utils
+copying build/lib/tachyon_api/utils/type_utils.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/utils
+copying build/lib/tachyon_api/utils/__init__.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/utils
+copying build/lib/tachyon_api/utils/type_converter.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/utils
+creating build/bdist.macosx-11.0-arm64/wheel/tachyon_api/cli
+copying build/lib/tachyon_api/cli/__init__.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/cli
+copying build/lib/tachyon_api/cli/utils.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/cli
+creating build/bdist.macosx-11.0-arm64/wheel/tachyon_api/cli/templates
+copying build/lib/tachyon_api/cli/templates/service.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/cli/templates
+copying build/lib/tachyon_api/cli/templates/__init__.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/cli/templates
+copying build/lib/tachyon_api/cli/templates/ai_skill.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/cli/templates
+copying build/lib/tachyon_api/cli/templates/project.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/cli/templates
+creating build/bdist.macosx-11.0-arm64/wheel/tachyon_api/cli/commands
+copying build/lib/tachyon_api/cli/commands/skill.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/cli/commands
+copying build/lib/tachyon_api/cli/commands/run.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/cli/commands
+copying build/lib/tachyon_api/cli/commands/generate.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/cli/commands
+copying build/lib/tachyon_api/cli/commands/openapi.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/cli/commands
+copying build/lib/tachyon_api/cli/commands/__init__.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/cli/commands
+copying build/lib/tachyon_api/cli/commands/new.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/cli/commands
+copying build/lib/tachyon_api/cli/commands/routes.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/cli/commands
+copying build/lib/tachyon_api/cli/commands/lint.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/cli/commands
+copying build/lib/tachyon_api/cli/main.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/cli
+copying build/lib/tachyon_api/cli/__main__.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/cli
+creating build/bdist.macosx-11.0-arm64/wheel/tachyon_api/openapi
+copying build/lib/tachyon_api/openapi/_struct_schemas.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/openapi
+copying build/lib/tachyon_api/openapi/__init__.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/openapi
+copying build/lib/tachyon_api/openapi/_route_builder.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/openapi
+copying build/lib/tachyon_api/openapi/_html_renderers.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/openapi
+copying build/lib/tachyon_api/openapi/_generator.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/openapi
+copying build/lib/tachyon_api/openapi/_config.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/openapi
+copying build/lib/tachyon_api/openapi/_param_schemas.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/openapi
+copying build/lib/tachyon_api/exceptions.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api
+copying build/lib/tachyon_api/router.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api
+creating build/bdist.macosx-11.0-arm64/wheel/tachyon_api/routing
+copying build/lib/tachyon_api/routing/__init__.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/routing
+copying build/lib/tachyon_api/routing/trie.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api/routing
+copying build/lib/tachyon_api/testing.py -> build/bdist.macosx-11.0-arm64/wheel/./tachyon_api
+running install_egg_info
+running egg_info
+writing tachyon_api.egg-info/PKG-INFO
+writing dependency_links to tachyon_api.egg-info/dependency_links.txt
+writing entry points to tachyon_api.egg-info/entry_points.txt
+writing requirements to tachyon_api.egg-info/requires.txt
+writing top-level names to tachyon_api.egg-info/top_level.txt
+reading manifest file 'tachyon_api.egg-info/SOURCES.txt'
+reading manifest template 'MANIFEST.in'
+adding license file 'LICENSE'
+writing manifest file 'tachyon_api.egg-info/SOURCES.txt'
+Copying tachyon_api.egg-info to build/bdist.macosx-11.0-arm64/wheel/./tachyon_api-1.4.1-py3.12.egg-info
+running install_scripts
+creating build/bdist.macosx-11.0-arm64/wheel/tachyon_api-1.4.1.dist-info/WHEEL
+creating '/var/folders/pq/mx14w_8j4tz1613dtkp90gvc0000gn/T/tachyon-local-release-82qi8bi8/rebuilt-cp312/.tmp-_955actz/tachyon_api-1.4.1-py3-none-any.whl' and adding 'build/bdist.macosx-11.0-arm64/wheel' to it
+adding 'tachyon_api/__init__.py'
+adding 'tachyon_api/background.py'
+adding 'tachyon_api/cache.py'
+adding 'tachyon_api/di.py'
+adding 'tachyon_api/exceptions.py'
+adding 'tachyon_api/files.py'
+adding 'tachyon_api/models.py'
+adding 'tachyon_api/params.py'
+adding 'tachyon_api/router.py'
+adding 'tachyon_api/server.py'
+adding 'tachyon_api/testing.py'
+adding 'tachyon_api/app/__init__.py'
+adding 'tachyon_api/app/_asgi_entry.py'
+adding 'tachyon_api/app/_asgi_handler.py'
+adding 'tachyon_api/app/_docs_routes.py'
+adding 'tachyon_api/app/_docs_schemas.py'
+adding 'tachyon_api/app/_error_static.py'
+adding 'tachyon_api/app/_exception_table.py'
+adding 'tachyon_api/app/_fast_asgi_factory.py'
+adding 'tachyon_api/app/_handler_factory.py'
+adding 'tachyon_api/app/_http_dispatch.py'
+adding 'tachyon_api/app/_mw_stack.py'
+adding 'tachyon_api/app/_registry.py'
+adding 'tachyon_api/app/_route_installer.py'
+adding 'tachyon_api/cli/__init__.py'
+adding 'tachyon_api/cli/__main__.py'
+adding 'tachyon_api/cli/main.py'
+adding 'tachyon_api/cli/utils.py'
+adding 'tachyon_api/cli/commands/__init__.py'
+adding 'tachyon_api/cli/commands/generate.py'
+adding 'tachyon_api/cli/commands/lint.py'
+adding 'tachyon_api/cli/commands/new.py'
+adding 'tachyon_api/cli/commands/openapi.py'
+adding 'tachyon_api/cli/commands/routes.py'
+adding 'tachyon_api/cli/commands/run.py'
+adding 'tachyon_api/cli/commands/skill.py'
+adding 'tachyon_api/cli/templates/__init__.py'
+adding 'tachyon_api/cli/templates/ai_skill.py'
+adding 'tachyon_api/cli/templates/project.py'
+adding 'tachyon_api/cli/templates/service.py'
+adding 'tachyon_api/core/__init__.py'
+adding 'tachyon_api/core/lifecycle.py'
+adding 'tachyon_api/core/websocket.py'
+adding 'tachyon_api/middlewares/__init__.py'
+adding 'tachyon_api/middlewares/core.py'
+adding 'tachyon_api/middlewares/cors.py'
+adding 'tachyon_api/middlewares/logger.py'
+adding 'tachyon_api/middlewares/security_headers.py'
+adding 'tachyon_api/openapi/__init__.py'
+adding 'tachyon_api/openapi/_config.py'
+adding 'tachyon_api/openapi/_generator.py'
+adding 'tachyon_api/openapi/_html_renderers.py'
+adding 'tachyon_api/openapi/_param_schemas.py'
+adding 'tachyon_api/openapi/_route_builder.py'
+adding 'tachyon_api/openapi/_struct_schemas.py'
+adding 'tachyon_api/processing/__init__.py'
+adding 'tachyon_api/processing/_body_errors.py'
+adding 'tachyon_api/processing/_request.py'
+adding 'tachyon_api/processing/compiler.py'
+adding 'tachyon_api/processing/dispatch.py'
+adding 'tachyon_api/processing/parameters.py'
+adding 'tachyon_api/processing/response_processor.py'
+adding 'tachyon_api/processing/scope.py'
+adding 'tachyon_api/processing/_extractors/__init__.py'
+adding 'tachyon_api/processing/_extractors/_missing.py'
+adding 'tachyon_api/processing/_extractors/body.py'
+adding 'tachyon_api/processing/_extractors/body_limit.py'
+adding 'tachyon_api/processing/_extractors/cookie.py'
+adding 'tachyon_api/processing/_extractors/file.py'
+adding 'tachyon_api/processing/_extractors/form.py'
+adding 'tachyon_api/processing/_extractors/header.py'
+adding 'tachyon_api/processing/_extractors/path.py'
+adding 'tachyon_api/processing/_extractors/query.py'
+adding 'tachyon_api/processing/_extractors/query_list.py'
+adding 'tachyon_api/processing/dependencies/__init__.py'
+adding 'tachyon_api/processing/dependencies/_callable_factory.py'
+adding 'tachyon_api/processing/dependencies/_class_factory.py'
+adding 'tachyon_api/processing/dependencies/_override_lookup.py'
+adding 'tachyon_api/processing/dependencies/_resolver.py'
+adding 'tachyon_api/processing/dependencies/_scope_cache.py'
+adding 'tachyon_api/processing/dependencies/_sig_cache.py'
+adding 'tachyon_api/responses/__init__.py'
+adding 'tachyon_api/responses/_background.py'
+adding 'tachyon_api/responses/_bytes_response.py'
+adding 'tachyon_api/responses/_caches.py'
+adding 'tachyon_api/responses/_constants.py'
+adding 'tachyon_api/responses/_error.py'
+adding 'tachyon_api/responses/_internal_error.py'
+adding 'tachyon_api/responses/_json_response.py'
+adding 'tachyon_api/responses/_success.py'
+adding 'tachyon_api/responses/_validation.py'
+adding 'tachyon_api/routing/__init__.py'
+adding 'tachyon_api/routing/trie.py'
+adding 'tachyon_api/security/__init__.py'
+adding 'tachyon_api/security/_api_keys.py'
+adding 'tachyon_api/security/_bearer_parser.py'
+adding 'tachyon_api/security/_credentials.py'
+adding 'tachyon_api/security/_http_basic.py'
+adding 'tachyon_api/security/_http_bearer.py'
+adding 'tachyon_api/security/_oauth2_bearer.py'
+adding 'tachyon_api/utils/__init__.py'
+adding 'tachyon_api/utils/type_converter.py'
+adding 'tachyon_api/utils/type_utils.py'
+adding 'tachyon_api-1.4.1.dist-info/licenses/LICENSE'
+adding 'tachyon_api-1.4.1.dist-info/METADATA'
+adding 'tachyon_api-1.4.1.dist-info/WHEEL'
+adding 'tachyon_api-1.4.1.dist-info/entry_points.txt'
+adding 'tachyon_api-1.4.1.dist-info/top_level.txt'
+adding 'tachyon_api-1.4.1.dist-info/RECORD'
+removing build/bdist.macosx-11.0-arm64/wheel
+Successfully built tachyon_api-1.4.1-py3-none-any.whl

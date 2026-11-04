@@ -1,6 +1,6 @@
 # Lukewarm path — parses `Bearer <token>` from an Authorization header value.
 #
-# Pure function with no I/O — direct cdef + nogil candidate for v1.3.x
+# Parse Bearer headers without I/O.
 # (memchr-based parsing).
 
 from typing import Optional, Tuple

@@ -1,0 +1,615 @@
+{
+  "source_revision": "ce995d7a75434782c3f59303026f15aa523a8e4f",
+  "native_engine": "python fallback only",
+  "versions": {
+    "tachyon-api": "1.4.0",
+    "fastapi": "0.162.0",
+    "starlette": "1.10.0",
+    "granian": "2.8.7",
+    "uvicorn": "0.35.0",
+    "orjson": "3.13.0",
+    "msgspec": "0.19.0"
+  },
+  "requests": 432000,
+  "errors": 0,
+  "measurements": 216,
+  "repetitions": 3,
+  "requests_per_scenario": 2000,
+  "concurrency": 8,
+  "warmups": 100,
+  "methodology": "Exploratory local server comparison; same Python fallback application and threaded validating load driver. Not a production or general Rust speed claim.",
+  "scenarios": {
+    "body": {
+      "uvicorn": {
+        "asgi": {
+          "median_rps": 11006.422665065811,
+          "min_rps": 4527.83159719344,
+          "max_rps": 11142.940734960821,
+          "median_p95_ms": 1.057209,
+          "median_p99_ms": 1.461875
+        },
+        "fastapi": {
+          "median_rps": 7123.090566721023,
+          "min_rps": 4892.96536739695,
+          "max_rps": 7230.06876265438,
+          "median_p95_ms": 1.543917,
+          "median_p99_ms": 2.009583
+        },
+        "tachyon": {
+          "median_rps": 8818.382666484098,
+          "min_rps": 8326.017712711586,
+          "max_rps": 9601.190547751532,
+          "median_p95_ms": 1.424709,
+          "median_p99_ms": 2.245958
+        }
+      },
+      "granian": {
+        "tachyon": {
+          "median_rps": 10052.038144952978,
+          "min_rps": 9827.873010532805,
+          "max_rps": 10420.298412094133,
+          "median_p95_ms": 1.382709,
+          "median_p99_ms": 1.988416
+        },
+        "fastapi": {
+          "median_rps": 10204.07944566613,
+          "min_rps": 10178.006981226496,
+          "max_rps": 10414.354625704544,
+          "median_p95_ms": 1.184292,
+          "median_p99_ms": 1.515375
+        },
+        "asgi": {
+          "median_rps": 11475.994632026232,
+          "min_rps": 10947.114696647413,
+          "max_rps": 11515.309146074222,
+          "median_p95_ms": 1.310166,
+          "median_p99_ms": 1.710666
+        }
+      },
+      "uvicorn_httptools": {
+        "asgi": {
+          "median_rps": 11532.609270679954,
+          "min_rps": 7588.148188250179,
+          "max_rps": 11536.212531861054,
+          "median_p95_ms": 1.349833,
+          "median_p99_ms": 1.833541
+        },
+        "tachyon": {
+          "median_rps": 10791.57072296518,
+          "min_rps": 9365.846363231592,
+          "max_rps": 11249.12379875633,
+          "median_p95_ms": 1.409834,
+          "median_p99_ms": 1.857958
+        },
+        "fastapi": {
+          "median_rps": 9399.87296009157,
+          "min_rps": 8618.251841701114,
+          "max_rps": 11350.15805111379,
+          "median_p95_ms": 1.492292,
+          "median_p99_ms": 2.001167
+        }
+      }
+    },
+    "dependency": {
+      "uvicorn": {
+        "asgi": {
+          "median_rps": 12767.855646815053,
+          "min_rps": 4690.25231333392,
+          "max_rps": 12958.505032750289,
+          "median_p95_ms": 0.922792,
+          "median_p99_ms": 1.227291
+        },
+        "fastapi": {
+          "median_rps": 5367.829381200694,
+          "min_rps": 5149.391905030301,
+          "max_rps": 7569.707544305371,
+          "median_p95_ms": 2.632875,
+          "median_p99_ms": 6.91425
+        },
+        "tachyon": {
+          "median_rps": 10823.291704290781,
+          "min_rps": 8577.868087269784,
+          "max_rps": 11064.292801500626,
+          "median_p95_ms": 1.09425,
+          "median_p99_ms": 1.497625
+        }
+      },
+      "granian": {
+        "tachyon": {
+          "median_rps": 13073.732583160498,
+          "min_rps": 12489.462016559111,
+          "max_rps": 14629.382836328661,
+          "median_p95_ms": 1.279625,
+          "median_p99_ms": 1.819666
+        },
+        "fastapi": {
+          "median_rps": 13523.1266293894,
+          "min_rps": 12984.005841802647,
+          "max_rps": 13951.14830923092,
+          "median_p95_ms": 0.947,
+          "median_p99_ms": 1.247334
+        },
+        "asgi": {
+          "median_rps": 16031.678597367905,
+          "min_rps": 13869.296869409452,
+          "max_rps": 16088.993630710262,
+          "median_p95_ms": 1.036917,
+          "median_p99_ms": 1.469625
+        }
+      },
+      "uvicorn_httptools": {
+        "asgi": {
+          "median_rps": 14298.097460129358,
+          "min_rps": 7064.2567907452185,
+          "max_rps": 14513.011368777572,
+          "median_p95_ms": 1.127,
+          "median_p99_ms": 1.63825
+        },
+        "tachyon": {
+          "median_rps": 13787.774520463028,
+          "min_rps": 12352.76400913753,
+          "max_rps": 13898.158284464767,
+          "median_p95_ms": 1.154084,
+          "median_p99_ms": 1.593583
+        },
+        "fastapi": {
+          "median_rps": 10972.311372259017,
+          "min_rps": 10539.520255289295,
+          "max_rps": 11424.105125939835,
+          "median_p95_ms": 1.036375,
+          "median_p99_ms": 1.406625
+        }
+      }
+    },
+    "query": {
+      "uvicorn": {
+        "asgi": {
+          "median_rps": 12124.831199841074,
+          "min_rps": 9203.567407381932,
+          "max_rps": 12172.52114254667,
+          "median_p95_ms": 0.977375,
+          "median_p99_ms": 1.324459
+        },
+        "fastapi": {
+          "median_rps": 6441.179750203857,
+          "min_rps": 5434.127943972776,
+          "max_rps": 6801.3118751315305,
+          "median_p95_ms": 1.701042,
+          "median_p99_ms": 2.160166
+        },
+        "tachyon": {
+          "median_rps": 9325.873411954279,
+          "min_rps": 9195.909659604498,
+          "max_rps": 11325.789886100356,
+          "median_p95_ms": 1.3195,
+          "median_p99_ms": 2.176417
+        }
+      },
+      "granian": {
+        "tachyon": {
+          "median_rps": 13950.098238854205,
+          "min_rps": 11618.334753233312,
+          "max_rps": 14628.263816295572,
+          "median_p95_ms": 1.163083,
+          "median_p99_ms": 1.773584
+        },
+        "fastapi": {
+          "median_rps": 11598.326724949302,
+          "min_rps": 9602.621531167953,
+          "max_rps": 11729.419854378393,
+          "median_p95_ms": 1.021792,
+          "median_p99_ms": 1.38525
+        },
+        "asgi": {
+          "median_rps": 14336.613564680385,
+          "min_rps": 12946.52005479899,
+          "max_rps": 15974.403638778906,
+          "median_p95_ms": 1.131042,
+          "median_p99_ms": 1.645834
+        }
+      },
+      "uvicorn_httptools": {
+        "asgi": {
+          "median_rps": 12202.574971374732,
+          "min_rps": 11342.117530523057,
+          "max_rps": 13787.295383029701,
+          "median_p95_ms": 1.348459,
+          "median_p99_ms": 1.972041
+        },
+        "tachyon": {
+          "median_rps": 13018.594406744141,
+          "min_rps": 12776.304186772242,
+          "max_rps": 13980.579743936098,
+          "median_p95_ms": 1.193375,
+          "median_p99_ms": 1.609958
+        },
+        "fastapi": {
+          "median_rps": 9867.901705619703,
+          "min_rps": 8720.012894794414,
+          "max_rps": 9895.411683202277,
+          "median_p95_ms": 1.143458,
+          "median_p99_ms": 1.489042
+        }
+      }
+    },
+    "header": {
+      "uvicorn": {
+        "asgi": {
+          "median_rps": 11126.229431646643,
+          "min_rps": 10619.290471524271,
+          "max_rps": 12767.196842449313,
+          "median_p95_ms": 1.088875,
+          "median_p99_ms": 2.014542
+        },
+        "fastapi": {
+          "median_rps": 7563.720802459645,
+          "min_rps": 6475.1628198590415,
+          "max_rps": 7993.1046041531745,
+          "median_p95_ms": 1.5235,
+          "median_p99_ms": 2.113458
+        },
+        "tachyon": {
+          "median_rps": 11775.644556171532,
+          "min_rps": 8497.948618876413,
+          "max_rps": 12151.17581649086,
+          "median_p95_ms": 0.971625,
+          "median_p99_ms": 1.406
+        }
+      },
+      "granian": {
+        "tachyon": {
+          "median_rps": 14647.673146163494,
+          "min_rps": 14613.202201079604,
+          "max_rps": 15575.237238164616,
+          "median_p95_ms": 1.1075,
+          "median_p99_ms": 1.567167
+        },
+        "fastapi": {
+          "median_rps": 14608.256768575295,
+          "min_rps": 12005.687718997566,
+          "max_rps": 14739.339352539286,
+          "median_p95_ms": 0.830458,
+          "median_p99_ms": 1.118042
+        },
+        "asgi": {
+          "median_rps": 14043.5261534204,
+          "min_rps": 13701.867907837199,
+          "max_rps": 15201.476532251241,
+          "median_p95_ms": 1.205792,
+          "median_p99_ms": 1.710166
+        }
+      },
+      "uvicorn_httptools": {
+        "asgi": {
+          "median_rps": 14022.684581221347,
+          "min_rps": 12928.474533003508,
+          "max_rps": 14373.327415682847,
+          "median_p95_ms": 1.178208,
+          "median_p99_ms": 1.536
+        },
+        "tachyon": {
+          "median_rps": 12812.32032796768,
+          "min_rps": 11468.739343953612,
+          "max_rps": 14072.098918724674,
+          "median_p95_ms": 1.258875,
+          "median_p99_ms": 1.750417
+        },
+        "fastapi": {
+          "median_rps": 12233.276345950437,
+          "min_rps": 12005.453428599,
+          "max_rps": 12392.450338239762,
+          "median_p95_ms": 1.005959,
+          "median_p99_ms": 1.367584
+        }
+      }
+    },
+    "path_query": {
+      "uvicorn": {
+        "asgi": {
+          "median_rps": 11966.09705577136,
+          "min_rps": 8854.365050437458,
+          "max_rps": 12556.573248340868,
+          "median_p95_ms": 1.071542,
+          "median_p99_ms": 1.409291
+        },
+        "fastapi": {
+          "median_rps": 6009.516827001497,
+          "min_rps": 5583.539822836417,
+          "max_rps": 7046.060850126621,
+          "median_p95_ms": 2.03525,
+          "median_p99_ms": 2.930833
+        },
+        "tachyon": {
+          "median_rps": 10451.36618229525,
+          "min_rps": 9639.808553299445,
+          "max_rps": 11472.960837895274,
+          "median_p95_ms": 1.339791,
+          "median_p99_ms": 1.815917
+        }
+      },
+      "granian": {
+        "tachyon": {
+          "median_rps": 14412.133506186185,
+          "min_rps": 14120.392228244773,
+          "max_rps": 15241.830618697217,
+          "median_p95_ms": 1.086,
+          "median_p99_ms": 1.481
+        },
+        "fastapi": {
+          "median_rps": 12524.412820248386,
+          "min_rps": 12371.178607251142,
+          "max_rps": 12729.266015407025,
+          "median_p95_ms": 0.884041,
+          "median_p99_ms": 1.301917
+        },
+        "asgi": {
+          "median_rps": 15526.443474139953,
+          "min_rps": 15050.503810575832,
+          "max_rps": 16475.284543579623,
+          "median_p95_ms": 1.007291,
+          "median_p99_ms": 1.476875
+        }
+      },
+      "uvicorn_httptools": {
+        "asgi": {
+          "median_rps": 14071.339934526615,
+          "min_rps": 12538.958938275939,
+          "max_rps": 14187.310894919994,
+          "median_p95_ms": 1.172541,
+          "median_p99_ms": 1.721083
+        },
+        "tachyon": {
+          "median_rps": 13127.846047356052,
+          "min_rps": 11603.334219060413,
+          "max_rps": 13823.248520905923,
+          "median_p95_ms": 1.252167,
+          "median_p99_ms": 1.738542
+        },
+        "fastapi": {
+          "median_rps": 10248.93594438899,
+          "min_rps": 9700.981411555924,
+          "max_rps": 10590.471752659585,
+          "median_p95_ms": 1.063667,
+          "median_p99_ms": 1.527625
+        }
+      }
+    },
+    "nested_body": {
+      "uvicorn": {
+        "asgi": {
+          "median_rps": 9388.293970580444,
+          "min_rps": 5879.079815471717,
+          "max_rps": 10529.987429429159,
+          "median_p95_ms": 1.329166,
+          "median_p99_ms": 4.155042
+        },
+        "fastapi": {
+          "median_rps": 7113.559212525908,
+          "min_rps": 6065.900709441919,
+          "max_rps": 7151.85867651381,
+          "median_p95_ms": 1.563917,
+          "median_p99_ms": 1.925084
+        },
+        "tachyon": {
+          "median_rps": 8087.758913082275,
+          "min_rps": 7205.120318823516,
+          "max_rps": 9341.481989241545,
+          "median_p95_ms": 1.924333,
+          "median_p99_ms": 2.731833
+        }
+      },
+      "granian": {
+        "tachyon": {
+          "median_rps": 11563.266970277793,
+          "min_rps": 9530.760943457924,
+          "max_rps": 11895.993353497952,
+          "median_p95_ms": 1.218458,
+          "median_p99_ms": 1.827917
+        },
+        "fastapi": {
+          "median_rps": 10264.411233414681,
+          "min_rps": 10020.142591081601,
+          "max_rps": 10305.239015720883,
+          "median_p95_ms": 1.104292,
+          "median_p99_ms": 1.449375
+        },
+        "asgi": {
+          "median_rps": 11127.820832691204,
+          "min_rps": 10192.902774746783,
+          "max_rps": 11149.722165267918,
+          "median_p95_ms": 1.271833,
+          "median_p99_ms": 1.639666
+        }
+      },
+      "uvicorn_httptools": {
+        "asgi": {
+          "median_rps": 11597.50566614128,
+          "min_rps": 8367.560420639022,
+          "max_rps": 11833.531792029418,
+          "median_p95_ms": 1.303166,
+          "median_p99_ms": 1.743417
+        },
+        "tachyon": {
+          "median_rps": 11314.606380942276,
+          "min_rps": 10490.6269523418,
+          "max_rps": 12002.646631680518,
+          "median_p95_ms": 1.326625,
+          "median_p99_ms": 1.77775
+        },
+        "fastapi": {
+          "median_rps": 10691.887660841083,
+          "min_rps": 10665.616714999693,
+          "max_rps": 11014.466813799758,
+          "median_p95_ms": 1.087417,
+          "median_p99_ms": 1.592833
+        }
+      }
+    },
+    "response_model": {
+      "uvicorn": {
+        "asgi": {
+          "median_rps": 12328.267846161098,
+          "min_rps": 7865.667487491507,
+          "max_rps": 12749.613527203324,
+          "median_p95_ms": 1.056458,
+          "median_p99_ms": 1.502084
+        },
+        "fastapi": {
+          "median_rps": 7294.124467401845,
+          "min_rps": 7124.184781787445,
+          "max_rps": 8292.564425819393,
+          "median_p95_ms": 1.41625,
+          "median_p99_ms": 2.491292
+        },
+        "tachyon": {
+          "median_rps": 9575.733161463537,
+          "min_rps": 8991.020205210336,
+          "max_rps": 12269.618736654504,
+          "median_p95_ms": 1.528917,
+          "median_p99_ms": 2.024209
+        }
+      },
+      "granian": {
+        "tachyon": {
+          "median_rps": 15576.698119510855,
+          "min_rps": 14127.79001412399,
+          "max_rps": 15861.088586449287,
+          "median_p95_ms": 1.023792,
+          "median_p99_ms": 1.570583
+        },
+        "fastapi": {
+          "median_rps": 15222.886849211574,
+          "min_rps": 14031.481382009013,
+          "max_rps": 15914.734074943324,
+          "median_p95_ms": 0.837709,
+          "median_p99_ms": 1.144416
+        },
+        "asgi": {
+          "median_rps": 13722.542796158321,
+          "min_rps": 13491.225644108397,
+          "max_rps": 14889.117910196966,
+          "median_p95_ms": 1.115917,
+          "median_p99_ms": 1.875375
+        }
+      },
+      "uvicorn_httptools": {
+        "asgi": {
+          "median_rps": 14499.548132710906,
+          "min_rps": 14222.382322100317,
+          "max_rps": 14521.182204119146,
+          "median_p95_ms": 1.113458,
+          "median_p99_ms": 1.531208
+        },
+        "tachyon": {
+          "median_rps": 13390.357599653371,
+          "min_rps": 11740.545703793552,
+          "max_rps": 13984.983009114469,
+          "median_p95_ms": 1.246917,
+          "median_p99_ms": 1.739292
+        },
+        "fastapi": {
+          "median_rps": 11905.526693176265,
+          "min_rps": 11587.010018281106,
+          "max_rps": 13645.888591225617,
+          "median_p95_ms": 1.092166,
+          "median_p99_ms": 1.585959
+        }
+      }
+    },
+    "hello": {
+      "uvicorn": {
+        "asgi": {
+          "median_rps": 12691.150539767834,
+          "min_rps": 9171.312654568566,
+          "max_rps": 13188.722681390178,
+          "median_p95_ms": 0.976541,
+          "median_p99_ms": 1.349917
+        },
+        "fastapi": {
+          "median_rps": 8663.348243052169,
+          "min_rps": 7309.31149323275,
+          "max_rps": 8860.381418975621,
+          "median_p95_ms": 1.34,
+          "median_p99_ms": 1.784917
+        },
+        "tachyon": {
+          "median_rps": 10960.79849643534,
+          "min_rps": 9251.826016341352,
+          "max_rps": 12789.318360964326,
+          "median_p95_ms": 1.328166,
+          "median_p99_ms": 1.7275
+        }
+      },
+      "granian": {
+        "tachyon": {
+          "median_rps": 15639.616320762816,
+          "min_rps": 15101.66729340693,
+          "max_rps": 17205.078079456463,
+          "median_p95_ms": 1.042417,
+          "median_p99_ms": 1.425708
+        },
+        "fastapi": {
+          "median_rps": 15736.94129055927,
+          "min_rps": 15554.74033146342,
+          "max_rps": 16033.338697916528,
+          "median_p95_ms": 0.873959,
+          "median_p99_ms": 1.153584
+        },
+        "asgi": {
+          "median_rps": 15253.673394285397,
+          "min_rps": 13324.258003782452,
+          "max_rps": 15711.983628123751,
+          "median_p95_ms": 1.110208,
+          "median_p99_ms": 1.651208
+        }
+      },
+      "uvicorn_httptools": {
+        "asgi": {
+          "median_rps": 14518.748811835532,
+          "min_rps": 14321.680424435126,
+          "max_rps": 14624.863084929595,
+          "median_p95_ms": 1.11325,
+          "median_p99_ms": 1.501041
+        },
+        "tachyon": {
+          "median_rps": 13468.0021302959,
+          "min_rps": 12971.192091178815,
+          "max_rps": 14382.63009714069,
+          "median_p95_ms": 1.154542,
+          "median_p99_ms": 1.68125
+        },
+        "fastapi": {
+          "median_rps": 14746.969687801542,
+          "min_rps": 12529.921766667074,
+          "max_rps": 15282.793771910594,
+          "median_p95_ms": 0.93275,
+          "median_p99_ms": 1.238541
+        }
+      }
+    }
+  },
+  "artifact": "benchmark/results/2026-11-04/server-comparison.json.gz",
+  "sha256": "f2d5f4ccc313d5209bf7cb024a4e42959f8ceeceebdfc04921f8074886887956",
+  "uncompressed_sha256": "957acc7be22b0dd87ff3362c4b5f912048b9715ed8f3b841e868af4af55fca40",
+  "limits": [
+    "Local macOS ARM64 Python 3.13; load driver and server share host",
+    "Not CPU/power/temperature isolated; client validation included",
+    "ASGI baseline lacks framework validation",
+    "Granian asginl versus Uvicorn lifespan off; HTTP1 asyncio one worker",
+    "No uvloop, Rust loop, RSGI, TLS, WebSocket or lifespan validation",
+    "Server/parser/threading differences are bundled; cannot isolate Rust language effect"
+  ],
+  "runtime_python_sha256": "7632736c74cda407b56175bd7a57e908816dbbdd46661a7459a0d434a0184d36",
+  "evidence_sha256": {
+    "docs/quality/evidence/2026-11-04/cython-removal.json": "255fb8dae29fb756df0cdda3e4d292aa84c50337c78f603de958a0d84c15b97e",
+    "docs/quality/evidence/2026-11-04/cython-removal-probe.py": "280e6c44b69dbb8c8145b5a1fff8c15b32ea0a009a342144056a1c3f749784d9",
+    "docs/quality/evidence/2026-11-04/cython-removal-tests.log": "2d3ccdae7924ec50679ec60d16d4ea0071284150c8a68181c152094f99084d15",
+    "docs/quality/evidence/2026-11-04/server-comparison-probe.py": "2e1216a38490a6b345db8be937ef8d1819e55d0c57f8ee468a6ca7cf798726fa",
+    "docs/quality/evidence/2026-11-04/cython-removal-installed-tests.log": "f810ad62cb050e46dfc13ca7e2f837dfa0a940ff6341b59a87bd74bce1bb4762",
+    "docs/quality/evidence/2026-11-04/cython-removal-build.log": "9c1cc288143a3640917d2b856e8e20395242b02e6deb28fbb8e1158320af129a",
+    "docs/quality/evidence/2026-11-04/cython-removal-tests-cp310.log": "086dfc338e5366731eca9c30bfb3f87d29ed1ccfead273b97d3f2473dd0d5c33",
+    "docs/quality/evidence/2026-11-04/cython-removal-tests-cp311.log": "4d592699ce313564ea72cbd24bf67ce443a797be2351b222115853d9a973b471",
+    "docs/quality/evidence/2026-11-04/rust-dependency-sizes.json": "63a8c456e2cfea9d29a995b9c105448601c85ffde945836da46de6e4a46c9e12",
+    "docs/quality/evidence/2026-11-04/cython-removal-tests-cp312.log": "bc087aab734ec1109ee9fc8e342e14593256c2b35f4061ed011e1d4701c01eab"
+  }
+}

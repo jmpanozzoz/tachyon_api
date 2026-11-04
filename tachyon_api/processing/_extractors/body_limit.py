@@ -10,7 +10,7 @@ from ...responses import validation_error_response
 class BodySizeChecker:
     """Answers: "is this request body within the configured size limit?" """
 
-    __slots__ = ("_max",)  # int → cdef Py_ssize_t
+    __slots__ = ("_max",)
 
     def __init__(self, max_body_size: int) -> None:
         self._max = max_body_size

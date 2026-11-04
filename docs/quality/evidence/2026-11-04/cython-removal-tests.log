@@ -1,0 +1,107 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.13.18, pytest-8.4.2, pluggy-1.7.0
+rootdir: /private/var/folders/pq/mx14w_8j4tz1613dtkp90gvc0000gn/T/tachyon-no-cython-probe-ljqqd6so
+configfile: pytest.ini
+plugins: anyio-4.16.0, asyncio-1.4.1.post1
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 838 items
+
+tests/test_app_core.py ....                                              [  0%]
+tests/test_asgi_handler_fastpath.py ........                             [  1%]
+tests/test_audit_compiler_di_schema.py ................................. [  5%]
+.........                                                                [  6%]
+tests/test_audit_dx.py ............                                      [  7%]
+tests/test_audit_routing_contract.py .......                             [  8%]
+tests/test_audit_runtime_contract.py ................................    [ 12%]
+tests/test_audit_server_facade.py ...                                    [ 12%]
+tests/test_audit_wheel.py .                                              [ 13%]
+tests/test_background_tasks.py ........                                  [ 13%]
+tests/test_body_validation.py .......                                    [ 14%]
+tests/test_cache_decorator.py ..............................             [ 18%]
+tests/test_cli.py .........................                              [ 21%]
+tests/test_continuous_cache.py ........................                  [ 24%]
+tests/test_continuous_di.py ...............................              [ 27%]
+tests/test_continuous_di_graph.py ...                                    [ 28%]
+tests/test_continuous_form.py ..........                                 [ 29%]
+tests/test_continuous_responses.py ...................                   [ 31%]
+tests/test_continuous_uploads.py ....................................... [ 36%]
+.......                                                                  [ 37%]
+tests/test_cookie_params.py .....                                        [ 37%]
+tests/test_cors_middleware.py ...                                        [ 38%]
+tests/test_default_json_response.py ..                                   [ 38%]
+tests/test_dependency_injection.py ........                              [ 39%]
+tests/test_depends_callable.py ..........                                [ 40%]
+tests/test_documentation_contracts.py .................................. [ 44%]
+........................................................................ [ 53%]
+........................................................................ [ 61%]
+.......                                                                  [ 62%]
+tests/test_error_format.py ...                                           [ 63%]
+tests/test_exception_handling.py ..............                          [ 64%]
+tests/test_file_handling.py ..........                                   [ 65%]
+tests/test_header_params.py ........                                     [ 66%]
+tests/test_http_methods.py ........                                      [ 67%]
+tests/test_lifecycle.py .......                                          [ 68%]
+tests/test_local_release_runtime.py ................................     [ 72%]
+tests/test_local_release_tools.py .....                                  [ 73%]
+tests/test_logger_middleware.py ..                                       [ 73%]
+tests/test_middleware.py .....                                           [ 73%]
+tests/test_openapi.py ...................                                [ 76%]
+tests/test_openapi_params.py ...                                         [ 76%]
+tests/test_openapi_struct_deep.py .                                      [ 76%]
+tests/test_orjson_integration.py ...........                             [ 77%]
+tests/test_path_params.py .....                                          [ 78%]
+tests/test_query_params.py .........                                     [ 79%]
+tests/test_radix_trie.py .....................                           [ 82%]
+tests/test_request_injection.py ......                                   [ 82%]
+tests/test_response_model.py ...                                         [ 83%]
+tests/test_responses.py .....................                            [ 85%]
+tests/test_router.py ........................                            [ 88%]
+tests/test_security.py ....................                              [ 90%]
+tests/test_testing_utils.py ............                                 [ 92%]
+tests/test_trie_dispatch_edges.py .........                              [ 93%]
+tests/test_utils.py ...................                                  [ 95%]
+tests/test_websockets.py .........                                       [ 96%]
+example/tests/test_async_client.py .....                                 [ 97%]
+example/tests/test_auth.py .....                                         [ 97%]
+example/tests/test_configuration.py ........                             [ 98%]
+example/tests/test_customers.py ...                                      [ 99%]
+example/tests/test_verification.py .....                                 [ 99%]
+example/tests/test_websocket_lifecycle.py .                              [100%]
+
+=============================== warnings summary ===============================
+tachyon_api/testing.py:6
+  /private/var/folders/pq/mx14w_8j4tz1613dtkp90gvc0000gn/T/tachyon-no-cython-probe-ljqqd6so/tachyon_api/testing.py:6: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient
+
+../../../../../../../tmp/tachyon-review-current-env/lib/python3.13/site-packages/typer/__init__.py:24
+  /tmp/tachyon-review-current-env/lib/python3.13/site-packages/typer/__init__.py:24: DeprecationWarning: 'click.utils.get_binary_stream' is deprecated and will be removed in Click 9.0.
+    from click.utils import get_binary_stream as get_binary_stream
+
+../../../../../../../tmp/tachyon-review-current-env/lib/python3.13/site-packages/typer/__init__.py:25
+  /tmp/tachyon-review-current-env/lib/python3.13/site-packages/typer/__init__.py:25: DeprecationWarning: 'click.utils.get_text_stream' is deprecated and will be removed in Click 9.0.
+    from click.utils import get_text_stream as get_text_stream
+
+tests/test_cookie_params.py::test_cookie_required_parameter
+tests/test_cookie_params.py::test_cookie_optional_with_default
+tests/test_cookie_params.py::test_cookie_with_alias
+tests/test_security.py::test_api_key_cookie
+  /tmp/tachyon-review-current-env/lib/python3.13/site-packages/httpx/_client.py:1768: DeprecationWarning: Setting per-request cookies=<...> is being deprecated, because the expected behaviour on cookie persistence is ambiguous. Set cookies directly on the client instance instead.
+    return await self.request(
+
+example/tests/test_auth.py::TestAuthEndpoints::test_login_success
+  /private/var/folders/pq/mx14w_8j4tz1613dtkp90gvc0000gn/T/tachyon-no-cython-probe-ljqqd6so/example/modules/auth/auth_service.py:141: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    expiration = datetime.utcnow() + timedelta(
+
+example/tests/test_auth.py::TestAuthEndpoints::test_login_success
+  /private/var/folders/pq/mx14w_8j4tz1613dtkp90gvc0000gn/T/tachyon-no-cython-probe-ljqqd6so/example/modules/auth/auth_service.py:150: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    "iat": datetime.utcnow(),
+
+example/tests/test_verification.py::TestVerificationEndpoints::test_start_verification
+example/tests/test_verification.py::TestVerificationEndpoints::test_start_enhanced_verification
+example/tests/test_verification.py::TestVerificationEndpoints::test_get_verification
+example/tests/test_verification.py::test_start_verification_awaits_first_background_task
+  /private/var/folders/pq/mx14w_8j4tz1613dtkp90gvc0000gn/T/tachyon-no-cython-probe-ljqqd6so/example/modules/verification/verification_repository.py:31: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = datetime.utcnow()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================= 838 passed, 13 warnings in 2.38s =======================

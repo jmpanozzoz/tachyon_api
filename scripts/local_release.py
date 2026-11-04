@@ -25,6 +25,7 @@ def main():
     parser.add_argument("--output", type=Path, required=True, help="New directory outside the checkout")
     parser.add_argument("--duration", type=float, default=60)
     parser.add_argument("--concurrency", type=int, default=8)
+    parser.add_argument("--with-granian", action="store_true", help="Include optional real-server contracts")
     args = parser.parse_args()
     output = args.output.resolve()
     if output.exists() or output.is_relative_to(ROOT):
@@ -36,10 +37,11 @@ def main():
     dist.mkdir()
     report = {"started": datetime.now(timezone.utc).isoformat(), "complete": False,
               "revision": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip(),
-              "checks": [], "matrix": [], "artifacts": [], "platform_limit": "Native wheels tested on this host only"}
+              "checks": [], "matrix": [], "artifacts": [], "with_granian": args.with_granian,
+              "platform_limit": "Runtime tested on this host only; portable packaging is not platform execution evidence"}
     release_version = re.search(r'^version = "([^"]+)"', (ROOT / "pyproject.toml").read_text(), re.M).group(1)
     report["version"] = release_version
-    environment = dict(os.environ, MACOSX_DEPLOYMENT_TARGET="11.0", PYTHONPATH="")
+    environment = dict(os.environ, PYTHONPATH="")
     environment.pop("TACHYON_SKIP_CYTHON", None)
 
     def run(label, command, cwd, env=None):
@@ -72,26 +74,16 @@ def main():
                 run(f"{label}-venv", [args.uv, "venv", "--python", interpreter, venv], source)
                 python = venv / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
                 run(f"{label}-dependencies", [args.uv, "pip", "install", "--python", python,
-                    str(source) + "[test]", "pytest", "pytest-asyncio", "PyJWT", "build", "Cython",
-                    "setuptools", "wheel", "poetry-core", "ruff==0.14.9", "twine"], source,
-                    environment | {"TACHYON_SKIP_CYTHON": "1"})
+                    str(source) + ("[test,granian]" if args.with_granian else "[test]"),
+                    *(["websockets"] if args.with_granian else []), "pytest", "pytest-asyncio", "PyJWT", "build",
+                    "setuptools", "wheel", "poetry-core", "ruff==0.14.9", "twine"], source)
                 run(f"{label}-ruff", [python, "-m", "ruff", "check", "tachyon_api", "tests", "benchmark", "scripts"], source)
                 run(f"{label}-python", [python, "scripts/quality_cycle.py", "--engine", "python", "--output", output / f"{label}-python.json"], source)
                 if index == 0:
-                    run("portable-sdist-build", [python, "-m", "build", "--no-isolation", "--outdir", dist], source,
-                        environment | {"TACHYON_SKIP_CYTHON": "1"})
-                run(f"{label}-compile", [python, "setup.py", "build_ext", "--inplace"], source)
-                run(f"{label}-native", [python, "scripts/quality_cycle.py", "--engine", "native", "--output", output / f"{label}-native.json"], source)
-                for engine in ("python", "native") if index == 0 else ():
-                    # A separate fallback snapshot avoids accidental imports of
-                    # the extensions just built in the native snapshot.
-                    if engine == "python":
-                        soak_source = work / "soak-python"
-                        shutil.copytree(frozen, soak_source)
-                    else:
-                        soak_source = source
-                    run(f"soak-{engine}", [python, "-m", "benchmark.run_soak", "--duration", args.duration,
-                        "--concurrency", args.concurrency, "--output", output / f"soak-{engine}.json"], soak_source)
+                    run("portable-sdist-build", [python, "-m", "build", "--no-isolation", "--outdir", dist], source)
+                if index == 0:
+                    run("soak-python", [python, "-m", "benchmark.run_soak", "--duration", args.duration,
+                        "--concurrency", args.concurrency, "--output", output / "soak-python.json"], source)
                 extracted = work / f"sdist-{label}"
                 extracted.mkdir()
                 with tarfile.open(next(dist.glob("*.tar.gz"))) as archive:
@@ -102,15 +94,15 @@ def main():
                             raise ValueError(f"Unsafe sdist member {member.name}")
                     archive.extractall(extracted)
                 build_source = next(extracted.iterdir())
-                run(f"{label}-sdist-wheel", [python, "-m", "build", "--wheel", "--no-isolation", "--outdir", dist], build_source)
-                wheel = next(dist.glob(f"*-{label}-{label}-*.whl"))
-                run(f"{label}-install-native", [args.uv, "pip", "install", "--python", python, "--no-deps", "--reinstall", wheel], source)
-                run(f"{label}-installed-native", [python, "scripts/test_installed_wheel.py", "--engine", "native"], source)
-                portable = next(dist.glob("*-py3-none-any.whl"))
-                run(f"{label}-install-portable", [args.uv, "pip", "install", "--python", python, "--no-deps", "--reinstall", portable], source)
-                run(f"{label}-installed-portable", [python, "scripts/test_installed_wheel.py", "--engine", "python"], source)
-                report["matrix"].append({"python": version, "engines": ["python", "native"], "wheel": wheel.name})
-            run("artifact-check", [python, "scripts/check_release_artifacts.py", "--version", release_version, "--require-native", dist], frozen)
+                run(f"{label}-sdist-wheel", [python, "-m", "build", "--wheel", "--no-isolation", "--outdir", work / f"rebuilt-{label}"], build_source)
+                portable = next((work / f"rebuilt-{label}").glob("*-py3-none-any.whl"))
+                run(f"{label}-install-rebuilt", [args.uv, "pip", "install", "--python", python, "--no-deps", "--reinstall", portable], source)
+                run(f"{label}-installed-rebuilt", [python, "scripts/test_installed_wheel.py"], source)
+                candidate = next(dist.glob("*-py3-none-any.whl"))
+                run(f"{label}-install-portable", [args.uv, "pip", "install", "--python", python, "--no-deps", "--reinstall", candidate], source)
+                run(f"{label}-installed-portable", [python, "scripts/test_installed_wheel.py"], source)
+                report["matrix"].append({"python": version, "engines": ["python"], "wheel": candidate.name})
+            run("artifact-check", [python, "scripts/check_release_artifacts.py", "--version", release_version, dist], frozen)
             run("metadata-check", [python, "-m", "twine", "check", "--strict", *sorted(dist.iterdir())], frozen)
             for artifact in sorted(dist.iterdir()):
                 report["artifacts"].append({"file": "dist/" + artifact.name,

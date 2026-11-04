@@ -1,4 +1,4 @@
-# HOT PATH — compiled sibling exists (.pyx wins import resolution when built).
+# Exception handler lookup for the Python implementation.
 # Registers user exception handlers and dispatches an exception to its handler.
 
 from starlette._utils import is_async_callable
@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 class ExceptionTable:
     """Registers and dispatches user exception handlers."""
 
-    __slots__ = ("_handlers",)  # Dict[Type[Exception], Callable] → cdef dict
+    __slots__ = ("_handlers",)
 
     def __init__(self) -> None:
         self._handlers: Dict[Type[Exception], Callable] = {}

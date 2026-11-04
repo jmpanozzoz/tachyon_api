@@ -14,7 +14,7 @@ formal assessment requires the full applicable standards and an organizational s
 2. Add a regression check at the smallest boundary that demonstrates the defect.
 3. Repair the cause. Prefer deleting a branch/cache/duplicate implementation over
    adding another special case when the supported contract permits it.
-4. Run the affected tests, then the complete suite in both engines. Include the
+4. Run the affected tests, then the complete suite on the Python implementation. Include the
    example application: it exercises public integrations and lifecycle behavior.
 5. Have a reviewer inspect the changed code and adjacent assumptions. Reopen the
    cycle for every confirmed defect; retain the reproducer and resolution.
@@ -32,22 +32,15 @@ supported interpreter (3.10 through 3.13). From the checkout root:
 ```sh
 ruff check tachyon_api tests benchmark scripts
 python scripts/quality_cycle.py --engine python --output /tmp/quality-python.json
-python setup.py build_ext --inplace
-python scripts/quality_cycle.py --engine native --output /tmp/quality-native.json
 ```
 
-Use a clean snapshot/environment per interpreter. Run fallback before building
-native extensions, or use a separate extension-free snapshot; `--engine python`
-does not disable compiled modules already present. The runner rejects a
-mismatched loaded engine and records the revision, dirty working tree,
-Python/platform, output, exit status and duration of each check. A source checkout
-run cannot establish installed wheel correctness: build a portable wheel and a
-native wheel from the sdist, install outside the checkout and run the wheel
-contracts separately. The [local release orchestrator](local-release.md) supplies
-these gates without requiring GitHub Actions. Its per-interpreter environment is
-reused for native/portable wheel reinstallation; external test directories and
-module-origin assertions prevent checkout imports. Hosted workflows can supply additional platform evidence when executed. Results on another operating system require actual
-execution there.
+Use a clean snapshot/environment per interpreter. The runner verifies all Python
+module origins, rejects stale native files and records the revision, source
+fingerprint, platform and check output. Build the portable wheel and sdist, then
+rebuild and test the installed package outside the checkout. The
+[local release orchestrator](local-release.md) supplies these gates without
+GitHub Actions. Configured workflows establish additional platform coverage only
+when they actually execute. Historical native measurements below describe 1.4.0.
 
 ## Performance and stability acceptance
 
@@ -72,7 +65,7 @@ correct responses take priority over a microbenchmark improvement.
 ## Traceability and remaining release work
 
 Historical audit: [1.4.0 audit](../audits/1.4.0/AUDITORIA.md).
-Detected documentation drift: [2026-11-04 report](../../2026-11-04_DRIFT_REPORT.md).
+Detected documentation drift: [2026-11-04 report](../audits/1.4.0/initial-drift.md).
 Repair evidence: [current cycle](../audits/1.4.0/CONTINUOUS_IMPROVEMENT.md).
 
 Release requires reviewed changes, documented passing checks for the selected

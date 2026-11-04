@@ -5,6 +5,25 @@ python -m benchmark.run_benchmark --requests 1000 --concurrency 4 --repeats 3 --
 # Or set PYTHON and invoke benchmark/run_benchmark.sh with the same arguments.
 ```
 
+The [2026-11-04 assessment](../docs/quality/framework-review.md) retains a new
+comparison with FastAPI 0.162.0, both Tachyon engines and shared server dependencies,
+alongside the older dependency environment. Full latency samples are compressed
+under [results/2026-11-04](results/2026-11-04/); versions, per-scenario medians,
+ranges, p95/p99 and hashes are in the [summary](../docs/quality/evidence/2026-11-04/summary.json).
+The extra in the audited snapshot restricted FastAPI to the 0.136 series; the
+1.4.1 preparation updates it to >=0.162.0,<1.0. Reproducing dated results requires
+installing their recorded versions in an isolated environment. These are local closed-loop results, with the same limits
+described below; they do not establish a production capacity or global multiplier.
+
+The runner defaults to Uvicorn/asyncio/h11. Select `--http httptools` to compare
+its accelerated parser. For the optional Rust server, install `tachyon-api[granian]`
+and pass `--server granian` (HTTP/1, asyncio, one runtime thread, no lifespan).
+Keep framework, server and parser changes separate when interpreting results.
+`tests/test_server_integration.py` runs real lifespan, shutdown, HTTP body limits,
+uploads, streaming and WebSocket contracts when Granian/websockets are installed.
+These POSIX signal shutdown tests are skipped on Windows; installed-wheel
+contracts remain platform independent.
+
 The runner launches separate standard Uvicorn servers, one worker each, using asyncio and h11. All Tachyon and FastAPI endpoints are async. Both create a Database through an async factory once per request, return dicts to response-model validation, and accept identical requests. The ASGI baseline parses the same valid inputs and constructs the same outputs, without framework validation or dependency machinery. It is a lower-bound reference; it does not implement the frameworks' error contracts.
 
 Every warmup and measured request checks status, JSON content type, and exact decoded JSON. Incorrect warmup aborts the run. Measured errors are counted with their messages and cause a nonzero exit after saving results. The JSON artifact contains every latency sample, p50/p95/p99, successful throughput per scenario, repetitions, server command, interpreter, dependency versions, source revision and dirty status, and actual platform. Scenario and server order vary deterministically between repetitions. Connection setup and client validation are included in latency. Throughput is per scenario and is never summed.

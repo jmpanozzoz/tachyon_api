@@ -21,6 +21,7 @@ import tempfile
 import time
 
 from benchmark.scenarios import SCENARIOS
+from benchmark.server import server_command
 
 
 def percentile(samples, fraction):
@@ -83,8 +84,7 @@ def free_port():
 
 def run_target(target, args, repeat):
     port = free_port()
-    command = [sys.executable, '-m', 'uvicorn', f'benchmark.app_{target}:app', '--host', '127.0.0.1', '--port', str(port),
-               '--workers', '1', '--loop', 'asyncio', '--http', 'h11', '--lifespan', 'off', '--no-access-log', '--log-level', 'warning']
+    command = server_command(args.server, f'benchmark.app_{target}:app', port, args.http)
     with tempfile.TemporaryFile(mode='w+') as log:
         process = subprocess.Popen(command, stdout=log, stderr=log)
         try:
@@ -128,6 +128,8 @@ def run_target(target, args, repeat):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--server', choices=('uvicorn', 'granian'), default='uvicorn')
+    parser.add_argument('--http', choices=('h11', 'httptools'), default='h11', help='Uvicorn parser; Granian uses HTTP/1')
     parser.add_argument('--requests', type=int, default=1000, help='Requests per scenario per repetition')
     parser.add_argument('--concurrency', type=int, default=4)
     parser.add_argument('--repeats', type=int, default=3)
@@ -138,7 +140,7 @@ def main():
     if min(args.requests, args.concurrency, args.repeats, args.warmup) < 1:
         parser.error('counts must be positive')
     versions = {}
-    for package in ('tachyon-api', 'fastapi', 'starlette', 'pydantic', 'uvicorn', 'msgspec', 'orjson'):
+    for package in ('tachyon-api', 'fastapi', 'starlette', 'pydantic', 'uvicorn', 'granian', 'msgspec', 'orjson'):
         try:
             versions[package] = importlib.metadata.version(package)
         except importlib.metadata.PackageNotFoundError:
@@ -150,7 +152,7 @@ def main():
         'git_revision': subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip(),
         'git_dirty': bool(subprocess.check_output(['git', 'status', '--porcelain'], text=True).strip()),
     }, 'configuration': vars(args) | {'output': str(args.output)},
-        'methodology': 'Async endpoints; per-request async DI factories; dict inputs to response models; equivalent valid JSON payloads. One worker, asyncio, h11, no lifespan/access logs. Closed-loop stdlib threaded client validates every status/body/content-type. Latencies include client validation and errors; connection establishment is included. ASGI baseline performs valid-input work without framework validation. Loopback throughput is client/machine dependent, not an isolated framework-overhead or production capacity measurement.', 'measurements': []}
+        'methodology': f'Async endpoints; per-request async DI factories; dict inputs to response models; equivalent valid JSON payloads. One worker, asyncio, server={args.server}, parser={args.http if args.server == "uvicorn" else "Granian HTTP/1"}, no lifespan/access logs. Closed-loop stdlib threaded client validates every status/body/content-type. Latencies include client validation and errors; connection establishment is included. ASGI baseline performs valid-input work without framework validation. Loopback throughput is client/machine dependent, not an isolated framework-overhead or production capacity measurement.', 'measurements': []}
     args.output.parent.mkdir(parents=True, exist_ok=True)
     try:
         for repeat in range(1, args.repeats + 1):
