@@ -77,6 +77,15 @@ def test_lifespan_body_and_limit(server):
     assert client.post("/body", content=b"x" * (64 * 1024 + 1)).status_code == 422
 
 
+def test_rejected_body_does_not_leave_an_unusable_keepalive_connection(server):
+    client, _ = server
+    for _ in range(10):
+        response = client.post("/body", content=b"x" * (64 * 1024 + 1))
+        assert response.status_code == 422
+        assert response.headers.get("connection") == "close"
+        assert client.get("/stream").text == "first\nsecond\n"
+
+
 def test_stream_and_multipart(server):
     client, _ = server
     response = client.get("/stream")

@@ -3,11 +3,14 @@ import asyncio
 
 import pytest
 from starlette.responses import StreamingResponse
+from starlette.responses import JSONResponse
 from starlette.requests import ClientDisconnect
 
 from tachyon_api import Body, Tachyon
 from tachyon_api import File, UploadFile
+from starlette.requests import Request
 from tachyon_api.background import BackgroundTasks
+from tachyon_api.processing._body_errors import RequestBodyTooLarge
 
 
 @pytest.mark.asyncio
@@ -121,3 +124,60 @@ async def test_task_cancellation_awaits_async_generator_finalizer():
     with pytest.raises(asyncio.CancelledError):
         await task
     assert finalized == [True]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("http_version", ["1.0", "1.1", "2"])
+@pytest.mark.parametrize("access", ["body-marker", "request", "file-marker"])
+@pytest.mark.parametrize("declared", [True, False], ids=["content-length", "streamed"])
+async def test_rejected_body_signals_http1_connection_close_only(http_version, access, declared):
+    app = Tachyon(max_body_size=4)
+    if access == "body-marker":
+        @app.post("/")
+        async def endpoint(data: dict = Body()):
+            return data
+    elif access == "request":
+        @app.post("/")
+        async def endpoint(request: Request):
+            return {"bytes": len(await request.body())}
+    else:
+        @app.post("/")
+        async def endpoint(file: UploadFile = File()):
+            return {"name": file.filename}
+    messages, reads = [], []
+    async def receive():
+        reads.append(True)
+        return {"type": "http.request", "body": b"too large", "more_body": False}
+    async def send(message):
+        messages.append(message)
+    scope = {"type": "http", "method": "POST", "path": "/", "root_path": "", "query_string": b"",
+             "http_version": http_version, "headers": [(b"content-length", b"9")] if declared else []}
+    await app(scope, receive, send)
+    assert messages[0]["status"] == 422
+    assert len(reads) == (0 if declared else 1)
+    headers = dict(messages[0]["headers"])
+    assert headers.get(b"connection") == (b"close" if http_version.startswith("1.") else None)
+
+
+@pytest.mark.asyncio
+async def test_connection_retirement_does_not_mutate_shared_exception_response():
+    app = Tachyon(max_body_size=4)
+    response = JSONResponse({"detail": "limit"}, status_code=422, headers={"connection": "keep-alive"})
+    @app.exception_handler(RequestBodyTooLarge)
+    async def limit(request, exc):
+        return response
+    @app.post("/")
+    async def endpoint(request: Request):
+        await request.body()
+        return {}
+    messages = []
+    async def receive():
+        raise AssertionError("declared oversized body must not be read")
+    async def send(message):
+        messages.append(message)
+    scope = {"type": "http", "method": "POST", "path": "/", "root_path": "", "query_string": b"",
+             "http_version": "1.1", "headers": [(b"content-length", b"100")]}
+    original_headers = list(response.raw_headers)
+    await app(scope, receive, send)
+    assert dict(messages[0]["headers"])[b"connection"] == b"close"
+    assert response.raw_headers == original_headers

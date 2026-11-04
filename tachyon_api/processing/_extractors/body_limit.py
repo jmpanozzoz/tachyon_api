@@ -20,6 +20,9 @@ class BodySizeChecker:
         if cl is not None:
             try:
                 if int(cl) > self._max:
+                    scope = getattr(request, "_scope", None)
+                    if scope is not None:
+                        scope["_tachyon_body_rejected"] = True
                     return self._too_large_response()
             except ValueError:
                 pass

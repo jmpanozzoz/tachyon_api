@@ -1,11 +1,12 @@
 """Release guards must reject empty inventories and leftover native modules."""
 from pathlib import Path
 from types import SimpleNamespace
+import tarfile
 
 import pytest
 
 from scripts.package_integrity import module_names, verify_python_package, source_hashes
-from scripts.check_release_artifacts import metadata, check_wheel
+from scripts.check_release_artifacts import metadata, check_wheel, check_sdist
 
 
 def package(tmp_path):
@@ -67,3 +68,14 @@ def test_release_checker_rejects_native_wheel_even_with_empty_native_inventory(t
     wheel = tmp_path / "tachyon_api-1.4.1-cp313-cp313-macosx_11_0_arm64.whl"
     with pytest.raises(ValueError, match="portable"):
         check_wheel(wheel, "1.4.1", {"tachyon_api/__init__.py"})
+
+
+@pytest.mark.parametrize("kind", [tarfile.FIFOTYPE, tarfile.CHRTYPE])
+def test_source_archive_rejects_special_files_before_extraction(tmp_path, kind):
+    path = tmp_path / "tachyon_api-1.4.2.tar.gz"
+    with tarfile.open(path, "w:gz") as archive:
+        member = tarfile.TarInfo("tachyon_api-1.4.2/special")
+        member.type = kind
+        archive.addfile(member)
+    with pytest.raises(ValueError, match="special device/FIFO"):
+        check_sdist(path, "1.4.2", set())

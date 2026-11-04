@@ -12,6 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Finalize async streaming response producers on ASGI send failure or cancellation before request-owned files are closed; preserve transport errors without starting another response.
+- Signal HTTP/1 connection retirement when an oversized request body is rejected without being consumed, preventing stale keepalive reuse with Granian; do not add hop-by-hop headers to HTTP/2.
+- Prune impossible static-suffix misses before expanding ambiguous route alternatives, while preserving wildcard-ending fallback and static 405 precedence.
+- Compare installed/archive Python bytes against the source inventory; reject special device/FIFO sdist members and support revalidating one wheel/sdist pair across hosts with `--artifacts`.
 
 ### Validation
 

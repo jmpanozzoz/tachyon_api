@@ -14,6 +14,17 @@ from ..responses import TachyonBytesResponse, TachyonJSONResponse, response_vali
 class ResponseProcessor:
     @staticmethod
     async def send_response(response, scope, receive, send):
+        if scope.get("_tachyon_body_rejected") and scope.get("http_version", "1.1") in ("1.0", "1.1"):
+            original_send = send
+            async def close_connection(message):
+                if message["type"] == "http.response.start":
+                    # Signal unread-body connection retirement without mutating
+                    # a user response or adding forbidden HTTP/2 hop headers.
+                    headers = [(name, value) for name, value in message.get("headers", [])
+                               if name.lower() != b"connection"]
+                    message = {**message, "headers": [*headers, (b"connection", b"close")]}
+                await original_send(message)
+            send = close_connection
         stream = response._response if isinstance(response, _BackgroundResponse) else response
         if not isinstance(stream, StreamingResponse):
             await response(scope, receive, send)

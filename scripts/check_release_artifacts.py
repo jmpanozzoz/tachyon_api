@@ -75,6 +75,7 @@ def check_sdist(path, version, source_files):
         require(len(names) == len(set(names)), "duplicate sdist paths")
         require(all(not PurePosixPath(name).is_absolute() and ".." not in PurePosixPath(name).parts and "\\" not in name for name in names), "unsafe sdist path")
         require(all(not member.issym() and not member.islnk() for member in members), "sdist contains links")
+        require(all(member.isfile() or member.isdir() for member in members), "sdist contains special device/FIFO members")
         prefix = f"tachyon_api-{version}/"
         require(all(name == prefix[:-1] or name.startswith(prefix) for name in names), "sdist has inconsistent root directory")
         required = source_files | {"setup.py", "pyproject.toml", "MANIFEST.in", "README.md", "LICENSE", "PKG-INFO"}
