@@ -34,6 +34,16 @@ def test_doctor_import_failure_redacts_application_output(tmp_path, monkeypatch)
     assert json.loads(result.output)["checks"][-1]["ok"] is False
 
 
+def test_opt_in_connectivity_requires_at_least_one_configured_target(monkeypatch):
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    monkeypatch.delenv("REDIS_URL", raising=False)
+    result = runner.invoke(app, ["doctor", "--connect", "--json"])
+    assert result.exit_code == 1
+    data = json.loads(result.output)
+    assert [c["code"] for c in data["checks"] if c.get("skipped")] == ["postgres", "redis"]
+    assert data["checks"][-1]["code"] == "connectivity"
+
+
 def test_routes_json_includes_websocket_when_requested(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     (tmp_path / "readiness_routes_app.py").write_text('''from tachyon_api import Tachyon
