@@ -1,6 +1,7 @@
 """Request resource ownership under validation, transmission and cancellation."""
 import asyncio
 import threading
+from contextlib import asynccontextmanager
 from functools import partial, wraps
 
 import anyio
@@ -32,13 +33,16 @@ async def test_lifo_cached_resources_survive_stream_and_background(kind):
         events.append("open")
         try:
             yield []
+        except BaseException:
+            events.append("unexpected-error")
+            raise
         finally:
             await anyio.sleep(0)
             events.append("close")
 
     class Callable:
         async def __call__(self):
-            async for value in async_resource():
+            async with asynccontextmanager(async_resource)() as value:
                 yield value
 
     @wraps(async_resource)
@@ -189,7 +193,7 @@ async def test_request_class_override_and_concurrent_isolation():
         results = await asyncio.gather(*(client.get("/") for _ in range(8)))
         assert all(r.status_code == 200 for r in results)
         async def override():
-            async for value in resource():
+            async with asynccontextmanager(resource)() as value:
                 yield value
         app.dependency_overrides[resource] = override
         assert (await client.get("/")).status_code == 200
