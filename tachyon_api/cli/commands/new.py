@@ -61,6 +61,7 @@ def create_project(name: str, parent_path: Optional[Path] = None, *, profile="mi
         "app.py":                 ProjectTemplates.APP,
         "config.py":              ProjectTemplates.CONFIG,
         "requirements.txt":       ProjectTemplates.REQUIREMENTS,
+        "pytest.ini":             ProjectTemplates.PYTEST_INI,
         "modules/__init__.py":    ProjectTemplates.MODULES_INIT,
         "shared/__init__.py":     ProjectTemplates.SHARED_INIT,
         "shared/exceptions.py":   ProjectTemplates.SHARED_EXCEPTIONS,

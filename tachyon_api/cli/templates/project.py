@@ -6,6 +6,8 @@ Project scaffolding templates.
 class ProjectTemplates:
     """Templates for `tachyon new` command."""
 
+    PYTEST_INI = "[pytest]\nasyncio_mode = strict\nasyncio_default_fixture_loop_scope = function\n"
+
     APP = '''"""
 Main application entry point.
 """
@@ -100,7 +102,7 @@ uvicorn[standard]>=0.35.0
 python-dotenv>=1.0.0
 
 # Development
-pytest>=8.0.0
+pytest>=9.0.3,<10
 pytest-asyncio>=1.0.0
 asgi-lifespan>=2.1,<3
 httpx>=0.28.0
