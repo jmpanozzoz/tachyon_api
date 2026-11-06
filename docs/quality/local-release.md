@@ -17,6 +17,10 @@ python scripts/local_release.py \
 ```
 
 The output must be new and outside the checkout. The command freezes a snapshot,
+first exporting `docs/release-evidence.json` from the versioned audit. This public
+manifest is consumed by the landing from the matching Git tag. It never labels
+old evidence as a newer version; unaudited versions export no comparison numbers.
+The snapshot
 creates an environment for each interpreter, checks Ruff and every Python module
 origin, runs source/example tests, builds the wheel/sdist, rebuilds from the sdist
 and tests both installed wheels outside the checkout. Rebuilt wheels stay outside
@@ -24,6 +28,10 @@ the upload directory; the same candidate portable wheel is tested on each interp
 A validated mixed-scenario HTTP soak runs on the first supplied interpreter only.
 Add `--with-granian` to install Granian/websockets in the test environments and
 exercise optional real-server contracts as part of each full source suite.
+CI and local release share `scripts/test-requirements.txt` for test/example
+tools. These install commands resolve allowed package ranges, not the exact
+Poetry lock. Per-interpreter quality reports record actual runtime and test
+versions; do not label these runs as locked or minimum-version verification.
 Its sampled RSS is distinct from traced Python allocations; a short run does not
 establish production capacity or multi-hour stability.
 

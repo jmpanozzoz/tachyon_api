@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.4.3] — 2026-11-06
+
+### Fixed
+
+- Share one middleware chain across HTTP, WebSocket and lifespan, preserving HTTP registration order and Tachyon app identity. Construct middleware once per generation; retain late-addition invalidation.
+- Validate documentation route conflicts and prepare every docs handler before publication; retain retry after preparation failure and reject later GET overwrites. Bind schema-link URLs to installed routes; external schemas no longer register bogus local paths.
+- Apply the current per-request body limit consistently to JSON and Request/form/file reads, retaining early rejection, connection retirement and cleanup behavior.
+
+### Changed
+
+- Share JSON response byte initialization and ASGI sending behind the two existing public response classes.
+- Delegate registered-class DI before redundant callable graph preparation, retaining pre-cache and post-construction lifetime/override checks.
+- Share CI/local-release test harness requirements, reject unsupported Python early in quality tooling, and record resolved test dependencies and executable paths.
+
+### Removed
+
+- Remove unused parameter/factory metadata, unused lookup/introspection methods, the redundant JSON body-size checker, unreachable validation-error handling, the duplicate middleware registration path, the ASGIEntry wrapper and the fake optional cache import.
+
+### Validation
+
+- Add middleware protocol/lifetime/identity, docs conflict/preparation/retry, mutable body-limit and interpreter regressions. Candidate evidence and deferred investigations are recorded in [the 1.4.3 audit](docs/audits/1.4.3/README.md); this entry is not a publication receipt.
+
+---
+
 ## [1.4.2] — 2026-11-04
 
 ### Fixed

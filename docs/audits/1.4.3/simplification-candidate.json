@@ -1,0 +1,95 @@
+{
+  "revision": "f26f6060e7567260763e20cf09f7537d7f56af40",
+  "python": "3.13.18 (main, Oct 26 2026, 13:59:02) [Clang 23.1.3 ]",
+  "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+  "runtime_origin": "/Users/juanmanuelpanozzozenere/Projects/personal/tachyon_api/tachyon_api/__init__.py",
+  "versions": {
+    "starlette": "1.10.0",
+    "msgspec": "0.19.0",
+    "orjson": "3.13.0",
+    "uvicorn": "0.35.0",
+    "typer": "0.16.1",
+    "pytest": "8.4.2"
+  },
+  "inventory": {
+    "tracked_files": 399,
+    "runtime_modules": 102,
+    "runtime_lines": 7163,
+    "tracked_by_top_level": {
+      ".coveragerc": 1,
+      ".gitattributes": 1,
+      ".github": 2,
+      ".gitignore": 1,
+      "CHANGELOG.md": 1,
+      "CLAUDE.md": 1,
+      "LICENSE": 1,
+      "MANIFEST.in": 1,
+      "README.md": 1,
+      "benchmark": 22,
+      "docs": 164,
+      "example": 32,
+      "poetry.lock": 1,
+      "poetry.toml": 1,
+      "pyproject.toml": 1,
+      "pytest.ini": 1,
+      "scripts": 6,
+      "setup.py": 1,
+      "tachyon_api": 103,
+      "tests": 57
+    }
+  },
+  "middleware": {
+    "http_order": [
+      "A",
+      "B"
+    ],
+    "websocket_order": [
+      "A",
+      "B"
+    ],
+    "constructors_at_registration": [],
+    "constructors_after_both_protocols": [
+      "B",
+      "A"
+    ]
+  },
+  "dependency": {
+    "nodes": 15,
+    "binding_visits_per_cached_resolution": [
+      15,
+      15,
+      15
+    ]
+  },
+  "cors": {
+    "tachyon": {
+      "disallowed_preflight_status": 200,
+      "vary_headers": [
+        "Accept-Encoding",
+        "Origin"
+      ]
+    },
+    "starlette": {
+      "disallowed_preflight_status": 400,
+      "vary_headers": [
+        "Accept-Encoding, Origin"
+      ]
+    }
+  },
+  "decode_errors": {
+    "validation_is_decode_subclass": true,
+    "validation_handler_present": false,
+    "validation_handler_calls": [],
+    "response": {
+      "success": false,
+      "error": "Invalid JSON body: Expected `int`, got `str`",
+      "code": "VALIDATION_ERROR"
+    }
+  },
+  "lazy_documentation": {
+    "conflict_rejected": "GET '/docs' conflicts with a documentation route; configure a different docs URL",
+    "routes_before_first_request": 1,
+    "routes_after": 1,
+    "setup_done": false
+  }
+}

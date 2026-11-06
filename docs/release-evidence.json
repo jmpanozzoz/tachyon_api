@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "version": "1.4.3",
+  "comparison": {
+    "label": "Fewer repeated DI graph visits",
+    "unit": "binding visits",
+    "before": {
+      "version": "1.4.2",
+      "value": 30
+    },
+    "after": {
+      "version": "1.4.3",
+      "value": 15
+    },
+    "context": "Cached Depends(Class) resolution \u00b7 15-node singleton graph",
+    "method": "Prepared binding visits counted on the same graph; lifetime and override checks retained."
+  },
+  "validation": {
+    "python_versions": [
+      "3.10",
+      "3.11",
+      "3.12",
+      "3.13"
+    ],
+    "source_tests_per_python": 933,
+    "installed_wheel_contracts": 229,
+    "http_responses": 664129,
+    "http_errors": 0,
+    "load_seconds": 75.3,
+    "scope": "macOS ARM64 execution only. No Linux/Windows, multi-hour stability, SLA, capacity or numeric performance-budget acceptance claim."
+  },
+  "report_url": "https://github.com/jmpanozzoz/tachyon_api/tree/v1.4.3/docs/audits/1.4.3",
+  "performance_note": "Operation counts are not latency or throughput measurements."
+}

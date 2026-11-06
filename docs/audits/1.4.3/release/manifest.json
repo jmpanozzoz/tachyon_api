@@ -1,0 +1,254 @@
+{
+  "started": "2026-11-06T14:58:23.005390+00:00",
+  "complete": true,
+  "revision": "f26f6060e7567260763e20cf09f7537d7f56af40",
+  "checks": [
+    {
+      "name": "cp310-venv",
+      "exit_code": 0,
+      "log": "cp310-venv.log"
+    },
+    {
+      "name": "cp310-dependencies",
+      "exit_code": 0,
+      "log": "cp310-dependencies.log"
+    },
+    {
+      "name": "cp310-ruff",
+      "exit_code": 0,
+      "log": "cp310-ruff.log"
+    },
+    {
+      "name": "cp310-python",
+      "exit_code": 0,
+      "log": "cp310-python.log"
+    },
+    {
+      "name": "portable-sdist-build",
+      "exit_code": 0,
+      "log": "portable-sdist-build.log"
+    },
+    {
+      "name": "soak-python",
+      "exit_code": 0,
+      "log": "soak-python.log"
+    },
+    {
+      "name": "cp310-sdist-wheel",
+      "exit_code": 0,
+      "log": "cp310-sdist-wheel.log"
+    },
+    {
+      "name": "cp310-install-rebuilt",
+      "exit_code": 0,
+      "log": "cp310-install-rebuilt.log"
+    },
+    {
+      "name": "cp310-installed-rebuilt",
+      "exit_code": 0,
+      "log": "cp310-installed-rebuilt.log"
+    },
+    {
+      "name": "cp310-install-portable",
+      "exit_code": 0,
+      "log": "cp310-install-portable.log"
+    },
+    {
+      "name": "cp310-installed-portable",
+      "exit_code": 0,
+      "log": "cp310-installed-portable.log"
+    },
+    {
+      "name": "cp311-venv",
+      "exit_code": 0,
+      "log": "cp311-venv.log"
+    },
+    {
+      "name": "cp311-dependencies",
+      "exit_code": 0,
+      "log": "cp311-dependencies.log"
+    },
+    {
+      "name": "cp311-ruff",
+      "exit_code": 0,
+      "log": "cp311-ruff.log"
+    },
+    {
+      "name": "cp311-python",
+      "exit_code": 0,
+      "log": "cp311-python.log"
+    },
+    {
+      "name": "cp311-sdist-wheel",
+      "exit_code": 0,
+      "log": "cp311-sdist-wheel.log"
+    },
+    {
+      "name": "cp311-install-rebuilt",
+      "exit_code": 0,
+      "log": "cp311-install-rebuilt.log"
+    },
+    {
+      "name": "cp311-installed-rebuilt",
+      "exit_code": 0,
+      "log": "cp311-installed-rebuilt.log"
+    },
+    {
+      "name": "cp311-install-portable",
+      "exit_code": 0,
+      "log": "cp311-install-portable.log"
+    },
+    {
+      "name": "cp311-installed-portable",
+      "exit_code": 0,
+      "log": "cp311-installed-portable.log"
+    },
+    {
+      "name": "cp312-venv",
+      "exit_code": 0,
+      "log": "cp312-venv.log"
+    },
+    {
+      "name": "cp312-dependencies",
+      "exit_code": 0,
+      "log": "cp312-dependencies.log"
+    },
+    {
+      "name": "cp312-ruff",
+      "exit_code": 0,
+      "log": "cp312-ruff.log"
+    },
+    {
+      "name": "cp312-python",
+      "exit_code": 0,
+      "log": "cp312-python.log"
+    },
+    {
+      "name": "cp312-sdist-wheel",
+      "exit_code": 0,
+      "log": "cp312-sdist-wheel.log"
+    },
+    {
+      "name": "cp312-install-rebuilt",
+      "exit_code": 0,
+      "log": "cp312-install-rebuilt.log"
+    },
+    {
+      "name": "cp312-installed-rebuilt",
+      "exit_code": 0,
+      "log": "cp312-installed-rebuilt.log"
+    },
+    {
+      "name": "cp312-install-portable",
+      "exit_code": 0,
+      "log": "cp312-install-portable.log"
+    },
+    {
+      "name": "cp312-installed-portable",
+      "exit_code": 0,
+      "log": "cp312-installed-portable.log"
+    },
+    {
+      "name": "cp313-venv",
+      "exit_code": 0,
+      "log": "cp313-venv.log"
+    },
+    {
+      "name": "cp313-dependencies",
+      "exit_code": 0,
+      "log": "cp313-dependencies.log"
+    },
+    {
+      "name": "cp313-ruff",
+      "exit_code": 0,
+      "log": "cp313-ruff.log"
+    },
+    {
+      "name": "cp313-python",
+      "exit_code": 0,
+      "log": "cp313-python.log"
+    },
+    {
+      "name": "cp313-sdist-wheel",
+      "exit_code": 0,
+      "log": "cp313-sdist-wheel.log"
+    },
+    {
+      "name": "cp313-install-rebuilt",
+      "exit_code": 0,
+      "log": "cp313-install-rebuilt.log"
+    },
+    {
+      "name": "cp313-installed-rebuilt",
+      "exit_code": 0,
+      "log": "cp313-installed-rebuilt.log"
+    },
+    {
+      "name": "cp313-install-portable",
+      "exit_code": 0,
+      "log": "cp313-install-portable.log"
+    },
+    {
+      "name": "cp313-installed-portable",
+      "exit_code": 0,
+      "log": "cp313-installed-portable.log"
+    },
+    {
+      "name": "artifact-check",
+      "exit_code": 0,
+      "log": "artifact-check.log"
+    },
+    {
+      "name": "metadata-check",
+      "exit_code": 0,
+      "log": "metadata-check.log"
+    }
+  ],
+  "matrix": [
+    {
+      "python": "3.10",
+      "engines": [
+        "python"
+      ],
+      "wheel": "tachyon_api-1.4.3-py3-none-any.whl"
+    },
+    {
+      "python": "3.11",
+      "engines": [
+        "python"
+      ],
+      "wheel": "tachyon_api-1.4.3-py3-none-any.whl"
+    },
+    {
+      "python": "3.12",
+      "engines": [
+        "python"
+      ],
+      "wheel": "tachyon_api-1.4.3-py3-none-any.whl"
+    },
+    {
+      "python": "3.13",
+      "engines": [
+        "python"
+      ],
+      "wheel": "tachyon_api-1.4.3-py3-none-any.whl"
+    }
+  ],
+  "artifacts": [
+    {
+      "file": "dist/tachyon_api-1.4.3-py3-none-any.whl",
+      "sha256": "ba381b38b8c678d183c79be43acd5be32ca61ba9d5bfcada58dd5ccf0f822b62",
+      "bytes": 110309
+    },
+    {
+      "file": "dist/tachyon_api-1.4.3.tar.gz",
+      "sha256": "5a02d9cbcd9078bfa9392e43592c4739f92d0fa2061d52c3c225babfdfd93a09",
+      "bytes": 157247
+    }
+  ],
+  "with_granian": true,
+  "artifact_origin": "built from this source snapshot",
+  "platform_limit": "Runtime tested on this host only; portable packaging is not platform execution evidence",
+  "version": "1.4.3",
+  "finished": "2026-11-06T14:59:10.008451+00:00"
+}

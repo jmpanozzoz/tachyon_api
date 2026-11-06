@@ -216,9 +216,10 @@ Para `tachyon g service user`, esto crea automáticamente:
 - `core/`: lifecycle y WebSockets delegados a Starlette.
 - `server.py`: runner compatible con Uvicorn estándar.
 
-HTTP normal: `ASGIEntry` → stack propio de middleware → `TachyonDispatcher`
+HTTP normal: `Tachyon.__call__` → stack común de middleware → `HTTPDispatcher` → `TachyonDispatcher`
 → guards → `ParameterProcessor`/`DependencyResolver` → `ResponseProcessor`.
-`HTTPDispatcher` corresponde al flujo de compatibilidad Starlette.
+WebSocket y lifespan usan la misma cadena y se delegan al stack de Starlette.
+`scope["app"]` conserva la instancia de Tachyon para los tres protocolos.
 Los endpoints y factories sync se ejecutan en un thread pool; los async se awaitean.
 
 `RouteInstaller.install` compila las rutas al registrarlas. La configuración de

@@ -90,7 +90,7 @@ class WebSocketManager:
         async def websocket_handler(websocket: WebSocket):
             path_params = websocket.path_params
 
-            # Capture the Tachyon resolver explicitly: Starlette owns scope["app"].
+            # Bind the resolver explicitly rather than depending on scope mutation.
             dep_resolver = self._dependency_resolver
 
             kwargs = {}

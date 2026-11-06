@@ -1,0 +1,453 @@
+{
+  "version": "1.4.3",
+  "status": "validated_for_publication",
+  "published": false,
+  "baseline_revision": "f26f6060e7567260763e20cf09f7537d7f56af40",
+  "branch": "perf/1.4.3-simplification",
+  "runtime_sha256_relative_paths": "d2561b20cb7757c552a9412ffceef6c92ef4aa40794d952ced311e2d90d0c8ed",
+  "endurance_sha256_package_prefixed_paths": "1ab532f9e7dc392ea77e792f81e60823692e765c8edbfcb36c62fa1c7f2f5bc7",
+  "inventory": {
+    "baseline": {
+      "python_modules": 103,
+      "source_lines": 7283
+    },
+    "candidate": {
+      "python_modules": 102,
+      "source_lines": 7163
+    }
+  },
+  "release_gate_count": 40,
+  "all_release_gates_passed": true,
+  "release_matrix": [
+    {
+      "python": "3.10",
+      "source_tests_passed": 933,
+      "installed_tests_passed": {
+        "rebuilt": 229,
+        "portable": 229
+      },
+      "resolved_versions": {
+        "tachyon-api": "1.4.3",
+        "starlette": "1.7.0",
+        "uvicorn": "0.35.0",
+        "httptools": "0.9.0",
+        "msgspec": "0.19.0",
+        "orjson": "3.13.0",
+        "typer": "0.16.1",
+        "python-multipart": "0.0.32",
+        "granian": "2.8.7",
+        "pytest": "8.4.2",
+        "pytest-asyncio": "1.4.1.post1",
+        "httpx": "0.28.1",
+        "PyJWT": "2.15.1",
+        "websockets": "16.1.1",
+        "ruff": "0.14.9"
+      }
+    },
+    {
+      "python": "3.11",
+      "source_tests_passed": 933,
+      "installed_tests_passed": {
+        "rebuilt": 229,
+        "portable": 229
+      },
+      "resolved_versions": {
+        "tachyon-api": "1.4.3",
+        "starlette": "1.10.0",
+        "uvicorn": "0.35.0",
+        "httptools": "0.9.0",
+        "msgspec": "0.19.0",
+        "orjson": "3.13.0",
+        "typer": "0.16.1",
+        "python-multipart": "0.0.32",
+        "granian": "2.8.7",
+        "pytest": "8.4.2",
+        "pytest-asyncio": "1.4.1.post1",
+        "httpx": "0.28.1",
+        "PyJWT": "2.15.1",
+        "websockets": "16.1.1",
+        "ruff": "0.14.9"
+      }
+    },
+    {
+      "python": "3.12",
+      "source_tests_passed": 933,
+      "installed_tests_passed": {
+        "rebuilt": 229,
+        "portable": 229
+      },
+      "resolved_versions": {
+        "tachyon-api": "1.4.3",
+        "starlette": "1.10.0",
+        "uvicorn": "0.35.0",
+        "httptools": "0.9.0",
+        "msgspec": "0.19.0",
+        "orjson": "3.13.0",
+        "typer": "0.16.1",
+        "python-multipart": "0.0.32",
+        "granian": "2.8.7",
+        "pytest": "8.4.2",
+        "pytest-asyncio": "1.4.1.post1",
+        "httpx": "0.28.1",
+        "PyJWT": "2.15.1",
+        "websockets": "16.1.1",
+        "ruff": "0.14.9"
+      }
+    },
+    {
+      "python": "3.13",
+      "source_tests_passed": 933,
+      "installed_tests_passed": {
+        "rebuilt": 229,
+        "portable": 229
+      },
+      "resolved_versions": {
+        "tachyon-api": "1.4.3",
+        "starlette": "1.10.0",
+        "uvicorn": "0.35.0",
+        "httptools": "0.9.0",
+        "msgspec": "0.19.0",
+        "orjson": "3.13.0",
+        "typer": "0.16.1",
+        "python-multipart": "0.0.32",
+        "granian": "2.8.7",
+        "pytest": "8.4.2",
+        "pytest-asyncio": "1.4.1.post1",
+        "httpx": "0.28.1",
+        "PyJWT": "2.15.1",
+        "websockets": "16.1.1",
+        "ruff": "0.14.9"
+      }
+    }
+  ],
+  "dependency_profiles": {
+    "current-313": {
+      "python": "3.13.18 (main, Oct 26 2026, 13:59:02) [Clang 23.1.3 ]",
+      "versions": {
+        "tachyon-api": "1.4.3",
+        "starlette": "1.10.0",
+        "uvicorn": "0.35.0",
+        "httptools": "0.9.0",
+        "msgspec": "0.19.0",
+        "orjson": "3.13.0",
+        "typer": "0.16.1",
+        "python-multipart": "0.0.32",
+        "granian": "2.8.7",
+        "pytest": "8.4.2",
+        "pytest-asyncio": "1.4.1.post1",
+        "httpx": "0.28.1",
+        "PyJWT": "2.15.1",
+        "websockets": "16.1.1",
+        "ruff": "0.14.9"
+      },
+      "tests_passed": 930
+    },
+    "minimum-310": {
+      "python": "3.10.22 (main, Oct  9 2026, 15:10:41) [Clang 22.1.3 ]",
+      "versions": {
+        "tachyon-api": "1.4.3",
+        "starlette": "1.3.1",
+        "uvicorn": "0.35.0",
+        "httptools": "0.6.0",
+        "msgspec": "0.19.0",
+        "orjson": "3.11.6",
+        "typer": "0.16.0",
+        "python-multipart": "0.0.32",
+        "granian": "2.8.7",
+        "pytest": "8.4.2",
+        "pytest-asyncio": "1.4.1.post1",
+        "httpx": "0.28.1",
+        "PyJWT": "2.15.1",
+        "websockets": "16.1.1",
+        "ruff": "0.14.9"
+      },
+      "tests_passed": 930
+    },
+    "lock-313": {
+      "python": "3.13.18 (main, Oct 26 2026, 13:59:02) [Clang 23.1.3 ]",
+      "versions": {
+        "tachyon-api": "1.4.3",
+        "starlette": "1.3.1",
+        "uvicorn": "0.35.0",
+        "httptools": "0.8.0",
+        "msgspec": "0.19.0",
+        "orjson": "3.13.0",
+        "typer": "0.16.0",
+        "python-multipart": "0.0.32",
+        "granian": "2.8.7",
+        "pytest": "8.4.1",
+        "pytest-asyncio": "1.1.0",
+        "httpx": "0.28.1",
+        "PyJWT": "2.15.1",
+        "websockets": "16.1.1",
+        "ruff": "0.14.9"
+      },
+      "tests_passed": 930
+    }
+  },
+  "artifact_directory": "/tmp/tachyon-release-143-publication/dist",
+  "artifacts": [
+    {
+      "file": "dist/tachyon_api-1.4.3-py3-none-any.whl",
+      "sha256": "ba381b38b8c678d183c79be43acd5be32ca61ba9d5bfcada58dd5ccf0f822b62",
+      "bytes": 110309
+    },
+    {
+      "file": "dist/tachyon_api-1.4.3.tar.gz",
+      "sha256": "5a02d9cbcd9078bfa9392e43592c4739f92d0fa2061d52c3c225babfdfd93a09",
+      "bytes": 157247
+    }
+  ],
+  "wheel_python_bytes_match_checkout": true,
+  "asgi": {
+    "validated_measured_responses": 1200000,
+    "summary_batch_ns": {
+      "baseline": {
+        "hello": 3832.5416,
+        "path_query": 8288.625,
+        "body": 10921.25,
+        "nested_body": 11285.3166,
+        "response_model": 5740.125,
+        "header": 4871.5834,
+        "dependency": 10932.825,
+        "query": 9435.0332
+      },
+      "candidate": {
+        "hello": 3817.5084,
+        "path_query": 8378.2582,
+        "body": 10924.2666,
+        "nested_body": 11272.6584,
+        "response_model": 5740.6668,
+        "header": 4870.3166,
+        "dependency": 10982.4416,
+        "query": 9473.425
+      }
+    },
+    "candidate_cost_delta_percent": {
+      "hello": -0.3922514500560137,
+      "path_query": 1.0814001115987404,
+      "body": 0.02762138033651773,
+      "nested_body": -0.11216521829791049,
+      "response_model": 0.009438818841056573,
+      "header": -0.026003865601487153,
+      "dependency": 0.4538314662495768,
+      "query": 0.40690688825555377
+    },
+    "methodology": "Five alternating blocks/revision; three batches of 5000 requests/scenario/block. Driver/validation included, no network/per-request percentiles."
+  },
+  "network": {
+    "validated_measured_responses": 48000,
+    "summary": {
+      "baseline": {
+        "dependency": {
+          "requests": 3000,
+          "errors": 0,
+          "median_successful_rps": 11176.909952061133,
+          "median_block_p95_ms": 0.797083,
+          "median_block_p99_ms": 0.935708
+        },
+        "nested_body": {
+          "requests": 3000,
+          "errors": 0,
+          "median_successful_rps": 9974.419702806355,
+          "median_block_p95_ms": 1.012417,
+          "median_block_p99_ms": 1.106125
+        },
+        "header": {
+          "requests": 3000,
+          "errors": 0,
+          "median_successful_rps": 12875.6262787815,
+          "median_block_p95_ms": 0.684083,
+          "median_block_p99_ms": 0.728958
+        },
+        "body": {
+          "requests": 3000,
+          "errors": 0,
+          "median_successful_rps": 10143.016532222035,
+          "median_block_p95_ms": 0.988458,
+          "median_block_p99_ms": 1.047042
+        },
+        "response_model": {
+          "requests": 3000,
+          "errors": 0,
+          "median_successful_rps": 12913.09807831347,
+          "median_block_p95_ms": 0.675875,
+          "median_block_p99_ms": 0.706667
+        },
+        "query": {
+          "requests": 3000,
+          "errors": 0,
+          "median_successful_rps": 11628.898541940947,
+          "median_block_p95_ms": 0.7425,
+          "median_block_p99_ms": 0.79475
+        },
+        "path_query": {
+          "requests": 3000,
+          "errors": 0,
+          "median_successful_rps": 11789.25527108136,
+          "median_block_p95_ms": 0.723875,
+          "median_block_p99_ms": 0.768041
+        },
+        "hello": {
+          "requests": 3000,
+          "errors": 0,
+          "median_successful_rps": 13512.638479392557,
+          "median_block_p95_ms": 0.658458,
+          "median_block_p99_ms": 0.699125
+        }
+      },
+      "candidate": {
+        "dependency": {
+          "requests": 3000,
+          "errors": 0,
+          "median_successful_rps": 11128.958622060982,
+          "median_block_p95_ms": 0.803375,
+          "median_block_p99_ms": 0.950209
+        },
+        "nested_body": {
+          "requests": 3000,
+          "errors": 0,
+          "median_successful_rps": 10073.989320395818,
+          "median_block_p95_ms": 1.003792,
+          "median_block_p99_ms": 1.118834
+        },
+        "header": {
+          "requests": 3000,
+          "errors": 0,
+          "median_successful_rps": 12711.918325879995,
+          "median_block_p95_ms": 0.682625,
+          "median_block_p99_ms": 0.729167
+        },
+        "body": {
+          "requests": 3000,
+          "errors": 0,
+          "median_successful_rps": 10192.95259278727,
+          "median_block_p95_ms": 1.010208,
+          "median_block_p99_ms": 1.089583
+        },
+        "response_model": {
+          "requests": 3000,
+          "errors": 0,
+          "median_successful_rps": 12874.113696138422,
+          "median_block_p95_ms": 0.67625,
+          "median_block_p99_ms": 0.722917
+        },
+        "query": {
+          "requests": 3000,
+          "errors": 0,
+          "median_successful_rps": 11640.636148250092,
+          "median_block_p95_ms": 0.737791,
+          "median_block_p99_ms": 0.77825
+        },
+        "path_query": {
+          "requests": 3000,
+          "errors": 0,
+          "median_successful_rps": 11742.877944294452,
+          "median_block_p95_ms": 0.733958,
+          "median_block_p99_ms": 0.775208
+        },
+        "hello": {
+          "requests": 3000,
+          "errors": 0,
+          "median_successful_rps": 13532.349081436723,
+          "median_block_p95_ms": 0.646834,
+          "median_block_p99_ms": 0.731375
+        }
+      }
+    },
+    "methodology": "Three interleaved blocks/revision, eight scenarios, 1000 measured requests each, concurrency eight, Uvicorn h11. Summary percentiles are medians of block percentiles, not pooled."
+  },
+  "lifecycle_batch_ns": {
+    "baseline": {
+      "sync_endpoint": 73149.375,
+      "sync_factory": 85254.834,
+      "middleware": 3820.417,
+      "routes_1000": 4018.458,
+      "stream": 7055.709,
+      "declared_body_rejection": 4848.708,
+      "stream_disconnect": 6015.041
+    },
+    "candidate": {
+      "sync_endpoint": 72580.041,
+      "sync_factory": 85115.208,
+      "middleware": 3794.625,
+      "routes_1000": 4017.125,
+      "stream": 7002.041,
+      "declared_body_rejection": 5185.416,
+      "stream_disconnect": 6031.791
+    }
+  },
+  "endurance": {
+    "requests": 664129,
+    "successful": 664129,
+    "error_count": 0,
+    "seconds": 75.30011308399844,
+    "active_seconds": 60.038894084020285,
+    "latency_ms": {
+      "mean": 0.7210951678950932,
+      "max": 13.744209,
+      "p50": 0.712042,
+      "p95": 0.788042,
+      "p99": 1.008875
+    }
+  },
+  "resources": {
+    "baseline_rss_bytes": 41500672,
+    "peak_rss_bytes": 42336256,
+    "last_idle_rss_bytes": 42336256,
+    "idle_rss_bytes": [
+      42270720,
+      42303488,
+      42336256
+    ],
+    "baseline_open_descriptors": 7,
+    "peak_open_descriptors": 15,
+    "last_idle_open_descriptors": 7
+  },
+  "platform_limits": "macOS ARM64 execution only. No Linux/Windows, multi-hour stability, SLA, capacity or numeric performance-budget acceptance claim.",
+  "evidence_limits": "Frozen release snapshot; final audit metadata written afterwards. Final package Python bytes verified against checkout. Fingerprint path conventions differ and are identified explicitly; both match current source. Pre-guard observations archived.",
+  "previous_development_environment": "/var/folders/pq/mx14w_8j4tz1613dtkp90gvc0000gn/T/tachyon-143-previous-env-ysyd41hk/venv",
+  "deferred": [
+    "persistent DI graph cache",
+    "CORS delegation",
+    "broad collaborator flattening",
+    "default dependency/serializer split",
+    "build-backend migration"
+  ],
+  "endurance_baseline_control": {
+    "requests": 667582,
+    "errors": 0,
+    "seconds": 75.30067566601792,
+    "rss_initial_bytes": 41533440,
+    "idle_rss_bytes": [
+      42336256,
+      42385408,
+      42385408
+    ],
+    "idle_descriptors": [
+      7,
+      7,
+      7
+    ],
+    "interpretation": "Comparable warmup-scale RSS increase in the baseline control; short sequential trials cannot prove a plateau or absence of leaks."
+  },
+  "raw_artifacts": {
+    "asgi-comparison.json.gz": {
+      "sha256": "218492c6c21814c89e64ef03fc5f8fe5471874659ffe0f9ab527250531799620",
+      "uncompressed_sha256": "72d4a7a611642054e2b9145c9fb718f6cb5f7502734723e34d937ffcfa4ae419"
+    },
+    "cors-matrix.json.gz": {
+      "sha256": "0e20e14418d524dfe02770729153c02fe723db3b26e16cb557f61ed6760d2e82",
+      "uncompressed_sha256": "5cdbab2dd5dbc1e1b76d1dd5b9389b27a2f421a98afd2d1c9a8e2dd10cd1a513"
+    },
+    "endurance.json.gz": {
+      "sha256": "9519b321ce18f5129b448a2fbddb36c57b4acafca1cdc32955778b082782190c",
+      "uncompressed_sha256": "c46da6a67d413cff80d42052475f15b85e4479d419104caa915b001e89233a25"
+    },
+    "endurance-baseline.json.gz": {
+      "sha256": "9db3995b3e5d6dcc97b6bee29f6d8a32aab35bef81c9d04236648a53c6fdc62e",
+      "uncompressed_sha256": "6c3e1a25902b36df17ef6d450a469cacba527ec876c1f4129a6426bf25d039a7"
+    }
+  },
+  "publication_source_tests": 933
+}

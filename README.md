@@ -1,6 +1,6 @@
 # 🚀 Tachyon API
 
-![Version](https://img.shields.io/badge/version-1.4.2-blue.svg)
+![Version](https://img.shields.io/pypi/v/tachyon-api.svg)
 ![Python](https://img.shields.io/badge/python-3.10--3.13-brightgreen.svg)
 ![License](https://img.shields.io/badge/license-GPL--3.0-orange.svg)
 
@@ -8,13 +8,17 @@
 
 Tachyon API combines decorator-based routing, msgspec validation, and ASGI integration on Starlette. Endpoint metadata is prepared at registration to reduce request-time introspection.
 
-[1.4.2 on PyPI](https://pypi.org/project/tachyon-api/1.4.2/) provides one portable Python wheel and one source distribution for Python 3.10–3.13. Runtime validation ran locally on macOS ARM64 and Debian ARM64; Linux x86-64 and Windows execution remain unverified. See [release validation](docs/quality/evidence/1.4.2/summary.json) and the [release notes](https://github.com/jmpanozzoz/tachyon_api/releases/tag/v1.4.2). The [1.4.0 native release record](docs/audits/1.4.0/LOCAL_RELEASE.md) remains historical evidence.
+[1.4.3 on PyPI](https://pypi.org/project/tachyon-api/1.4.3/) provides one portable Python wheel and one source distribution for Python 3.10–3.13. This release was validated locally on macOS ARM64; Linux and Windows execution remain unverified for 1.4.3. See [release validation](docs/audits/1.4.3/README.md) and the [release notes](https://github.com/jmpanozzoz/tachyon_api/releases/tag/v1.4.3). The [1.4.0 native release record](docs/audits/1.4.0/LOCAL_RELEASE.md) remains historical evidence.
 
 [Source repository](https://github.com/jmpanozzoz/tachyon_api) · [Documentation](docs/README.md).
 
-**1.4.2 uses a single Python implementation**, portable packaging and a corrected orjson minimum. The deprecated `[fast]` extra remains installable as an empty alias. Published 1.4.0 artifacts remain unchanged.
+**1.4.3 uses a single Python implementation**, portable packaging and a corrected orjson minimum. The deprecated `[fast]` extra remains installable as an empty alias. Published older artifacts remain unchanged.
 
-**1.4.2** adds streaming cleanup, oversized-body connection handling and routing fixes. See [the changelog](CHANGELOG.md) for scope.
+**1.4.3** shares middleware across protocols, protects documentation routes,
+centralizes body limits and removes duplicate response/DI work. Its measured
+DI operation count improves on one cached graph; no general speedup is claimed.
+The [version-bound website evidence](docs/release-evidence.json) is generated
+from recorded audits during release preparation. See [the changelog](CHANGELOG.md).
 
 The [1.4 migration guide](docs/17-migration-1.4.md) describes execution, body limits, resource lifetime, schema support and packaging changes.
 
@@ -43,7 +47,7 @@ def search(q: str = Query(...), limit: int = Query(10)):
 ```
 
 ```bash
-pip install tachyon-api==1.4.2
+pip install tachyon-api==1.4.3
 # Testing helpers: pip install "tachyon-api[test]"
 tachyon run                 # reload on; optional uvloop/httptools detected, served at :8000
 ```
@@ -147,13 +151,15 @@ The KYC Demo exercises:
 The normal HTTP request path is composed from these collaborators:
 
 ```text
-Tachyon.__call__ → ASGIEntry → MiddlewareStack → TachyonDispatcher
+Tachyon.__call__ → MiddlewareStack → HTTPDispatcher → TachyonDispatcher
   → route guards → ParameterProcessor → DependencyResolver
   → ResponseProcessor → request-owned ASGI response messages
 ```
 
-WebSocket and lifespan scopes delegate to Starlette. `HTTPDispatcher` supports
-the Starlette compatibility flow. Registration prepares signatures, converters
+WebSocket and lifespan scopes share that same user middleware chain, then
+delegate to Starlette's stack. `scope["app"]` remains Tachyon for every protocol.
+Middleware runs in registration order and is constructed once per chain generation;
+adding middleware invalidates the chain for subsequent scopes. Registration prepares signatures, converters
 and decoders. Trie matching prefers complete static matches and may explore
 alternative branches when a static prefix reaches a dead end. Error responses
 are created per call; immutable payload bytes and bounded header tables may be

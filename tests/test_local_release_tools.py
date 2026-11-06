@@ -8,6 +8,21 @@ import pytest
 from scripts import publish_local
 
 
+@pytest.mark.parametrize("version", [(3, 9), (3, 14), (4, 0)])
+def test_quality_cycle_rejects_unsupported_python_before_importing_runtime(tmp_path, monkeypatch, version):
+    from scripts import quality_cycle
+    monkeypatch.setattr(sys, "version_info", version)
+    monkeypatch.setattr(sys, "argv", ["quality_cycle", "--output", str(tmp_path / "quality.json")])
+
+    def unexpected_runtime(*args, **kwargs):
+        pytest.fail("unsupported interpreter imported the runtime")
+
+    monkeypatch.setattr(quality_cycle, "verify_python_package", unexpected_runtime)
+    with pytest.raises(SystemExit, match="2"):
+        quality_cycle.main()
+    assert not (tmp_path / "quality.json").exists()
+
+
 @pytest.mark.parametrize("failure", ["incomplete", "failed-check", "changed-artifact", "outside-dist", "empty-artifacts"])
 def test_publication_rejects_incomplete_or_changed_release(tmp_path, monkeypatch, failure):
     dist = tmp_path / "dist"
