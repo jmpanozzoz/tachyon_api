@@ -15,7 +15,7 @@ jobs:
         with:
           python-version: "3.13"
       - run: pip install ruff==0.14.9
-      - run: ruff check tachyon_api tests benchmark scripts
+      - run: ruff check tachyon_api tests benchmark scripts example
 
   test-pure-python:
     name: Tests (pure Python, ${{ matrix.python }})
@@ -25,6 +25,26 @@ jobs:
         python: ["3.10", "3.11", "3.12", "3.13"]
     runs-on: ubuntu-latest
     needs: lint
+    services:
+      postgres:
+        image: postgres:17-bookworm@sha256:665dc7b37ac52a17e298511414c21d23ffa4e6a6ef6225b3e5d59c7afb35e994
+        env:
+          POSTGRES_USER: tachyon
+          POSTGRES_PASSWORD: ci-disposable-only
+          POSTGRES_DB: tachyon_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U tachyon -d tachyon_test"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+      redis:
+        image: redis:8-bookworm@sha256:b0b01167ff47bc3868e56a967895a26be4230891a1f42a78ab61cdd227accc8d
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgresql+asyncpg://tachyon:ci-disposable-only@127.0.0.1:5432/tachyon_test
+      TEST_REDIS_URL: redis://127.0.0.1:6379/15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

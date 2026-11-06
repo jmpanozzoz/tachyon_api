@@ -1,7 +1,7 @@
 # Plan de preparación para producción y adopción
 
 Fecha: 2026-11-06. Autor: Juan Manuel Panozzo Zénere.
-Estado: propuesta de implementación posterior a 1.4.3; tareas pendientes.
+Estado: implementación autorizada en curso en 1.5.0.dev0; ver entregas y evidencia.
 
 Este plan convierte las cinco prioridades de producción en entregas verificables.
 Incluye ampliar la demo existente y reorientar la CLI. No cambia la versión ni
@@ -11,6 +11,9 @@ deben evaluarse para una versión minor; los arreglos compatibles pueden salir
 antes. No se modifica el tag ni el paquete publicado de 1.4.3.
 
 ## Punto de partida comprobado
+
+Esta sección describe la situación al aprobar el plan, sobre 1.4.3. Los cambios
+de la candidata no modifican ese release histórico.
 
 - [1.4.3 publicada](../audits/1.4.3/PUBLICATION.md): 933 tests de código y ejemplo
   por intérprete 3.10–3.13, 229 contratos por wheel original/reconstruido y 40

@@ -10,6 +10,13 @@ Tachyon API combines decorator-based routing, msgspec validation, and ASGI integ
 
 [1.4.3 on PyPI](https://pypi.org/project/tachyon-api/1.4.3/) provides one portable Python wheel and one source distribution for Python 3.10–3.13. This release was validated locally on macOS ARM64; Linux and Windows execution remain unverified for 1.4.3. See [release validation](docs/audits/1.4.3/README.md) and the [release notes](https://github.com/jmpanozzoz/tachyon_api/releases/tag/v1.4.3). The [1.4.0 native release record](docs/audits/1.4.0/LOCAL_RELEASE.md) remains historical evidence.
 
+This branch develops **1.5.0.dev0**, not yet published. It adds HTTP resource
+dependencies, a persistent synthetic reference and CLI diagnostics/starters.
+Install its checkout/candidate to evaluate those capabilities; the stable 1.4.3
+package does not contain them. See the [production plan](docs/quality/production-readiness.md),
+[support policy](docs/quality/support-policy.md), [security policy](SECURITY.md)
+and [contributing guide](CONTRIBUTING.md).
+
 [Source repository](https://github.com/jmpanozzoz/tachyon_api) · [Documentation](docs/README.md).
 
 **1.4.3 uses a single Python implementation**, portable packaging and a corrected orjson minimum. The deprecated `[fast]` extra remains installable as an empty alias. Published older artifacts remain unchanged.
@@ -115,21 +122,15 @@ An example demonstrating selected Tachyon features is available in [`example/`](
 
 ```bash
 # From the repository root
-pip install -r example/requirements.txt
-tachyon run example.app:app
+pip install -e . -r example/requirements.txt
+# Configure PostgreSQL/Redis and run migrations as described in example/README.md
 ```
 
-The KYC Demo exercises:
-- 🔐 JWT Authentication + API Keys
-- 👤 Customer CRUD and list response models
-- 📋 KYC Verification with Background Tasks
-- 🌐 Customer notification WebSocket with a string customer ID
-- 💉 DI scopes — `singleton` services and `request` correlation context
-- 🛡️ Security headers + opt-in CORS allow-list
-- 🚨 Custom exception handler for the `KYCException` hierarchy
-- 🧪 HTTP, async-client, WebSocket and lifespan tests (`pytest example/tests/`)
-
-**Demo credentials:** `demo@example.com` / `demo123`
+The development reference exercises PostgreSQL transactions and migrations,
+request-owned sessions, Argon2id/JWT authentication, enforced ownership/admin
+checks, leased durable jobs, authenticated cross-worker notifications, Redis
+cache fallback and operational endpoints. No accounts are seeded automatically;
+use synthetic data. Integration tests require explicit disposable services.
 
 👉 See [example/README.md](./example/README.md) for full details.
 
