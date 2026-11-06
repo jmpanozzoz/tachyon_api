@@ -4,7 +4,7 @@ La firma se inspecciona y compila una vez en `RouteInstaller.install`, al
 registrar la ruta. El request usa descriptores y decoders preparados.
 
 ```text
-scope HTTP → ASGIEntry → middleware del usuario → TachyonDispatcher
+scope HTTP → Tachyon.__call__ → middleware del usuario → HTTPDispatcher → TachyonDispatcher
   → trie: ruta y método
   → guards de ruta
   → ParameterProcessor: descriptores en orden de firma (incluye DI)
@@ -15,9 +15,13 @@ scope HTTP → ASGIEntry → middleware del usuario → TachyonDispatcher
   → cierre de formularios y uploads
 ```
 
-`ASGIEntry` construye el stack HTTP de forma lazy. HTTP normal usa el stack
-propio; WebSocket y lifespan se delegan a Starlette. `HTTPDispatcher` participa
-en el flujo de compatibilidad Starlette. Los middlewares envuelven el envío y
+Tachyon construye una cadena común de middleware al primer scope. HTTP usa el
+trie; WebSocket y lifespan se delegan al stack de Starlette mediante
+`HTTPDispatcher`. `scope["app"]` conserva Tachyon antes y después de delegar.
+Los middlewares se ejecutan en orden de registro y se construyen una vez por
+generación. Agregar middleware invalida la cadena para scopes posteriores;
+un lifespan o request activo termina con la generación que ya estaba usando.
+Los middlewares envuelven el envío y
 pueden modificar o rechazar solicitudes antes del dispatcher.
 
 El trie prefiere coincidencias estáticas completas y explora alternativas si
@@ -35,6 +39,9 @@ El body total admite **2 MiB por defecto**, acumulados entre chunks y compartido
 por JSON, forms, archivos y lecturas de Request. Superar el límite devuelve 422.
 Un Request y su body/form cacheados se reutilizan durante la solicitud. La
 validación de JSON usa msgspec; errores de entrada producen 422.
+El límite se toma de `app.max_body_size` al crear cada scope HTTP y la recepción
+acotada es su única autoridad para Body, Request, forms y archivos. Un middleware
+externo que lea directamente `receive` antes del framework gestiona su propio límite.
 
 `ResponseProcessor` valida el JSON de `response_model` mediante encode/decode de msgspec y serializa con msgspec todos los resultados validados. Sin `response_model`, los Struct usan msgspec y otros valores JSON usan orjson. Un Struct construido o mutado manualmente también se
 revalida cuando hay `response_model`. Una `starlette.responses.Response`,

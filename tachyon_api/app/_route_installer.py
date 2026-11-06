@@ -25,6 +25,17 @@ class RouteInstaller:
         endpoint_func: Callable,
         **kwargs: Any,
     ) -> None:
+        self._app._docs_routes.check_user_route(path, method)
+        handler = self.prepare(path, endpoint_func, **kwargs)
+        if kwargs.get("include_in_schema", True):
+            self._app.openapi_generator.generate_route(
+                path, method, endpoint_func, **kwargs
+            )
+        self._app._trie.add(path, method, handler)
+        self._app._registry.add(path, method, endpoint_func, **kwargs)
+
+    def prepare(self, path: str, endpoint_func: Callable, **kwargs: Any):
+        """Prepare a handler without mutating the trie, registry or schema."""
         supported = {"response_model", "dependencies", "include_in_schema", "summary", "description", "tags", "responses"}
         unknown = kwargs.keys() - supported
         if unknown:
@@ -51,10 +62,4 @@ class RouteInstaller:
         else:
             handler = self._app._handler_factory.build(compiled, response_model, tuple(dependencies))
 
-        if kwargs.get("include_in_schema", True):
-            self._app.openapi_generator.generate_route(
-                path, method, endpoint_func, **kwargs
-            )
-
-        self._app._trie.add(path, method, handler)
-        self._app._registry.add(path, method, endpoint_func, **kwargs)
+        return handler

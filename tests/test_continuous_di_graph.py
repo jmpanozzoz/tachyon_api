@@ -23,7 +23,8 @@ def shared_graph(depth):
 
 
 @pytest.mark.asyncio
-async def test_shared_graph_preparation_is_linear_even_on_cached_resolution(monkeypatch):
+@pytest.mark.parametrize("method", ["resolve_class_dependency", "resolve_callable_dependency"])
+async def test_shared_graph_preparation_is_linear_even_on_cached_resolution(monkeypatch, method):
     classes = shared_graph(14)
     module = importlib.import_module("tachyon_api.processing.dependencies._sig_cache")
     original = module.get_bindings
@@ -38,7 +39,7 @@ async def test_shared_graph_preparation_is_linear_even_on_cached_resolution(monk
     resolver = DependencyResolver(app)
     for _ in range(2):
         visits.clear()
-        assert await resolver.resolve_class_dependency(classes[-1], {}, None) is cached
+        assert await getattr(resolver, method)(classes[-1], {}, None) is cached
         assert len(visits) == len(classes)
 
 

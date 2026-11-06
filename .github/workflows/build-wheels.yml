@@ -50,7 +50,7 @@ jobs:
         with:
           name: distributions
           path: dist
-      - run: pip install build pytest pytest-asyncio httpx
+      - run: pip install build -r scripts/test-requirements.txt
       - name: Install portable wheel
         run: python -c "import glob, subprocess, sys; subprocess.run([sys.executable, '-m', 'pip', 'install', glob.glob('dist/*.whl')[0]], check=True)"
       - run: python scripts/test_installed_wheel.py

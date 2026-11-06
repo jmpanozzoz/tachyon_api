@@ -56,6 +56,7 @@ Interactive documentation is available at `/docs`.
 - [Continuous improvement](quality/continuous-improvement.md): repair/review gates.
 - [Framework assessment](quality/framework-review.md): maintainability, production limits, refreshed FastAPI measurements, Cython removal experiments and Rust research dated 2026-11-04.
 - [Local release](quality/local-release.md): builds and publication without Actions.
+- [1.4.3 simplification](audits/1.4.3/README.md): implementation decisions and candidate validation.
 - [Documentation maintenance](quality/documentation.md): source comparisons, links and executable examples.
 - [Historical audits](audits/1.4.0/AUDITORIA.md): dated findings with current-status links.
 

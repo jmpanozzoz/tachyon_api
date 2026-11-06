@@ -29,6 +29,26 @@ scope. Broader release risks remain explicit even when the local cycle is green.
 Install the project's development tools and PyJWT for the example tests. Use a
 supported interpreter (3.10 through 3.13). From the checkout root:
 
+The canonical source/CI/release test harness is
+[scripts/test-requirements.txt](../../scripts/test-requirements.txt). Create a
+supported environment explicitly (an existing `.venv` may use another Python):
+
+```sh
+uv venv --python 3.13 .venv
+uv pip install --python .venv/bin/python -e '.[test,granian]' -r scripts/test-requirements.txt
+.venv/bin/python scripts/quality_cycle.py --output /tmp/quality-python313.json
+```
+
+For Windows use `.venv/Scripts/python.exe`. The commands above resolve the
+currently allowed runtime ranges; they do not enforce `poetry.lock`. The quality
+report records executable and installed runtime/test versions. Keep exact-lock,
+minimum-version and allowed-range runs labeled separately; use pip/uv constraints
+when testing a selected version set. The Poetry dev group is a convenience subset
+and does not include the full example/release test harness. Archive the actual
+resolution with each run rather than treating a lockfile fingerprint as proof
+that those packages were installed. Quality tooling rejects unsupported Python
+before importing the package or collecting example tests.
+
 ```sh
 ruff check tachyon_api tests benchmark scripts
 python scripts/quality_cycle.py --engine python --output /tmp/quality-python.json

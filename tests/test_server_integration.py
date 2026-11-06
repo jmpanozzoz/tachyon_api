@@ -80,9 +80,16 @@ def test_lifespan_body_and_limit(server):
 def test_rejected_body_does_not_leave_an_unusable_keepalive_connection(server):
     client, _ = server
     for _ in range(10):
-        response = client.post("/body", content=b"x" * (64 * 1024 + 1))
-        assert response.status_code == 422
-        assert response.headers.get("connection") == "close"
+        with client.stream("POST", "/body", content=b"x" * (64 * 1024 + 1)) as response:
+            assert response.status_code == 422
+            assert response.headers.get("connection") == "close"
+            try:
+                response.read()
+            except httpx.ReadError as exc:
+                # A close with unread incoming TCP bytes can reset after the
+                # rejection headers. Verify those headers and reconnection;
+                # do not mistake transport-body delivery for keepalive safety.
+                assert "reset" in str(exc).lower()
         assert client.get("/stream").text == "first\nsecond\n"
 
 

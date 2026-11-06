@@ -8,10 +8,8 @@ from starlette.applications import Starlette
 
 from ..core.lifecycle import LifecycleManager
 from ..core.websocket import WebSocketManager
-from ..middlewares.core import (
-    apply_middleware_to_router,
-    create_decorated_middleware_class,
-)
+from ..middlewares.core import create_decorated_middleware_class
+from ..cache import set_cache_config
 from ..openapi import OpenAPIConfig, OpenAPIGenerator, create_openapi_config
 from ..processing.dependencies import DependencyResolver
 from ..processing.dispatch import TachyonDispatcher
@@ -19,7 +17,6 @@ from ..processing.parameters import ParameterProcessor
 from ..routing.trie import RadixTrie
 
 from ._error_static import _404_BODY_MSG, _404_START, _405_BODY, _405_PLAIN_CT, _CL_405
-from ._asgi_entry import ASGIEntry
 from ._asgi_handler import _ASGIHandler
 from ._docs_routes import DocsRoutes
 from ._docs_schemas import CommonSchemas
@@ -30,11 +27,6 @@ from ._http_dispatch import HTTPDispatcher
 from ._mw_stack import MiddlewareStack
 from ._registry import RouteRegistry
 from ._route_installer import RouteInstaller
-
-try:
-    from ..cache import set_cache_config
-except ImportError:  # pragma: no cover
-    set_cache_config = None  # type: ignore
 
 logger = logging.getLogger(__name__)
 
@@ -63,12 +55,11 @@ class Tachyon:
         "_fast_asgi_factory",
         "_installer",
         "_docs_routes",
-        "_asgi_entry",
         # DI / public state
         "_instances_cache",
         "state",
         "dependency_overrides",
-        # lazy HTTP app cache
+        # lazy ASGI middleware generation (shared by every protocol)
         "_http_app",
         # HTTP method decorators bound via setattr() in __init__
         "get", "post", "put", "delete", "patch", "options", "head",
@@ -105,13 +96,6 @@ class Tachyon:
             asgi_handler_class=_ASGIHandler,
         )
 
-        # Route HTTP to trie, non-HTTP to Starlette
-        _original_router_app = self._router.router.app
-        self._router.router.middleware_stack = HTTPDispatcher(
-            dispatcher=self._dispatcher,
-            fallback=_original_router_app,
-        )
-
         # Collaborators
         self._parameter_processor = ParameterProcessor(self)
         self._dependency_resolver = DependencyResolver(self)
@@ -124,7 +108,6 @@ class Tachyon:
         self._fast_asgi_factory = FastASGIFactory(self)
         self._installer = RouteInstaller(self)
         self._docs_routes = DocsRoutes(self)
-        self._asgi_entry = ASGIEntry(self)
 
         # DI / state
         self._instances_cache: Dict[Type, Any] = {}
@@ -138,13 +121,13 @@ class Tachyon:
 
         # Cache configuration (optional)
         self.cache_config = cache_config
-        if cache_config is not None and set_cache_config is not None:
+        if cache_config is not None:
             try:
                 set_cache_config(cache_config)
             except Exception as exc:
                 logger.warning("Failed to apply cache config: %s", exc)
 
-        # Lazily-built HTTP ASGI app (user middlewares → trie dispatcher)
+        # One user middleware chain for HTTP, WebSocket and lifespan.
         self._http_app: Optional[Callable] = None
 
         # Bind get/post/put/... decorators
@@ -231,14 +214,19 @@ class Tachyon:
     # ── Middleware ──────────────────────────────────────────────────────────
 
     def add_middleware(self, middleware_class, **options: Any) -> None:
-        apply_middleware_to_router(self._router, middleware_class, **options)
         self._mw_stack.add(middleware_class, **options)
-        self._http_app = None  # invalidate — rebuild on next HTTP request
+        self._http_app = None  # rebuild all protocols on the next ASGI scope
 
     # ── ASGI entry ──────────────────────────────────────────────────────────
 
     async def __call__(self, scope, receive, send) -> None:
-        await self._asgi_entry(scope, receive, send)
+        scope["app"] = self
+        if self._http_app is None:
+            self._docs_routes.setup()
+            # Call the Starlette stack directly so it does not replace scope.app.
+            inner = HTTPDispatcher(self._dispatcher, self._router.build_middleware_stack())
+            self._http_app = self._mw_stack.build(inner)
+        await self._http_app(scope, receive, send)
 
 
 __all__ = ["Tachyon"]

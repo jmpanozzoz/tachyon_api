@@ -237,7 +237,9 @@ middlewares still run. This is transparent unless you relied on Starlette's inte
 exception middleware to catch errors from your own middleware.
 
 ### `scope["app"]`
-For the HTTP flow in either engine, `scope["app"]` is the `Tachyon` instance. WebSocket and lifespan scopes delegate to Starlette, which sets its own instance. Third-party integrations must account for the scope type.
+Since 1.4.3, `scope["app"]` is the `Tachyon` instance for HTTP, WebSocket and lifespan.
+Non-HTTP scopes still delegate to Starlette's middleware/routing machinery, while
+the shared outer user middleware chain retains Tachyon identity.
 
 ### Response types
 `TachyonJSONResponse` is a `JSONResponse` subclass but bypasses Starlette's `Response.__init__`

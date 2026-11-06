@@ -12,11 +12,10 @@ from ._sig_cache import get_bindings, is_async_callable
 
 
 class CallableFactory:
-    __slots__ = ("_resolve_dep", "_resolve_callable", "_header", "_query", "_query_list")
+    __slots__ = ("_resolve_callable", "_header", "_query", "_query_list")
 
-    def __init__(self, resolve_dep: Callable, resolve_callable: Callable) -> None:
+    def __init__(self, resolve_callable: Callable) -> None:
         from .._extractors import HeaderExtractor, QueryExtractor, QueryListExtractor
-        self._resolve_dep = resolve_dep
         self._resolve_callable = resolve_callable
         self._header = HeaderExtractor()
         self._query = QueryExtractor()

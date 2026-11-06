@@ -47,7 +47,7 @@ def test_cache_decorator_works_for_routes_and_keys_include_params():
         counter["value"] += 1
         return {"item_id": item_id, "q": q, "call": counter["value"]}
 
-    client = TestClient(app._router)
+    client = TestClient(app)
 
     # First call computes
     r1 = client.get("/items/1?q=foo").json()
@@ -76,7 +76,7 @@ def test_cache_decorator_supports_async_route_functions():
         calls["count"] += 1
         return {"x": x, "calls": calls["count"]}
 
-    client = TestClient(app._router)
+    client = TestClient(app)
 
     r1 = client.get("/async?x=5").json()
     r2 = client.get("/async?x=5").json()
@@ -113,7 +113,7 @@ def test_cache_global_config_and_backend_integration():
         calls["count"] += 1
         return {"calls": calls["count"]}
 
-    client = TestClient(app._router)
+    client = TestClient(app)
     client.get("/conf")
     client.get("/conf")
 

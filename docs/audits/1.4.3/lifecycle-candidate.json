@@ -1,0 +1,58 @@
+{
+  "python": "3.13.18 (main, Oct 26 2026, 13:59:02) [Clang 23.1.3 ]",
+  "runtime_root": "/Users/juanmanuelpanozzozenere/Projects/personal/tachyon_api/tachyon_api",
+  "runtime_sha256": "d2561b20cb7757c552a9412ffceef6c92ef4aa40794d952ced311e2d90d0c8ed",
+  "methodology": "Validated lifecycle workloads omitted from the eight async happy-path cases.\n\nRun from a baseline/candidate checkout root. Batch timings include driver checks,\nnot network capacity or per-request latency percentiles.\n",
+  "iterations_per_batch": 1000,
+  "ns_per_validated_call": {
+    "sync_endpoint": [
+      73041.291,
+      72381.125,
+      72695.459,
+      72473.958,
+      72580.041
+    ],
+    "sync_factory": [
+      86273.0,
+      84813.792,
+      84827.167,
+      85115.208,
+      85161.792
+    ],
+    "middleware": [
+      3707.125,
+      3728.625,
+      3815.75,
+      3794.625,
+      3798.209
+    ],
+    "routes_1000": [
+      4016.833,
+      4017.125,
+      4045.125,
+      4026.292,
+      4006.333
+    ],
+    "stream": [
+      7012.292,
+      7003.541,
+      6957.542,
+      6987.625,
+      7002.041
+    ],
+    "declared_body_rejection": [
+      5185.416,
+      5172.042,
+      5194.334,
+      5217.0,
+      5170.958
+    ],
+    "stream_disconnect": [
+      6029.167,
+      6054.917,
+      6007.917,
+      6031.791,
+      6074.375
+    ]
+  }
+}

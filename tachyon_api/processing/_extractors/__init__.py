@@ -2,7 +2,6 @@
 
 from ._missing import missing
 from .body import BodyExtractor
-from .body_limit import BodySizeChecker
 from .cookie import CookieExtractor
 from .file import FileExtractor
 from .form import FormExtractor
@@ -14,7 +13,6 @@ from .query_list import QueryListExtractor
 __all__ = [
     "missing",
     "BodyExtractor",
-    "BodySizeChecker",
     "CookieExtractor",
     "FileExtractor",
     "FormExtractor",

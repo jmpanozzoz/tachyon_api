@@ -50,29 +50,32 @@ class TachyonScope:
             self._cookies = cookie_parser(self.headers.get("cookie", ""))
         return self._cookies
 
-    async def _bounded_receive(self):
+    def _check_body_limit(self):
+        size = self._received_bytes
         if self._received_bytes == 0:
             content_length = self.headers.get("content-length")
             if content_length is not None:
                 try:
-                    declared_size = int(content_length)
+                    size = int(content_length)
                 except ValueError:
-                    declared_size = 0
-                if declared_size > self._max_body_size:
-                    self._scope["_tachyon_body_rejected"] = True
-                    raise RequestBodyTooLarge(f"Request body too large (max {self._max_body_size} bytes)")
-        if self._received_bytes > self._max_body_size:
+                    pass
+        if size > self._max_body_size:
             self._scope["_tachyon_body_rejected"] = True
             raise RequestBodyTooLarge(f"Request body too large (max {self._max_body_size} bytes)")
+
+    async def _bounded_receive(self):
+        self._check_body_limit()
         message = await self._receive()
         if message["type"] == "http.request":
             self._received_bytes += len(message.get("body", b""))
             if self._received_bytes > self._max_body_size:
-                self._scope["_tachyon_body_rejected"] = True
-                raise RequestBodyTooLarge(f"Request body too large (max {self._max_body_size} bytes)")
+                self._check_body_limit()
         return message
 
     async def body(self):
+        # Reject declared oversize before creating a Request and its cleanup scope.
+        # The receive path uses the same guard for direct Request/form/file reads.
+        self._check_body_limit()
         return await self.as_request().body()
 
     async def form(self):
