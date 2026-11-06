@@ -2,7 +2,8 @@
 Customers DTOs - Data Transfer Objects for customer management.
 """
 
-from typing import Optional, List
+from typing import Optional, List, Annotated
+from msgspec import Meta
 from tachyon_api import Struct
 
 
@@ -19,11 +20,11 @@ class AddressDTO(Struct):
 class CustomerCreate(Struct):
     """Request body for creating a customer."""
     
-    first_name: str
-    last_name: str
-    email: str
-    phone: Optional[str] = None
-    date_of_birth: Optional[str] = None  # YYYY-MM-DD
+    first_name: Annotated[str, Meta(min_length=1, max_length=120)]
+    last_name: Annotated[str, Meta(min_length=1, max_length=120)]
+    email: Annotated[str, Meta(min_length=3, max_length=254)]
+    phone: Optional[Annotated[str, Meta(max_length=50)]] = None
+    date_of_birth: Optional[Annotated[str, Meta(max_length=10)]] = None  # YYYY-MM-DD
     address: Optional[AddressDTO] = None
 
 

@@ -2,7 +2,7 @@
 Verification DTOs - Data Transfer Objects for KYC verification.
 """
 
-from typing import Optional, List
+from typing import Optional, List, Literal
 from tachyon_api import Struct
 
 
@@ -19,7 +19,7 @@ class StartVerificationRequest(Struct):
     """Request to start a new verification."""
     
     customer_id: str
-    verification_type: str = "standard"  # standard, enhanced
+    verification_type: Literal["standard", "enhanced"] = "standard"
 
 
 class VerificationResponse(Struct):

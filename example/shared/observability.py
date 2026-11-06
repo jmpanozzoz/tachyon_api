@@ -9,6 +9,18 @@ logger = logging.getLogger("reference.http")
 BUCKETS = (.005, .01, .025, .05, .1, .25, .5, 1, 5)
 
 
+class TicketLogFilter(logging.Filter):
+    """Uvicorn's WebSocket INFO messages are emitted by its error logger."""
+    tickets = re.compile(r"([?&]ticket=)[^&\s\"']+", re.IGNORECASE)
+
+    def filter(self, record):
+        message = record.getMessage()
+        redacted = self.tickets.sub(r"\1[REDACTED]", message)
+        if redacted != message:
+            record.msg, record.args = redacted, ()
+        return True
+
+
 class Metrics:
     def __init__(self):
         self.requests, self.inflight, self.errors = 0, 0, 0
