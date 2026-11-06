@@ -4,7 +4,6 @@ from __future__ import annotations
 from typing import Any
 from contextlib import AsyncExitStack
 import logging
-import sys
 
 from anyio import CancelScope, fail_after
 from starlette.datastructures import Headers, QueryParams
@@ -101,8 +100,7 @@ class TachyonScope:
     async def close(self):
         if self._dependency_stack is None and self._request is None:
             return
-        exc_info = sys.exc_info()
-        primary = exc_info if exc_info[0] is not None else getattr(self, "_dependency_error", None)
+        primary = getattr(self, "_dependency_error", None)
         stack, self._dependency_stack = self._dependency_stack, None
         self._dependency_error = None
         try:

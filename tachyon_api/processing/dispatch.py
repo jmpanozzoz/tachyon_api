@@ -40,5 +40,8 @@ class TachyonDispatcher:
             try:
                 response = await handler(request)
                 await ResponseProcessor.send_response(response, scope, receive, send)
+            except BaseException as exc:
+                request.dependency_failed(exc)
+                raise
             finally:
                 await request.close()
