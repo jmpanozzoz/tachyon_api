@@ -1,5 +1,6 @@
 # 🚀 Tachyon API
 
+[![PyPI Downloads](https://static.pepy.tech/personalized-badge/tachyon-api?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/tachyon-api)
 ![Version](https://img.shields.io/pypi/v/tachyon-api.svg)
 ![Python](https://img.shields.io/badge/python-3.10--3.13-brightgreen.svg)
 ![License](https://img.shields.io/badge/license-GPL--3.0-orange.svg)
