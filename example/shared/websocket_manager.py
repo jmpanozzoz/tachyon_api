@@ -1,101 +1,113 @@
-"""
-WebSocket connection manager for real-time notifications.
+"""Short-lived single-use tickets; PostgreSQL identity and Redis cross-worker feed."""
+import asyncio
+from datetime import timedelta
+import hashlib
+import json
+import secrets
 
-This manages WebSocket connections for each customer,
-allowing us to send real-time KYC status updates.
-"""
+import anyio
 
-from typing import Dict, List, Any
+from redis.exceptions import RedisError
+from sqlalchemy import delete
+from sqlalchemy.exc import SQLAlchemyError
+from starlette.websockets import WebSocketDisconnect
+
+from .dependencies import require_owner
+from .exceptions import KYCException
+from .models import Customer, User, WebSocketTicket, now
 
 
-class WebSocketManager:
-    """
-    Manages WebSocket connections grouped by customer ID.
-    
-    This allows sending targeted notifications to specific customers
-    when their KYC verification status changes.
-    """
-    
-    def __init__(self):
-        # Map of customer_id -> list of WebSocket connections
-        self._connections: Dict[str, List[Any]] = {}
-    
-    async def connect(self, websocket, customer_id: str) -> None:
-        """Accept and register a new WebSocket connection."""
+async def issue_ticket(session, customer_id, user):
+    require_owner(await session.get(Customer, customer_id), user)
+    ticket = secrets.token_urlsafe(32)
+    session.add(WebSocketTicket(digest=hashlib.sha256(ticket.encode()).hexdigest(),
+                               user_id=user["user_id"], customer_id=customer_id,
+                               expires_at=now() + timedelta(seconds=30)))
+    await session.commit()
+    return {"ticket": ticket, "expires_in": 30}
+
+
+async def notifications(websocket, customer_id):
+    state = websocket.app.state
+    if websocket.headers.get("origin") not in state.settings.allowed_origins:
+        await websocket.close(code=1008)
+        return
+    ticket = websocket.query_params.get("ticket", "")
+    if not 20 <= len(ticket) <= 128:
+        await websocket.close(code=1008)
+        return
+    async with state.sessions() as session:
+        user_id = await session.scalar(delete(WebSocketTicket).where(
+            WebSocketTicket.digest == hashlib.sha256(ticket.encode()).hexdigest(),
+            WebSocketTicket.customer_id == customer_id,
+            WebSocketTicket.expires_at > now(),
+        ).returning(WebSocketTicket.user_id))
+        user = await session.get(User, user_id) if user_id else None
+        if not user or not user.active:
+            await websocket.close(code=1008)
+            return
+        try:
+            require_owner(await session.get(Customer, customer_id), {"user_id": user.user_id, "role": user.role})
+        except KYCException:
+            await websocket.close(code=1008)
+            return
+        await session.commit()
+    tasks = []
+    channel = state.redis.pubsub()
+    try:
+        await channel.subscribe(f"reference:notifications:{customer_id}")
+        # Consume subscribe acknowledgement before telling the client it is ready.
+        await channel.get_message(timeout=.5)
         await websocket.accept()
-        
-        if customer_id not in self._connections:
-            self._connections[customer_id] = []
-        
-        self._connections[customer_id].append(websocket)
-    
-    def disconnect(self, websocket, customer_id: str) -> None:
-        """Remove a WebSocket connection."""
-        if customer_id in self._connections:
-            if websocket in self._connections[customer_id]:
-                self._connections[customer_id].remove(websocket)
-            
-            # Clean up empty lists
-            if not self._connections[customer_id]:
-                del self._connections[customer_id]
-    
-    async def disconnect_all(self) -> None:
-        """Close all WebSocket connections (for shutdown)."""
-        for customer_id, connections in self._connections.items():
-            for websocket in connections:
+        await websocket.send_json({"type": "connected", "customer_id": customer_id,
+                                   "reconcile": f"/customers/{customer_id}"})
+        async def input_messages():
+            while True:
+                raw = await websocket.receive_text()
+                if len(raw) > 4096:
+                    await websocket.close(code=1009)
+                    return
                 try:
-                    await websocket.close()
-                except Exception:
-                    pass
-        self._connections.clear()
-    
-    async def send_to_customer(self, customer_id: str, message: dict) -> None:
-        """
-        Send a message to all connections for a specific customer.
-        
-        Args:
-            customer_id: The customer to notify
-            message: The message payload to send
-        """
-        connections = self._connections.get(customer_id, [])
-        
-        for websocket in connections:
-            try:
-                await websocket.send_json(message)
-            except Exception:
-                # Connection might be closed, will be cleaned up on disconnect
-                pass
-    
-    async def broadcast(self, message: dict) -> None:
-        """Send a message to all connected clients."""
-        for customer_id in self._connections:
-            await self.send_to_customer(customer_id, message)
-    
-    def get_connection_count(self, customer_id: str = None) -> int:
-        """Get the number of active connections."""
-        if customer_id:
-            return len(self._connections.get(customer_id, []))
-        return sum(len(conns) for conns in self._connections.values())
-    
-    async def notify_verification_status(
-        self,
-        customer_id: str,
-        verification_id: str,
-        status: str,
-        details: dict = None,
-    ) -> None:
-        """
-        Send a verification status update notification.
-        
-        This is called by the verification service when status changes.
-        """
-        await self.send_to_customer(customer_id, {
-            "type": "verification_status",
-            "verification_id": verification_id,
-            "status": status,
-            "details": details or {},
-        })
-
-
-# Global manager instance
-manager = WebSocketManager()
+                    data = json.loads(raw)
+                except ValueError:
+                    await websocket.close(code=1003)
+                    return
+                if data != {"type": "ping"}:
+                    await websocket.close(code=1008)
+                    return
+                await websocket.send_json({"type": "pong"})
+        async def events():
+            loop = asyncio.get_running_loop()
+            deadline = loop.time() + state.settings.websocket_session_seconds
+            next_check = 0
+            while True:
+                if loop.time() >= deadline:
+                    await websocket.close(code=1000)
+                    return
+                if loop.time() >= next_check:
+                    async with state.sessions() as session:
+                        current = await session.get(User, user_id)
+                        customer = await session.get(Customer, customer_id)
+                        if current is None or not current.active or customer is None or (current.role != "admin" and customer.user_id != current.user_id):
+                            await websocket.close(code=1008)
+                            return
+                    next_check = loop.time() + state.settings.websocket_recheck_seconds
+                message = await channel.get_message(ignore_subscribe_messages=True, timeout=.2)
+                if message:
+                    await websocket.send_json(json.loads(message["data"]))
+                await asyncio.sleep(.01)
+        tasks = [asyncio.create_task(input_messages()), asyncio.create_task(events())]
+        done, _ = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+        for task in done:
+            task.result()
+    except WebSocketDisconnect:
+        pass
+    except (RedisError, SQLAlchemyError):
+        await websocket.close(code=1013)
+    finally:
+        with anyio.move_on_after(2, shield=True):
+            for task in tasks:
+                task.cancel()
+            if tasks:
+                await asyncio.gather(*tasks, return_exceptions=True)
+            await channel.aclose()

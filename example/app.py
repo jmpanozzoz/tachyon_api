@@ -1,190 +1,126 @@
-"""
-KYC Demo API — Tachyon showcase, fully exercised by its test suite.
-
-Demonstrates:
-
-  - Dependency injection with `@injectable` + `Depends(callable)`
-  - JWT auth via a callable dependency (see `auth_controller.py`)
-  - `SecurityHeadersMiddleware` opt-in (this file)
-  - `@app.exception_handler` with custom error type (this file)
-  - `BackgroundTasks` for fire-and-forget work (see `verification_controller.py`)
-  - WebSocket notifications fed by the verification flow (this file)
-  - Lifespan startup/shutdown (this file)
-  - Async test client `create_client` (see `tests/test_async_client.py`)
-
-Run:
-    poetry run uvicorn example.app:app --reload --loop uvloop
-"""
-
+"""Persistent synthetic KYC reference; factory instances own their resources."""
 from contextlib import asynccontextmanager
+from importlib.metadata import version
+import os
+import secrets
 
+import anyio
+from redis.asyncio import Redis
+from redis.exceptions import RedisError
+from sqlalchemy import text, select, func
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
-from tachyon_api import Tachyon
-from tachyon_api.middlewares import (
-    CORSMiddleware,
-    LoggerMiddleware,
-    SecurityHeadersMiddleware,
-)
+from tachyon_api import Tachyon, Depends
+from tachyon_api.middlewares import CORSMiddleware, SecurityHeadersMiddleware
 from tachyon_api.openapi import Info, OpenAPIConfig
 
-from .config import settings
+from .config import Settings
+from .shared.cache import Cache
+from .shared.database import database, get_session
+from .shared.dependencies import get_current_user, require_admin
 from .shared.exceptions import KYCException
-from .shared.websocket_manager import manager as ws_manager
-
-# Module routers
+from .shared.observability import BUCKETS, Metrics, ObservabilityMiddleware
+from .shared.models import Job
+from .shared.websocket_manager import issue_ticket, notifications
+from .modules.auth.auth_service import hasher
 from .modules.auth import router as auth_router
 from .modules.customers import router as customers_router
 from .modules.verification import router as verification_router
 
-
-@asynccontextmanager
-async def lifespan(app):
-    """Startup: connect DB, init clients, load models. Shutdown: cleanup."""
-    print("🚀 KYC API Starting...")
-    print(f"   Environment: {settings.environment}")
-    print(f"   Debug: {settings.debug}")
-
-    app.state.settings = settings
-    app.state.ws_manager = ws_manager
-
-    # Mock: simulate connecting to a verification provider
-    app.state.verification_provider = "MockVerificationProvider"
-    print("   ✅ Verification provider connected")
-
-    yield
-
-    print("🛑 KYC API Shutting down...")
-    await ws_manager.disconnect_all()
-    print("   ✅ All WebSocket connections closed")
+APP_VERSION = "0.2.0"
 
 
-# ── App + OpenAPI config ──────────────────────────────────────────────────────
+def create_app(settings=None):
+    config = settings or Settings.from_env()
+    metrics = Metrics()
 
-openapi_config = OpenAPIConfig(
-    info=Info(
-        title="KYC Demo API",
-        description=(
-            "Know Your Customer verification system — built on Tachyon. "
-            "Showcases DI, JWT auth, security headers, background tasks, "
-            "custom exception handlers, WebSockets, and the testing helpers."
-        ),
-        version="1.3.0",
-    )
-)
+    @asynccontextmanager
+    async def lifespan(application):
+        engine, sessions = database(config.database_url)
+        redis = Redis.from_url(config.redis_url, socket_connect_timeout=.25, socket_timeout=.25,
+                               max_connections=20, retry_on_timeout=False)
+        application.state.engine, application.state.sessions = engine, sessions
+        application.state.redis = redis
+        application.state.cache = Cache(redis, config.cache_ttl_seconds)
+        application.state.hash_limiter = anyio.CapacityLimiter(2)
+        try:
+            async with engine.connect() as connection:
+                if not await connection.scalar(text("SELECT to_regclass('users')")):
+                    raise RuntimeError("Reference database is not migrated; run Alembic first")
+            application.state.dummy_password_hash = await anyio.to_thread.run_sync(
+                hasher.hash, secrets.token_urlsafe(32), limiter=application.state.hash_limiter)
+            yield
+        finally:
+            await redis.aclose()
+            await engine.dispose()
 
-app = Tachyon(
-    openapi_config=openapi_config,
-    lifespan=lifespan,
-)
+    application = Tachyon(lifespan=lifespan, max_body_size=1024 * 1024,
+        openapi_config=OpenAPIConfig(info=Info(title="Synthetic KYC reference", version=APP_VERSION)))
+    application.state.settings = config
+    application.state.metrics = metrics
+    application.add_middleware(ObservabilityMiddleware, metrics=metrics)
+    application.add_middleware(SecurityHeadersMiddleware)
+    application.add_middleware(CORSMiddleware, allow_origins=list(config.allowed_origins),
+        allow_methods=["GET", "POST"], allow_headers=["Authorization", "Content-Type", "Idempotency-Key", "X-Correlation-Id"])
 
+    @application.exception_handler(KYCException)
+    async def domain_error(request, exc):
+        return JSONResponse({"success": False, "error": exc.detail, "code": exc.error_code}, status_code=exc.status_code)
 
-# ── Middlewares ───────────────────────────────────────────────────────────────
-# Order matters: outermost wrappers go first in the source, but ASGI calls them
-# in reverse — so the last `add_middleware` is the innermost.
+    @application.exception_handler(SQLAlchemyError)
+    async def database_error(request, exc):
+        return JSONResponse({"error": "Database unavailable", "code": "DATABASE_UNAVAILABLE"}, status_code=503)
 
-app.add_middleware(
-    SecurityHeadersMiddleware,
-    # Pass explicit values when defaults need to be tightened or relaxed for
-    # this deployment. The defaults applied below are the same Tachyon ships,
-    # listed here for documentation visibility.
-    x_content_type_options="nosniff",
-    x_frame_options="DENY",
-    referrer_policy="strict-origin-when-cross-origin",
-    # hsts and csp are opt-in — they need site-specific configuration.
-    # Example: hsts="max-age=63072000; includeSubDomains"
-)
+    application.include_router(auth_router)
+    application.include_router(customers_router)
+    application.include_router(verification_router)
 
-app.add_middleware(
-    CORSMiddleware,
-    # v1.2.0 changed CORS defaults to opt-in (no more wildcard).  We list the
-    # origins this demo accepts.  Production should never use "*".
-    allow_origins=["http://localhost:3000", "http://localhost:5173"],
-    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
-    allow_headers=["Authorization", "Content-Type", "X-API-Key"],
-    allow_credentials=True,
-)
+    @application.get("/")
+    async def root():
+        return {"status": "healthy", "service": "Synthetic KYC reference", "version": APP_VERSION,
+                "framework_version": version("tachyon-api"), "build_revision": os.getenv("SOURCE_REVISION", "unknown")}
 
-app.add_middleware(LoggerMiddleware)
+    @application.get("/health/live")
+    async def live():
+        return {"status": "alive"}
 
+    @application.get("/health")
+    @application.get("/health/ready")
+    async def ready(request: Request):
+        try:
+            with anyio.fail_after(1):
+                async with request.app.state.engine.connect() as connection:
+                    await connection.execute(text("SELECT 1"))
+        except (SQLAlchemyError, TimeoutError):
+            return JSONResponse({"status": "not_ready", "database": "down"}, status_code=503)
+        try:
+            await request.app.state.redis.ping()
+            cache = "up"
+        except RedisError:
+            cache = "degraded"
+        return {"status": "ready", "database": "up", "cache": cache,
+                "worker": "check durable queue metrics separately"}
 
-# ── Custom exception handler ──────────────────────────────────────────────────
+    @application.get("/metrics")
+    async def metrics_view(request: Request, user: dict = Depends(get_current_user),
+                           session: AsyncSession = Depends(get_session)):
+        require_admin(user)
+        queue = (await session.execute(select(Job.state, func.count()).group_by(Job.state))).all()
+        return {"scope": "this_process", "requests": metrics.requests, "inflight": metrics.inflight,
+                "transport_errors": metrics.errors, "duration_bucket_bounds_seconds": [*BUCKETS, None],
+                "duration_bucket_counts": metrics.buckets, "db_checked_out": request.app.state.engine.pool.checkedout(),
+                "durable_queue_states": dict(queue)}
 
-@app.exception_handler(KYCException)
-async def kyc_exception_handler(request: Request, exc: KYCException) -> JSONResponse:
-    """
-    Single handler for the whole KYCException hierarchy.
+    @application.post("/customers/{customer_id}/notification-ticket")
+    async def ticket(customer_id: str, user: dict = Depends(get_current_user),
+                     session: AsyncSession = Depends(get_session)):
+        return await issue_ticket(session, customer_id, user)
 
-    Translates the domain-specific `error_code` into the response body while
-    preserving the HTTP status code declared by the exception.  Other HTTPException
-    types raised by the framework fall through to Tachyon's default
-    `{"detail": ...}` response.
-    """
-    return JSONResponse(
-        status_code=exc.status_code,
-        content={
-            "success": False,
-            "error": exc.detail,
-            "code": getattr(exc, "error_code", "KYC_ERROR"),
-        },
-    )
-
-
-# ── Routers ───────────────────────────────────────────────────────────────────
-
-app.include_router(auth_router)
-app.include_router(customers_router)
-app.include_router(verification_router)
-
-
-# ── Top-level health endpoints ────────────────────────────────────────────────
-
-@app.get("/", tags=["Health"])
-def health_check():
-    return {
-        "status": "healthy",
-        "service": "KYC Demo API",
-        "version": "1.3.0",
-        "framework": "tachyon-api",
-    }
-
-
-@app.get("/health", tags=["Health"])
-def detailed_health():
-    return {
-        "status": "healthy",
-        "components": {
-            "api": "up",
-            "database": "up (mock)",
-            "verification_provider": "up (mock)",
-            "websocket": "up",
-        },
-        "environment": settings.environment,
-    }
+    application.websocket("/ws/notifications/{customer_id}")(notifications)
+    return application
 
 
-# ── Customer notification WebSocket ──────────────────────────────────────────
-# Consumer side of the verification flow: process_verification() broadcasts
-# status updates through ws_manager to clients connected here.
-
-@app.websocket("/ws/notifications/{customer_id}")
-async def websocket_notifications(websocket, customer_id: str):
-    """Real-time KYC status updates via WebSocket — customer-facing channel."""
-    await ws_manager.connect(websocket, customer_id)
-
-    try:
-        await websocket.send_json({
-            "type": "connected",
-            "message": f"Connected to KYC notifications for customer {customer_id}",
-        })
-
-        while True:
-            data = await websocket.receive_json()
-            if data.get("type") == "ping":
-                await websocket.send_json({"type": "pong"})
-
-    except Exception:
-        pass
-    finally:
-        ws_manager.disconnect(websocket, customer_id)
+app = create_app()

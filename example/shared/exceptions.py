@@ -20,30 +20,6 @@ class KYCException(HTTPException):
         self.error_code = error_code
 
 
-class CustomerNotFoundError(KYCException):
-    """Raised when a customer is not found."""
-    
-    def __init__(self, customer_id: str):
-        super().__init__(
-            status_code=404,
-            detail=f"Customer '{customer_id}' not found",
-            error_code="CUSTOMER_NOT_FOUND",
-        )
-        self.customer_id = customer_id
-
-
-class VerificationNotFoundError(KYCException):
-    """Raised when a verification is not found."""
-    
-    def __init__(self, verification_id: str):
-        super().__init__(
-            status_code=404,
-            detail=f"Verification '{verification_id}' not found",
-            error_code="VERIFICATION_NOT_FOUND",
-        )
-        self.verification_id = verification_id
-
-
 class UnauthorizedError(KYCException):
     """Raised when authentication fails."""
     
