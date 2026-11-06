@@ -91,7 +91,7 @@ settings = Settings()
 '''
 
     REQUIREMENTS = """# Tachyon API Framework
-tachyon-api>=1.3.0
+tachyon-api>=1.5.0.dev0,<1.6
 
 # Server
 uvicorn[standard]>=0.35.0
@@ -102,6 +102,7 @@ python-dotenv>=1.0.0
 # Development
 pytest>=8.0.0
 pytest-asyncio>=1.0.0
+asgi-lifespan>=2.1,<3
 httpx>=0.28.0
 ruff>=0.4.0
 """
@@ -194,7 +195,9 @@ Pytest configuration and fixtures.
 """
 
 import pytest
+import pytest_asyncio
 from httpx import AsyncClient, ASGITransport
+from asgi_lifespan import LifespanManager
 
 
 @pytest.fixture
@@ -204,12 +207,38 @@ def app():
     return app
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def client(app):
     """Create async test client."""
-    async with AsyncClient(
-        transport=ASGITransport(app=app),
-        base_url="http://test"
-    ) as client:
-        yield client
+    async with LifespanManager(app):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            yield client
+'''
+
+    TEST_APP = '''import pytest
+
+
+@pytest.mark.asyncio
+async def test_application_starts(client):
+    response = await client.get("/")
+    assert response.status_code == 200
+    assert response.json()["status"] == "ok"
+'''
+
+    MIGRATION_TEMPLATE = '''"""${message}"""
+from alembic import op
+import sqlalchemy as sa
+${imports if imports else ""}
+revision = ${repr(up_revision)}
+down_revision = ${repr(down_revision)}
+branch_labels = ${repr(branch_labels)}
+depends_on = ${repr(depends_on)}
+
+
+def upgrade():
+    ${upgrades if upgrades else "pass"}
+
+
+def downgrade():
+    ${downgrades if downgrades else "pass"}
 '''

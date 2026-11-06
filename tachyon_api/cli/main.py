@@ -38,6 +38,7 @@ def new(
         None, "--path", "-p",
         help="Parent directory for the project (default: current directory)",
     ),
+    profile: str = typer.Option("minimal", "--profile", help="Starter profile: minimal or postgres"),
 ):
     """
     🏗️  Create a new Tachyon project with clean architecture.
@@ -47,7 +48,7 @@ def new(
         tachyon new my-api --path ./projects
     """
     from .commands.new import create_project
-    create_project(name, path)
+    create_project(name, path, profile=profile)
 
 
 @app.command()
@@ -81,6 +82,8 @@ def run(
 @app.command()
 def routes(
     app_path: str = typer.Argument("app:app", help="ASGI app in 'module:attribute' format"),
+    json_output: bool = typer.Option(False, "--json", help="Machine-readable route inventory"),
+    include_websockets: bool = typer.Option(False, "--include-websockets", help="Include delegated WebSocket routes"),
 ):
     """
     📋 List all registered routes without starting the server.
@@ -90,7 +93,18 @@ def routes(
         tachyon routes myapp:app
     """
     from .commands.routes import list_routes
-    list_routes(app_path)
+    list_routes(app_path, json_output=json_output, include_websockets=include_websockets)
+
+
+@app.command()
+def doctor(
+    app_path: Optional[str] = typer.Option(None, "--app", help="Opt in to importing application code; does not start lifespan"),
+    connect: bool = typer.Option(False, "--connect", help="Opt in to DATABASE_URL / REDIS_URL connectivity checks"),
+    json_output: bool = typer.Option(False, "--json", help="Machine-readable diagnostics without credentials"),
+):
+    """Check Python and installed dependencies without changing files or connecting by default."""
+    from .commands.doctor import doctor as diagnose
+    diagnose(app_path, connect, json_output)
 
 
 @app.command("install-skill")
