@@ -1,0 +1,25 @@
+{
+  "version": "1.4.3",
+  "verified_at": "2026-11-06T15:13:48.194182+00:00",
+  "published": true,
+  "source_commit": "7f00399b8898b83956cdbf2bf8f2b1013c2d4044",
+  "tag": "v1.4.3",
+  "pypi_url": "https://pypi.org/project/tachyon-api/1.4.3/",
+  "release_url": "https://github.com/jmpanozzoz/tachyon_api/releases/tag/v1.4.3",
+  "website_url": "https://tachyonapi-web.vercel.app/",
+  "artifacts": [
+    {
+      "file": "dist/tachyon_api-1.4.3-py3-none-any.whl",
+      "sha256": "ba381b38b8c678d183c79be43acd5be32ca61ba9d5bfcada58dd5ccf0f822b62",
+      "bytes": 110309
+    },
+    {
+      "file": "dist/tachyon_api-1.4.3.tar.gz",
+      "sha256": "5a02d9cbcd9078bfa9392e43592c4739f92d0fa2061d52c3c225babfdfd93a09",
+      "bytes": 157247
+    }
+  ],
+  "pypi_hashes_verified": true,
+  "github_download_hashes_verified": true,
+  "validation": "40 local gates; 933 source/example tests per Python 3.10\u20133.13; 229 per installed original/rebuilt wheel. macOS ARM64 only."
+}

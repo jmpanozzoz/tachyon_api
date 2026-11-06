@@ -1,0 +1,243 @@
+{
+  "schema_version": 1,
+  "version": "1.4.3",
+  "environment": {
+    "python": "3.13.18 (main, Oct 26 2026, 13:59:02) [Clang 23.1.3 ]",
+    "executable": "/tmp/tachyon-143-fastapi-env/bin/python",
+    "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+    "machine": "arm64",
+    "processor": "arm",
+    "cpu_count": 8,
+    "versions": {
+      "tachyon-api": "1.4.3",
+      "fastapi": "0.162.0",
+      "starlette": "1.10.0",
+      "pydantic": "2.14.3",
+      "uvicorn": "0.35.0",
+      "granian": null,
+      "msgspec": "0.19.0",
+      "orjson": "3.13.0"
+    },
+    "trie_module": "/tmp/tachyon-143-fastapi-env/lib/python3.13/site-packages/tachyon_api/routing/trie.py",
+    "git_revision": "7f00399b8898b83956cdbf2bf8f2b1013c2d4044",
+    "git_dirty": false
+  },
+  "configuration": {
+    "server": "uvicorn",
+    "http": "h11",
+    "requests": 2000,
+    "concurrency": 8,
+    "repeats": 5,
+    "warmup": 100,
+    "seed": 140,
+    "output": "/tmp/tachyon-143-fastapi-raw.json"
+  },
+  "measured_requests": 240000,
+  "errors": 0,
+  "raw_sha256": "c47e6e0887d61c0650edaf1d6d5687de09404ed06b39300be9e3bf0a7e91365c",
+  "compressed_sha256": "68ba04dd69c1291c21e70cbec2654457fec7c12408677da989bdabce3fd16366",
+  "methodology": "Async endpoints; per-request async DI factories; dict inputs to response models; equivalent valid JSON payloads. One worker, asyncio, server=uvicorn, parser=h11, no lifespan/access logs. Closed-loop stdlib threaded client validates every status/body/content-type. Latencies include client validation and errors; connection establishment is included. ASGI baseline performs valid-input work without framework validation. Loopback throughput is client/machine dependent, not an isolated framework-overhead or production capacity measurement.",
+  "statistic": "Medians of five repetition throughputs and per-repetition percentiles; percentiles are not pooled. Ratios divide median throughputs, not summed scenario rates.",
+  "measurements": [
+    {
+      "scenario": "hello",
+      "tachyon": {
+        "median_successful_rps": 13411.16655797268,
+        "median_block_p50_ms": 0.580125,
+        "median_block_p95_ms": 0.656625,
+        "median_block_p99_ms": 0.703166,
+        "errors": 0
+      },
+      "fastapi": {
+        "median_successful_rps": 9242.473429405412,
+        "median_block_p50_ms": 0.85625,
+        "median_block_p95_ms": 0.912333,
+        "median_block_p99_ms": 0.9895,
+        "errors": 0
+      },
+      "asgi": {
+        "median_successful_rps": 13423.028967424725,
+        "median_block_p50_ms": 0.566666,
+        "median_block_p95_ms": 0.711167,
+        "median_block_p99_ms": 0.972875,
+        "errors": 0
+      },
+      "throughput_ratio_of_medians": 1.451036528306844
+    },
+    {
+      "scenario": "path_query",
+      "tachyon": {
+        "median_successful_rps": 11864.967792120984,
+        "median_block_p50_ms": 0.6725,
+        "median_block_p95_ms": 0.718958,
+        "median_block_p99_ms": 0.761542,
+        "errors": 0
+      },
+      "fastapi": {
+        "median_successful_rps": 7410.785710684521,
+        "median_block_p50_ms": 1.0685,
+        "median_block_p95_ms": 1.142125,
+        "median_block_p99_ms": 1.190125,
+        "errors": 0
+      },
+      "asgi": {
+        "median_successful_rps": 12683.953635780823,
+        "median_block_p50_ms": 0.597458,
+        "median_block_p95_ms": 0.728708,
+        "median_block_p99_ms": 0.964458,
+        "errors": 0
+      },
+      "throughput_ratio_of_medians": 1.6010404639031235
+    },
+    {
+      "scenario": "body",
+      "tachyon": {
+        "median_successful_rps": 10240.017459136214,
+        "median_block_p50_ms": 0.758375,
+        "median_block_p95_ms": 1.0095,
+        "median_block_p99_ms": 1.084167,
+        "errors": 0
+      },
+      "fastapi": {
+        "median_successful_rps": 7574.36607245104,
+        "median_block_p50_ms": 1.044083,
+        "median_block_p95_ms": 1.111833,
+        "median_block_p99_ms": 1.186542,
+        "errors": 0
+      },
+      "asgi": {
+        "median_successful_rps": 11802.45638587538,
+        "median_block_p50_ms": 0.664,
+        "median_block_p95_ms": 0.753833,
+        "median_block_p99_ms": 0.81125,
+        "errors": 0
+      },
+      "throughput_ratio_of_medians": 1.3519306251094063
+    },
+    {
+      "scenario": "nested_body",
+      "tachyon": {
+        "median_successful_rps": 10084.156521585557,
+        "median_block_p50_ms": 0.765667,
+        "median_block_p95_ms": 1.018875,
+        "median_block_p99_ms": 1.121667,
+        "errors": 0
+      },
+      "fastapi": {
+        "median_successful_rps": 7521.245185489335,
+        "median_block_p50_ms": 1.051292,
+        "median_block_p95_ms": 1.12675,
+        "median_block_p99_ms": 1.187833,
+        "errors": 0
+      },
+      "asgi": {
+        "median_successful_rps": 11699.435626743187,
+        "median_block_p50_ms": 0.673209,
+        "median_block_p95_ms": 0.754708,
+        "median_block_p99_ms": 0.954459,
+        "errors": 0
+      },
+      "throughput_ratio_of_medians": 1.3407562541692992
+    },
+    {
+      "scenario": "response_model",
+      "tachyon": {
+        "median_successful_rps": 12834.763356624899,
+        "median_block_p50_ms": 0.612333,
+        "median_block_p95_ms": 0.68675,
+        "median_block_p99_ms": 0.749292,
+        "errors": 0
+      },
+      "fastapi": {
+        "median_successful_rps": 8702.566931397872,
+        "median_block_p50_ms": 0.90675,
+        "median_block_p95_ms": 0.985083,
+        "median_block_p99_ms": 1.034958,
+        "errors": 0
+      },
+      "asgi": {
+        "median_successful_rps": 13359.1424838624,
+        "median_block_p50_ms": 0.578958,
+        "median_block_p95_ms": 0.682708,
+        "median_block_p99_ms": 1.016875,
+        "errors": 0
+      },
+      "throughput_ratio_of_medians": 1.4748250094254984
+    },
+    {
+      "scenario": "header",
+      "tachyon": {
+        "median_successful_rps": 12784.682273049384,
+        "median_block_p50_ms": 0.6155,
+        "median_block_p95_ms": 0.684041,
+        "median_block_p99_ms": 0.735708,
+        "errors": 0
+      },
+      "fastapi": {
+        "median_successful_rps": 8340.367634308215,
+        "median_block_p50_ms": 0.949041,
+        "median_block_p95_ms": 1.012166,
+        "median_block_p99_ms": 1.097417,
+        "errors": 0
+      },
+      "asgi": {
+        "median_successful_rps": 13374.139347752896,
+        "median_block_p50_ms": 0.582208,
+        "median_block_p95_ms": 0.670625,
+        "median_block_p99_ms": 0.842,
+        "errors": 0
+      },
+      "throughput_ratio_of_medians": 1.5328679542205574
+    },
+    {
+      "scenario": "dependency",
+      "tachyon": {
+        "median_successful_rps": 11302.957912016858,
+        "median_block_p50_ms": 0.691875,
+        "median_block_p95_ms": 0.810667,
+        "median_block_p99_ms": 0.905458,
+        "errors": 0
+      },
+      "fastapi": {
+        "median_successful_rps": 7898.804466599524,
+        "median_block_p50_ms": 1.003542,
+        "median_block_p95_ms": 1.06925,
+        "median_block_p99_ms": 1.165834,
+        "errors": 0
+      },
+      "asgi": {
+        "median_successful_rps": 13321.74341670819,
+        "median_block_p50_ms": 0.574792,
+        "median_block_p95_ms": 0.711334,
+        "median_block_p99_ms": 1.116709,
+        "errors": 0
+      },
+      "throughput_ratio_of_medians": 1.4309707196591537
+    },
+    {
+      "scenario": "query",
+      "tachyon": {
+        "median_successful_rps": 11674.877998209904,
+        "median_block_p50_ms": 0.681,
+        "median_block_p95_ms": 0.732333,
+        "median_block_p99_ms": 0.789291,
+        "errors": 0
+      },
+      "fastapi": {
+        "median_successful_rps": 7139.228044272499,
+        "median_block_p50_ms": 1.109,
+        "median_block_p95_ms": 1.197667,
+        "median_block_p99_ms": 1.359125,
+        "errors": 0
+      },
+      "asgi": {
+        "median_successful_rps": 12818.369606657667,
+        "median_block_p50_ms": 0.603583,
+        "median_block_p95_ms": 0.694334,
+        "median_block_p99_ms": 0.739583,
+        "errors": 0
+      },
+      "throughput_ratio_of_medians": 1.6353137798387272
+    }
+  ]
+}
