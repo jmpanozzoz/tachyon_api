@@ -228,16 +228,18 @@ def test_unresolved_annotation_fails_at_registration():
         app.get("/invalid")(endpoint)
 
 
-def test_generator_dependency_fails_at_registration():
+def test_generator_dependency_registers_for_http():
     app = Tachyon()
 
     def dependency():
         yield "resource"
 
-    with pytest.raises(TypeError, match="Generator dependencies"):
-        @app.get("/generator")
-        async def endpoint(value=Depends(dependency)):
-            return value
+    @app.get("/generator")
+    async def endpoint(value=Depends(dependency)):
+        return value
+
+    with TestClient(app) as client:
+        assert client.get("/generator").json() == "resource"
 
 
 @pytest.mark.asyncio
@@ -462,7 +464,7 @@ def test_class_constructor_generator_dependency_rejected_at_registration(explici
     else:
         async def endpoint(value: Service):
             return value
-    with pytest.raises(TypeError, match="Generator dependencies"):
+    with pytest.raises(TypeError, match="Singleton dependency cannot capture"):
         app.get("/generator-class")(endpoint)
 
 

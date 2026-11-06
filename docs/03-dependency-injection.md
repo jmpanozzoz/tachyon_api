@@ -131,9 +131,8 @@ async def me(user: dict = Depends(get_user)):   # await automático
     return user
 ```
 
-> **Limitación actual:** generator-based deps con `yield` para cleanup NO están
-> soportados.  Para cleanup, usá un context manager dentro del endpoint o
-> registralo en el lifespan.
+> **Versiones:** 1.4.x rechaza dependencias generadoras. La candidata 1.5 admite
+> `yield` en HTTP con limpieza por petición; WebSocket sigue usando lifespan.
 
 ---
 
@@ -319,7 +318,7 @@ def protected(user: dict = Depends(get_current_user)):
 
 ## Contrato de factories y lifetimes
 
-Las factories admiten Request/WebSocket tipados, Depends anidados, clases registradas, defaults Python y extracción HTTP con Header/Query. Body/Form/File/Cookie/Path dentro de factories se rechazan al registrar; usar Request y lectura explícita si hace falta. En WebSocket, usar WebSocket tipado para acceso a headers/query. Los scopes inválidos y generators (`yield`) se rechazan al registrar.
+Las factories admiten Request/WebSocket tipados, Depends anidados, clases registradas, defaults Python y extracción HTTP con Header/Query. Body/Form/File/Cookie/Path dentro de factories se rechazan al registrar; usar Request y lectura explícita si hace falta. En WebSocket, usar WebSocket tipado para acceso a headers/query. Los scopes inválidos se rechazan al registrar. Desde la candidata 1.5, generators (`yield`) se admiten solo en HTTP; WebSocket los rechaza al registrar.
 
 Singleton se construye de forma lazy en su primer uso y se comparte en la aplicación. Debe soportar acceso concurrente desde los threads de handlers sync; no debe conservar datos de usuario. El scope request en WebSocket dura la conexión, no el mensaje.
 
@@ -330,3 +329,47 @@ are serialized per singleton, but do not mix it concurrently with the asynchrono
 resolver on the same application. HTTP and WebSocket dispatch use the asynchronous
 resolver. Configure overrides before serving; tests that change them must isolate
 their application and restore configuration before the next test.
+
+
+## Recursos HTTP con yield — candidata 1.5
+
+Esta capacidad no está publicada en 1.4.3. Un proveedor generador debe producir
+exactamente un valor. Se adquiere una vez por dependencia cacheada/petición y se
+cierra en orden inverso al completar respuesta y background tasks, también ante
+error, disconnect o cancelación. Los recursos siguen disponibles durante streaming.
+
+```python
+from tachyon_api import Depends, Tachyon
+
+app = Tachyon()
+
+async def resource():
+    value = {"open": True}
+    try:
+        yield value
+    finally:
+        value["open"] = False
+
+@app.get("/resource")
+async def show(value=Depends(resource)):
+    return {"open": value["open"]}
+```
+
+Las dependencias sync entran/salen en un thread pool sin afinidad garantizada;
+no usar recursos que exijan el mismo thread. La salida usa un limitador separado
+para evitar deadlock con el pool de adquisición. La limpieza async está acotada
+a 10 segundos con protección de cancelación cooperativa; Python no puede matar
+un thread bloqueado, que puede continuar tras agotar el plazo.
+
+Una clase singleton no puede capturar estos proveedores. Una clase que necesita
+sesión de DB debe ser request-scoped. Una AsyncSession pertenece a una tarea;
+abrir sesiones independientes para trabajo concurrente o jobs. Los WebSockets y
+la resolución de bootstrap sin petición HTTP rechazan proveedores generadores.
+
+Confirmar la transacción antes de devolver una respuesta exitosa. La salida
+libera recursos y revierte trabajo pendiente, no confirma escrituras después de
+un 2xx. Las excepciones del endpoint llegan al generador incluso si ya tienen
+respuesta de error; no suprimirlas para convertir operaciones fallidas en éxito.
+Un error de salida tras enviar cabeceras no puede cambiar el status; se propaga o
+se registra preservando el error original. No usar la salida para lógica de
+negocio cuyo resultado deba conocer el cliente.

@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.5.0.dev0] — Unreleased
+
+### Added
+
+- CLI offline diagnostics with explicit import/network checks, minimal/PostgreSQL starters, machine-readable HTTP/WebSocket inventory and optional strict OpenAPI validation.
+- Linux inventory/validation and real-process reference acceptance drivers; maintenance, security, operations and pilot documentation.
+- HTTP generator dependencies with request-owned LIFO cleanup, sync thread-pool execution and bounded async cleanup. WebSocket generator dependencies remain explicitly unsupported.
+
+### Changed
+
+- Evolve the synthetic KYC reference toward PostgreSQL persistence, authenticated ownership checks, durable jobs and cross-worker notifications. Development candidate; no production-readiness claim.
+
 ## [1.4.3] — 2026-11-06
 
 ### Fixed

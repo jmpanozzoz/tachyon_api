@@ -10,6 +10,27 @@ from weakref import WeakKeyDictionary
 _SIG_CACHE = WeakKeyDictionary()
 
 
+def _generator_kind(fn):
+    while isinstance(fn, partial):
+        fn = fn.func
+    fn = inspect.unwrap(fn)
+    if not inspect.isfunction(fn) and not inspect.ismethod(fn):
+        fn = getattr(fn, "__call__", fn)
+    if inspect.isasyncgenfunction(fn):
+        return "async"
+    if inspect.isgeneratorfunction(fn):
+        return "sync"
+    return None
+
+
+def get_dependency_kind(fn):
+    try:
+        cached = _SIG_CACHE.get(fn)
+    except TypeError:
+        cached = None
+    return cached[2] if cached is not None else _generator_kind(fn)
+
+
 def get_signature(fn: Callable) -> inspect.Signature:
     try:
         sig = _SIG_CACHE.get(fn)
@@ -57,7 +78,7 @@ def get_signature(fn: Callable) -> inspect.Signature:
         return_annotation=hints.get("return", sig.return_annotation),
     )
     try:
-        _SIG_CACHE[fn] = [sig, None]
+        _SIG_CACHE[fn] = [sig, None, _generator_kind(fn)]
     except TypeError:
         pass
     return sig
@@ -81,13 +102,6 @@ def get_bindings(fn: Callable):
         cached = None
     if cached is not None and cached[1] is not None:
         return cached[1]
-    target = fn
-    while isinstance(target, partial):
-        target = target.func
-    target = inspect.unwrap(target)
-    target = target if inspect.isfunction(target) else getattr(target, "__call__", target)
-    if inspect.isgeneratorfunction(target) or inspect.isasyncgenfunction(target):
-        raise TypeError("Generator dependencies are not supported; use application lifespan for resources")
     bindings = []
     for p in signature.parameters.values():
         if p.kind in (inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD):
@@ -121,7 +135,7 @@ def get_bindings(fn: Callable):
     return bindings
 
 
-def prepare_dependency(fn: Callable, visited: set = None, *, overrides=None, captured=False) -> None:
+def prepare_dependency(fn: Callable, visited: set = None, *, overrides=None, captured=False, allow_generators=True) -> None:
     """Validate lifetimes using prepared edges, including current overrides.
 
     A singleton may capture only explicitly singleton provider classes. Ordinary
@@ -141,6 +155,8 @@ def prepare_dependency(fn: Callable, visited: set = None, *, overrides=None, cap
         try:
             singleton = isinstance(provider, type) and provider in _registry and _scopes[provider] == SCOPE_SINGLETON
             bindings = get_bindings(provider)
+            if not allow_generators and get_dependency_kind(provider):
+                raise TypeError("Generator dependencies require an HTTP request; use lifespan for WebSocket resources")
             if is_captured and not singleton:
                 raise TypeError(f"Singleton dependency cannot capture request/transient or callable dependency {provider!r}; use a request-scoped parent or a singleton provider class")
             if overrides is not None and provider in overrides and overrides[provider] is not provider:

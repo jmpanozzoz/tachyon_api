@@ -12,6 +12,7 @@ scope HTTP → Tachyon.__call__ → middleware del usuario → HTTPDispatcher �
   → response_model y serialización, o Response ASGI del usuario
   → envío de respuesta
   → BackgroundTasks en orden
+  → salida LIFO de dependencias HTTP con yield (candidata 1.5)
   → cierre de formularios y uploads
 ```
 
@@ -59,6 +60,16 @@ Las rutas de documentación se instalan de forma lazy. Sus URLs locales de schem
 Después del envío, `BackgroundTasks` ejecuta las tareas en orden y registra sus
 excepciones sin impedir la tarea siguiente. El request espera su finalización
 antes del cierre de uploads. Si el envío falla o la solicitud se cancela, las tareas no tienen ejecución garantizada; el cierre del request se intenta en `finally`, también para errores de validación o transmisión. No es una cola persistente ni un scheduler separado.
+
+En la candidata 1.5, la pila de dependencias con `yield` pertenece a la petición,
+se crea al adquirir el primer recurso y sale en orden inverso después de la
+respuesta y sus tareas, antes de uploads. La limpieza async tiene un presupuesto
+de 10 segundos protegido de cancelación externa cooperativa. Un thread sync
+bloqueado no puede terminarse forzosamente: agotado el plazo, su salida puede
+seguir ejecutándose. No hay promesa de afinidad de thread. Los errores ya
+traducidos del endpoint se entregan a la salida; fallos de limpieza se registran
+sin reemplazar un error original ni empezar otra respuesta. Confirmar escrituras
+antes de devolver éxito, nunca en la salida posterior al envío.
 
 Las excepciones del endpoint se traducen mediante los handlers registrados;
 `HTTPException` conserva su status. Los errores de envío o stream no se convierten

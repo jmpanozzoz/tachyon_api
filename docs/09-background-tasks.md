@@ -235,3 +235,8 @@ def get_data(background_tasks: BackgroundTasks = None):
 - [Testing](./11-testing.md) - Testear background tasks
 
 Las tareas se awaitean dentro del proceso después de que termina el callable de respuesta y antes de cerrar los uploads. Las tareas síncronas usan el thread pool; las async usan el event loop. Los clientes ASGI de test esperan también esa finalización. Si el envío falla o la solicitud se cancela, no se garantiza ejecutar las tareas; el cierre de recursos del request se intenta igualmente. No hay cola persistente ni límite propio de concurrencia. Medir saturación antes de delegar trabajo; los trabajos largos requieren un sistema externo.
+
+
+## Development candidate integration notes
+
+In the 1.5 candidate, HTTP yield resources are closed after response background tasks. Prefer passing IDs and opening independent sessions. BackgroundTasks remains in-process and non-durable; the [persistent reference](../example/README.md) uses PostgreSQL jobs for verification.

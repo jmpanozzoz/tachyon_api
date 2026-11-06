@@ -264,3 +264,8 @@ def test_with_lifespan():
 - [Testing](./11-testing.md) - Testear con lifespan
 
 Referencias de APIs externas: [lifespan y TestClient de Starlette](https://github.com/kludex/starlette/blob/main/docs/lifespan.md), [cierre explícito del cliente Redis async](https://github.com/redis/redis-py/blob/master/docs/examples/asyncio_examples.ipynb). Los drivers de los ejemplos son dependencias opcionales de la aplicación.
+
+
+## Development candidate integration notes
+
+Application pools/clients belong to lifespan. In the 1.5 candidate, request-specific resources can use [HTTP yield dependencies](03-dependency-injection.md#recursos-http-con-yield--candidata-15); the application lifespan does not replace per-request transaction ownership.

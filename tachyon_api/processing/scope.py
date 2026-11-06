@@ -2,8 +2,10 @@
 from __future__ import annotations
 
 from typing import Any
+from contextlib import AsyncExitStack
+import logging
 
-from anyio import CancelScope
+from anyio import CancelScope, fail_after
 from starlette.datastructures import Headers, QueryParams
 from starlette.requests import cookie_parser
 from ._request import ManagedRequest
@@ -11,10 +13,13 @@ from ._request import ManagedRequest
 from ._body_errors import RequestBodyTooLarge
 
 
+DEPENDENCY_CLEANUP_TIMEOUT = 10
+
+
 class TachyonScope:
     __slots__ = (
         "_scope", "_receive", "_send", "_query_params", "_headers", "_cookies",
-        "_request", "_received_bytes", "_max_body_size",
+        "_request", "_received_bytes", "_max_body_size", "_dependency_stack", "_dependency_error",
     )
 
     def __init__(self, scope: dict, receive: Any, send: Any) -> None:
@@ -26,6 +31,7 @@ class TachyonScope:
         self._cookies = None
         self._request = None
         self._received_bytes = 0
+        self._dependency_stack = None
         self._max_body_size = getattr(scope.get("app"), "max_body_size", 2 * 1024 * 1024)
 
     @property
@@ -81,11 +87,36 @@ class TachyonScope:
     async def form(self):
         return await self.as_request().form()
 
+    async def enter_dependency(self, manager):
+        if self._dependency_stack is None:
+            self._dependency_stack = AsyncExitStack()
+            self._dependency_error = None
+        return await self._dependency_stack.enter_async_context(manager)
+
+    def dependency_failed(self, exc):
+        if self._dependency_stack is not None:
+            self._dependency_error = (type(exc), exc, exc.__traceback__)
+
     async def close(self):
-        if self._request is not None:
-            # File cleanup must complete even if response transmission is cancelled.
-            with CancelScope(shield=True):
-                await self._request.close()
+        if self._dependency_stack is None and self._request is None:
+            return
+        primary = getattr(self, "_dependency_error", None)
+        stack, self._dependency_stack = self._dependency_stack, None
+        self._dependency_error = None
+        try:
+            if stack is not None:
+                try:
+                    with fail_after(DEPENDENCY_CLEANUP_TIMEOUT, shield=True):
+                        await stack.__aexit__(*(primary or (None, None, None)))
+                except BaseException as cleanup_error:
+                    if primary is None:
+                        raise
+                    # Never replace the endpoint, transport or cancellation error.
+                    logging.getLogger("tachyon.dependencies").error("Dependency cleanup failed (%s)", type(cleanup_error).__name__)
+        finally:
+            if self._request is not None:
+                with CancelScope(shield=True):
+                    await self._request.close()
 
     def as_request(self):
         if self._request is None:

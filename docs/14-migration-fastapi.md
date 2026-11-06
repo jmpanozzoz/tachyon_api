@@ -436,3 +436,8 @@ The CLI detects optional uvloop and httptools when available. See the [build gui
 - [Best Practices](./15-best-practices.md)
 - [Architecture](./02-architecture.md)
 - [Request Lifecycle](./13-request-lifecycle.md)
+
+
+## Development candidate integration notes
+
+The 1.5 development candidate supports generator dependencies for HTTP with one request lifetime and cleanup after transmission/background tasks. It does not implement FastAPI dependency scope options; WebSocket generators remain unsupported. Commit transactions before returning success. See [resource ownership](03-dependency-injection.md#recursos-http-con-yield--candidata-15).

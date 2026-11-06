@@ -8,7 +8,7 @@ from starlette.concurrency import run_in_threadpool
 from starlette.exceptions import HTTPException
 
 from ..scope import TachyonScope
-from ._sig_cache import get_bindings, is_async_callable
+from ._sig_cache import get_bindings, is_async_callable, get_dependency_kind
 
 
 class CallableFactory:
@@ -46,6 +46,12 @@ class CallableFactory:
                 args.append(value)
             else:
                 kwargs[name] = value
+        kind = get_dependency_kind(dependency)
+        if kind is not None:
+            if not isinstance(request, TachyonScope):
+                raise TypeError("Generator dependencies require an HTTP request")
+            from ._resource import resource_context
+            return await request.enter_dependency(resource_context(dependency, args, kwargs, kind))
         if is_async_callable(dependency):
             result = dependency(*args, **kwargs)
         else:
