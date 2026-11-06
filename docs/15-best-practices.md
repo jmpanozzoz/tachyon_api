@@ -360,3 +360,8 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"])  # if you need CORS
 | Background tasks | Respuestas rápidas |
 
 BackgroundTasks se espera después del envío y antes del cleanup; no aporta persistencia ni un límite propio de concurrencia. Medir saturación antes de usarlo. Las restricciones de campos y `__post_init__` complementan las reglas de negocio en services.
+
+
+## Development candidate integration notes
+
+The development [reference application](../example/README.md) and [operations runbook](quality/operations-runbook.md) demonstrate explicit session ownership, authorization, durable jobs and deployment checks. They require the matching candidate and do not establish production readiness or published 1.4.3 behavior.

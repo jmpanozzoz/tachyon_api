@@ -1,0 +1,16 @@
+{
+  "passed": true,
+  "checks": [
+    "http_write_and_validation",
+    "http_restart_preserves_data",
+    "reapply_migration_preserves_data",
+    "installed_wheel_origin",
+    "real_connectivity_doctor"
+  ],
+  "identity": {
+    "version": "1.5.0.dev0",
+    "origin": "/tmp/tachyon-generated-installed/lib/python3.13/site-packages/tachyon_api/__init__.py"
+  },
+  "wheel_sha256": "3c4c9bed8977a70cb7b18e7440243b1c2e1643f3580fa91a8a2598bf74c4aa03",
+  "scope": "macOS ARM64, generated PostgreSQL starter outside checkout, disposable database, real HTTP restart; no Linux/container claim"
+}

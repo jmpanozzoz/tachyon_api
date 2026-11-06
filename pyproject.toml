@@ -34,7 +34,7 @@ granian = ["granian"]
 benchmark = ["fastapi", "pydantic"]
 
 [tool.poetry.group.dev.dependencies]
-pytest = "^8.4.1"
+pytest = "^9.0.3"
 pytest-asyncio = "^1.1.0"
 httpx = "^0.28.1"
 ruff = "0.14.9"

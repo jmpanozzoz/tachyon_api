@@ -10,6 +10,9 @@ and Windows execution of this release remain unverified. See
 and the [changelog](../CHANGELOG.md). Third-party dependencies retain their own
 native wheel/build requirements.
 
+The current branch develops 1.5.0.dev0. New resource dependencies, persistent
+reference and CLI additions require that candidate; they are not shipped in 1.4.3.
+
 ## Guides
 
 | Guide | Scope |
@@ -60,6 +63,9 @@ Interactive documentation is available at `/docs`.
 - [Local release](quality/local-release.md): builds and publication without Actions.
 - [1.4.3 simplification](audits/1.4.3/README.md): implementation decisions and candidate validation.
 - [Production and adoption plan](quality/production-readiness.md): request resource cleanup, Linux validation, the reference demo, CLI improvements, maintenance and pilots. Proposed work, not completed capabilities.
+- [Linux validation](quality/linux-validation.md): inventory, installed checks, business load and explicit pending execution.
+- [Operations](quality/operations-runbook.md), [support policy](quality/support-policy.md) and [dependency compatibility](quality/dependency-compatibility.md).
+- [Adoption](adoption/choosing-tachyon.md) and [pilot record](adoption/pilot-template.md).
 - [Documentation maintenance](quality/documentation.md): source comparisons, links and executable examples.
 - [Historical audits](audits/1.4.0/AUDITORIA.md): dated findings with current-status links.
 

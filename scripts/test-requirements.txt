@@ -1,6 +1,6 @@
 # Shared source/example/installed-wheel test harness, separate from runtime deps.
 # Core development ranges match pyproject.toml; the example also needs PyJWT.
-pytest>=8.4.1,<9
+pytest>=9.0.3,<10
 pytest-asyncio>=1.1.0,<2
 httpx>=0.28.1,<0.29
 PyJWT>=2.10,<3

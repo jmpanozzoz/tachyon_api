@@ -38,10 +38,11 @@ def main():
         [sys.executable, "-m", "pytest", "tests", "example/tests", "-q"],
     ]
     digest = hashlib.sha256()
-    inputs = [ROOT / "pyproject.toml", ROOT / "poetry.lock", ROOT / "setup.py", ROOT / "MANIFEST.in", ROOT / "pytest.ini", ROOT / "README.md", ROOT / ".gitattributes", ROOT / "scripts/test-requirements.txt", ROOT / "docs/release-evidence.json"]
+    inputs = [ROOT / "pyproject.toml", ROOT / "poetry.lock", ROOT / "setup.py", ROOT / "MANIFEST.in", ROOT / "pytest.ini", ROOT / "README.md", ROOT / ".gitattributes", ROOT / "scripts/test-requirements.txt", ROOT / "docs/release-evidence.json", ROOT / "example/logging.json"]
     for directory in ("tachyon_api", "tests", "example", "scripts", "benchmark", "docs", ".github/workflows"):
         inputs.extend(path for path in (ROOT / directory).rglob("*")
-                      if path.suffix in (".py", ".pyx", ".pxd", ".yml", ".md"))
+                      if path.suffix in (".py", ".pyx", ".pxd", ".yml", ".yaml", ".md", ".txt", ".ini", ".mako", ".toml")
+                      or path.name in ("Dockerfile", ".coveragerc", ".env.example"))
     for path in sorted(inputs):
         digest.update(str(path.relative_to(ROOT)).encode() + b"\0" + path.read_bytes() + b"\0")
     report = {"inputs_sha256": digest.hexdigest(),
@@ -57,7 +58,7 @@ def main():
         "checks": [],
     }
     report["dependency_versions"] = {}
-    for package in ("tachyon-api", "starlette", "uvicorn", "httptools", "msgspec", "orjson", "typer", "python-multipart", "granian", "pytest", "pytest-asyncio", "httpx", "PyJWT", "websockets", "ruff"):
+    for package in ("tachyon-api", "starlette", "uvicorn", "httptools", "msgspec", "orjson", "typer", "python-multipart", "granian", "pytest", "pytest-asyncio", "httpx", "PyJWT", "websockets", "ruff", "SQLAlchemy", "asyncpg", "alembic", "redis", "argon2-cffi", "asgi-lifespan", "openapi-spec-validator"):
         try:
             report["dependency_versions"][package] = importlib.metadata.version(package)
         except importlib.metadata.PackageNotFoundError:

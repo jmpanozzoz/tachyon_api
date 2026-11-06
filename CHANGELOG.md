@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Require patched pytest 9.0.3 or newer in development, validation and generated project requirements.
 - Evolve the synthetic KYC reference toward PostgreSQL persistence, authenticated ownership checks, durable jobs and cross-worker notifications. Development candidate; no production-readiness claim.
 
 ## [1.4.3] — 2026-11-06

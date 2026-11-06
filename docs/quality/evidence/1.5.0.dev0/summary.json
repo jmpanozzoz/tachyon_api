@@ -1,0 +1,341 @@
+{
+  "version": "1.5.0.dev0",
+  "published": false,
+  "status": "development_candidate_locally_validated",
+  "recorded_at": "2026-11-06T17:31:58.713234+00:00",
+  "source_revision": "bdf4b400d117ab3aaf63f827e477c9737983a890",
+  "artifact_source_revision": "53cd096d8071bd46d04fbc5985e0fd446ff5e679",
+  "runtime_sha256_relative_paths": "3e18060055a75ce25a168a1aedc638fb759be2b6bcf1e2809d08a1ccb30e21d4",
+  "framework": {
+    "python_modules": 105,
+    "source_lines_including_comments_templates_and_blanks": 7672
+  },
+  "package_gates": 40,
+  "source_matrix": [
+    {
+      "python": "3.10",
+      "source_tests_passed": 1001,
+      "source_revision": "bdf4b400d117ab3aaf63f827e477c9737983a890",
+      "inputs_sha256": "2c12f69f10e8bb95a66c1424c1d7719c34ebc03007802655ac55bf2b5e72e0f1",
+      "installed": {
+        "portable": 255,
+        "rebuilt": 255
+      },
+      "dependencies": {
+        "tachyon-api": "1.5.0.dev0",
+        "starlette": "1.7.0",
+        "uvicorn": "0.35.0",
+        "httptools": "0.9.0",
+        "msgspec": "0.19.0",
+        "orjson": "3.13.0",
+        "typer": "0.16.1",
+        "python-multipart": "0.0.32",
+        "granian": "2.8.7",
+        "pytest": "9.2.0",
+        "pytest-asyncio": "1.4.1.post1",
+        "httpx": "0.28.1",
+        "PyJWT": "2.15.1",
+        "websockets": "16.1.1",
+        "ruff": "0.14.9",
+        "SQLAlchemy": "2.0.57",
+        "asyncpg": "0.32.0",
+        "alembic": "1.20.1",
+        "redis": "8.1.0",
+        "argon2-cffi": "25.1.0",
+        "asgi-lifespan": "2.1.0",
+        "openapi-spec-validator": "0.8.5"
+      }
+    },
+    {
+      "python": "3.11",
+      "source_tests_passed": 1001,
+      "source_revision": "bdf4b400d117ab3aaf63f827e477c9737983a890",
+      "inputs_sha256": "2c12f69f10e8bb95a66c1424c1d7719c34ebc03007802655ac55bf2b5e72e0f1",
+      "installed": {
+        "portable": 255,
+        "rebuilt": 255
+      },
+      "dependencies": {
+        "tachyon-api": "1.5.0.dev0",
+        "starlette": "1.10.0",
+        "uvicorn": "0.35.0",
+        "httptools": "0.9.0",
+        "msgspec": "0.19.0",
+        "orjson": "3.13.0",
+        "typer": "0.16.1",
+        "python-multipart": "0.0.32",
+        "granian": "2.8.7",
+        "pytest": "9.2.0",
+        "pytest-asyncio": "1.4.1.post1",
+        "httpx": "0.28.1",
+        "PyJWT": "2.15.1",
+        "websockets": "16.1.1",
+        "ruff": "0.14.9",
+        "SQLAlchemy": "2.0.57",
+        "asyncpg": "0.32.0",
+        "alembic": "1.20.1",
+        "redis": "8.1.0",
+        "argon2-cffi": "25.1.0",
+        "asgi-lifespan": "2.1.0",
+        "openapi-spec-validator": "0.8.5"
+      }
+    },
+    {
+      "python": "3.12",
+      "source_tests_passed": 1001,
+      "source_revision": "bdf4b400d117ab3aaf63f827e477c9737983a890",
+      "inputs_sha256": "2c12f69f10e8bb95a66c1424c1d7719c34ebc03007802655ac55bf2b5e72e0f1",
+      "installed": {
+        "portable": 255,
+        "rebuilt": 255
+      },
+      "dependencies": {
+        "tachyon-api": "1.5.0.dev0",
+        "starlette": "1.10.0",
+        "uvicorn": "0.35.0",
+        "httptools": "0.9.0",
+        "msgspec": "0.19.0",
+        "orjson": "3.13.0",
+        "typer": "0.16.1",
+        "python-multipart": "0.0.32",
+        "granian": "2.8.7",
+        "pytest": "9.2.0",
+        "pytest-asyncio": "1.4.1.post1",
+        "httpx": "0.28.1",
+        "PyJWT": "2.15.1",
+        "websockets": "16.1.1",
+        "ruff": "0.14.9",
+        "SQLAlchemy": "2.0.57",
+        "asyncpg": "0.32.0",
+        "alembic": "1.20.1",
+        "redis": "8.1.0",
+        "argon2-cffi": "25.1.0",
+        "asgi-lifespan": "2.1.0",
+        "openapi-spec-validator": "0.8.5"
+      }
+    },
+    {
+      "python": "3.13",
+      "source_tests_passed": 1001,
+      "source_revision": "bdf4b400d117ab3aaf63f827e477c9737983a890",
+      "inputs_sha256": "2c12f69f10e8bb95a66c1424c1d7719c34ebc03007802655ac55bf2b5e72e0f1",
+      "installed": {
+        "portable": 255,
+        "rebuilt": 255
+      },
+      "dependencies": {
+        "tachyon-api": "1.5.0.dev0",
+        "starlette": "1.10.0",
+        "uvicorn": "0.35.0",
+        "httptools": "0.9.0",
+        "msgspec": "0.19.0",
+        "orjson": "3.13.0",
+        "typer": "0.16.1",
+        "python-multipart": "0.0.32",
+        "granian": "2.8.7",
+        "pytest": "9.2.0",
+        "pytest-asyncio": "1.4.1.post1",
+        "httpx": "0.28.1",
+        "PyJWT": "2.15.1",
+        "websockets": "16.1.1",
+        "ruff": "0.14.9",
+        "SQLAlchemy": "2.0.57",
+        "asyncpg": "0.32.0",
+        "alembic": "1.20.1",
+        "redis": "8.1.0",
+        "argon2-cffi": "25.1.0",
+        "asgi-lifespan": "2.1.0",
+        "openapi-spec-validator": "0.8.5"
+      }
+    }
+  ],
+  "artifacts": [
+    {
+      "file": "dist/tachyon_api-1.5.0.dev0-py3-none-any.whl",
+      "sha256": "3c4c9bed8977a70cb7b18e7440243b1c2e1643f3580fa91a8a2598bf74c4aa03",
+      "bytes": 118701
+    },
+    {
+      "file": "dist/tachyon_api-1.5.0.dev0.tar.gz",
+      "sha256": "ac50297a665f577d4011570ae940761b070753dac5cab29c5df2f96f60796310",
+      "bytes": 168350
+    }
+  ],
+  "reference": {
+    "integration_tests": 62,
+    "coverage": {
+      "covered_lines": 757,
+      "num_statements": 916,
+      "percent_covered": 78.91221374045801,
+      "percent_covered_display": "79",
+      "missing_lines": 159,
+      "excluded_lines": 0,
+      "percent_statements_covered": 82.64192139737992,
+      "percent_statements_covered_display": "83",
+      "num_branches": 132,
+      "num_partial_branches": 22,
+      "covered_branches": 70,
+      "missing_branches": 62,
+      "percent_branches_covered": 53.03030303030303,
+      "percent_branches_covered_display": "53"
+    },
+    "network_requests": 38003,
+    "network_errors": {},
+    "duration_seconds": 60.003645667020464,
+    "verified_statuses": {
+      "422": 3803,
+      "200": 34200
+    },
+    "reconciliation": {
+      "run_id": "d0a9800355044843b563d11540aa6951",
+      "writes_confirmed_by_http": 3799,
+      "durable_job_states": {
+        "done": 3799
+      },
+      "events": 3799,
+      "published_events": 3799,
+      "all_jobs_reconciled": true
+    }
+  },
+  "no_di_comparison_to_143": {
+    "/plain": {
+      "cpu_ns_per_request": {
+        "baseline_median": 2478.35,
+        "candidate_median": 2477.85,
+        "change_percent": -0.020174713014708967,
+        "per_process_medians": {
+          "baseline": [
+            2472.85,
+            2310.85,
+            2328.35,
+            2529.7,
+            2614.8,
+            2478.35,
+            2671.4
+          ],
+          "candidate": [
+            2442.65,
+            2346.45,
+            2420.8,
+            2477.85,
+            2511.6,
+            2501.15,
+            2535.6
+          ]
+        }
+      },
+      "wall_ns_per_request": {
+        "baseline_median": 2549.54795,
+        "candidate_median": 2580.14165,
+        "change_percent": 1.1999656645014234,
+        "per_process_medians": {
+          "baseline": [
+            2549.54795,
+            2331.5229,
+            2353.78125,
+            2621.5625,
+            2698.50415,
+            2521.03545,
+            3012.52915
+          ],
+          "candidate": [
+            2515.73335,
+            2374.6771,
+            2475.00835,
+            2588.3396,
+            2580.14165,
+            2594.02705,
+            2682.9708
+          ]
+        }
+      }
+    },
+    "/query": {
+      "cpu_ns_per_request": {
+        "baseline_median": 5255.75,
+        "candidate_median": 5300.15,
+        "change_percent": 0.8447890405746117,
+        "per_process_medians": {
+          "baseline": [
+            5403.4,
+            4765.15,
+            4782.8,
+            5255.75,
+            5373.0,
+            5099.95,
+            5371.3
+          ],
+          "candidate": [
+            5102.05,
+            4944.05,
+            5134.9,
+            5488.95,
+            5330.4,
+            5300.15,
+            5343.4
+          ]
+        }
+      },
+      "wall_ns_per_request": {
+        "baseline_median": 5476.1375,
+        "candidate_median": 5444.5458,
+        "change_percent": -0.576897493899664,
+        "per_process_medians": {
+          "baseline": [
+            5648.76455,
+            4804.475,
+            4838.57915,
+            5476.1375,
+            5643.0583,
+            5388.2271,
+            5624.1229
+          ],
+          "candidate": [
+            5207.8271,
+            5157.33125,
+            5275.0729,
+            5734.1521,
+            5551.2375,
+            5444.5458,
+            5534.59585
+          ]
+        }
+      }
+    }
+  },
+  "dependency_audits": [
+    {
+      "environment": "resolved",
+      "packages_reported": 85,
+      "vulnerabilities_reported": 0,
+      "skipped": [
+        {
+          "name": "tachyon-api",
+          "reason": "Dependency not found on PyPI and could not be audited: tachyon-api (1.5.0.dev0)"
+        }
+      ]
+    },
+    {
+      "environment": "lower-bound",
+      "packages_reported": 64,
+      "vulnerabilities_reported": 0,
+      "skipped": [
+        {
+          "name": "tachyon-api",
+          "reason": "Dependency not found on PyPI and could not be audited: tachyon-api (1.5.0.dev0)"
+        }
+      ]
+    }
+  ],
+  "platform": "macOS ARM64; actual Linux/Windows execution is not claimed",
+  "validation_scope": "Package/source matrix uses the same unchanged framework Python bytes. Reference logging/input-bound follow-ups were validated by the later source matrix and real-process run; their source revision is recorded separately from the earlier package snapshot.",
+  "pending": [
+    "Linux server access/inventory and installed validation",
+    "Docker/Compose build and execution",
+    "Multi-hour/24-hour representative loads and agreed service SLOs",
+    "Linux DB/Redis outage, backup/restore and application rollback drills",
+    "Upgrade between persistent reference schema versions (only initial 0001/reapply tested)",
+    "Production participant pilot and operating history",
+    "Windows and a second Linux architecture unless executed separately"
+  ]
+}

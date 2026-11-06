@@ -1,0 +1,9 @@
+{
+  "passed": true,
+  "row_count": 2,
+  "exact_rows_match": true,
+  "migration_revision": "0001",
+  "dump_sha256": "101f2325a78d4ceb635cef37a8da745b96d690cd9082a7920ec1f00246deef0e",
+  "postgres_version": "pg_dump (PostgreSQL) 17.11 (Homebrew)",
+  "scope": "Local macOS ARM64 PostgreSQL custom backup restored into a separate disposable database. No application rollback or Linux recovery claim."
+}
