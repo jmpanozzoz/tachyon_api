@@ -1,10 +1,12 @@
 # Tachyon API documentation
 
-The current release is [1.4.2 on PyPI](https://pypi.org/project/tachyon-api/1.4.2/).
+The current release is [1.4.3 on PyPI](https://pypi.org/project/tachyon-api/1.4.3/).
 Python 3.10–3.13 is supported through one portable Python implementation and a
-source distribution. Local runtime validation covers macOS ARM64 and Debian ARM64; Linux x86-64
-and Windows execution remain unverified. See [release validation](quality/evidence/1.4.2/summary.json),
-[release notes](https://github.com/jmpanozzoz/tachyon_api/releases/tag/v1.4.2)
+source distribution. Validation of the 1.4.3 release ran on macOS ARM64; Linux
+and Windows execution of this release remain unverified. See
+[release validation](audits/1.4.3/summary.json),
+[publication receipt](audits/1.4.3/PUBLICATION.md),
+[release notes](https://github.com/jmpanozzoz/tachyon_api/releases/tag/v1.4.3)
 and the [changelog](../CHANGELOG.md). Third-party dependencies retain their own
 native wheel/build requirements.
 
@@ -57,11 +59,12 @@ Interactive documentation is available at `/docs`.
 - [Framework assessment](quality/framework-review.md): maintainability, production limits, refreshed FastAPI measurements, Cython removal experiments and Rust research dated 2026-11-04.
 - [Local release](quality/local-release.md): builds and publication without Actions.
 - [1.4.3 simplification](audits/1.4.3/README.md): implementation decisions and candidate validation.
+- [Production and adoption plan](quality/production-readiness.md): request resource cleanup, Linux validation, the reference demo, CLI improvements, maintenance and pilots. Proposed work, not completed capabilities.
 - [Documentation maintenance](quality/documentation.md): source comparisons, links and executable examples.
 - [Historical audits](audits/1.4.0/AUDITORIA.md): dated findings with current-status links.
 
 The framework uses Starlette ASGI integration, msgspec validation, a radix trie
-and bounded request/cache behavior. Version 1.4.2 uses one Python implementation. The
+and bounded request/cache behavior. Version 1.4.3 uses one Python implementation. The
 supported OpenAPI subset and API differences are described in the migration
 guides. Performance results are workload-specific; no universal multiplier or
 competitor dependency-count comparison is asserted.
