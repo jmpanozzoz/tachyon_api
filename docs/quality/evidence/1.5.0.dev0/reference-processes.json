@@ -1,0 +1,19 @@
+{
+  "started": "2026-11-06T17:20:07.586489+00:00",
+  "source_revision": "bdf4b400d117ab3aaf63f827e477c9737983a890",
+  "source_tree_dirty": false,
+  "source_fingerprints": {
+    "tachyon_api": "3e18060055a75ce25a168a1aedc638fb759be2b6bcf1e2809d08a1ccb30e21d4",
+    "example": "e44226f01a0516b45bbb0e2508b38c8c0dac779c04080a238b5d8fbae7dff8dd"
+  },
+  "scope": "This host, two API processes, one job worker, real TCP/WebSocket/PostgreSQL/Redis. No Linux/container/multi-hour claim.",
+  "checks": [
+    "identity_and_persistence_shared_between_api_processes",
+    "worker_event_delivered_across_api_processes_via_redis",
+    "websocket_ticket_redacted_from_server_logs",
+    "job_and_idempotency_survive_api_and_worker_restart",
+    "validated_business_load_zero_unexpected_errors"
+  ],
+  "passed": true,
+  "finished": "2026-11-06T17:21:31.640912+00:00"
+}

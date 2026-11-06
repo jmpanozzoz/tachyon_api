@@ -1,0 +1,10 @@
+{
+  "run_id": "d0a9800355044843b563d11540aa6951",
+  "writes_confirmed_by_http": 3799,
+  "durable_job_states": {
+    "done": 3799
+  },
+  "events": 3799,
+  "published_events": 3799,
+  "all_jobs_reconciled": true
+}

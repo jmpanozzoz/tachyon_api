@@ -419,3 +419,25 @@ para consultar documentación primaria de SQLAlchemy 2.0.55, FastAPI y Alembic.
 - [Alembic: asyncio](https://alembic.sqlalchemy.org/en/latest/cookbook.html#using-asyncio-with-alembic)
   y [limitaciones de autogenerate](https://alembic.sqlalchemy.org/en/latest/autogenerate.html).
   Sustentan el paso de migración explícito y la revisión de cada migración.
+
+
+## Estado de implementación — 2026-11-06
+
+Implementación autorizada en la candidata 1.5.0.dev0, separada en los PRs de
+[recursos HTTP](https://github.com/jmpanozzoz/tachyon_api/pull/76),
+[referencia persistente](https://github.com/jmpanozzoz/tachyon_api/pull/77),
+[CLI](https://github.com/jmpanozzoz/tachyon_api/pull/78) y
+[operación/adopción](https://github.com/jmpanozzoz/tachyon_api/pull/79).
+La [evidencia local](evidence/1.5.0.dev0/README.md) registra 1.001 tests por Python
+3.10–3.13, 255 contratos por wheel original/reconstruido, 40 controles de paquete,
+62 tests de la referencia y pruebas por red con dos procesos API y un worker.
+Se comprobaron persistencia/reinicios, notificaciones entre procesos, redacción
+de tickets, transacciones y límites nativos de entrada; la CLI se comprobó desde
+un wheel instalado fuera del checkout. Las políticas y runbooks están escritos.
+
+El código prepara E1–E4 y la instrumentación de E0/E5/E6; no cierra por sí solo
+las pruebas operativas externas. P2 sigue pendiente del acceso/inventario del
+servidor Linux, ejecución de contenedores, cargas prolongadas y recuperación en
+el destino. P5 tiene guía y plantilla, pero no un participante ni un resultado
+productivo real. La referencia KYC sigue siendo sintética. La publicación estable
+y las promesas de plataforma/operación deben respetar esas limitaciones.

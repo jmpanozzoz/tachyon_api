@@ -1,0 +1,35 @@
+{
+  "python": {
+    "reference": "python:3.13-slim-bookworm@sha256:a5a7017efc5969e00ae2b91c8eb0631049a569652aa4ffc4501769049ae45c72",
+    "platforms": [
+      "386",
+      "amd64",
+      "arm",
+      "arm64",
+      "ppc64le",
+      "unknown"
+    ]
+  },
+  "postgres": {
+    "reference": "postgres:17-bookworm@sha256:665dc7b37ac52a17e298511414c21d23ffa4e6a6ef6225b3e5d59c7afb35e994",
+    "platforms": [
+      "386",
+      "amd64",
+      "arm",
+      "arm64",
+      "ppc64le",
+      "unknown"
+    ]
+  },
+  "redis": {
+    "reference": "redis:8-bookworm@sha256:b0b01167ff47bc3868e56a967895a26be4230891a1f42a78ab61cdd227accc8d",
+    "platforms": [
+      "386",
+      "amd64",
+      "arm",
+      "arm64",
+      "ppc64le",
+      "unknown"
+    ]
+  }
+}
