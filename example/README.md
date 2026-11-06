@@ -43,7 +43,7 @@ debug mode and the local-only DB placeholder. Pools have finite limits/timeouts.
 
 ```sh
 python -m alembic -c example/alembic.ini upgrade head
-uvicorn example.app:app --no-access-log --ws-max-size 4096
+uvicorn example.app:app --no-access-log --log-config example/logging.json --ws-max-size 4096
 # In a separate terminal with the same environment:
 python -m example.worker
 ```
@@ -90,7 +90,8 @@ Do not use a destructive volume reset against data you need.
    /ws/notifications/{id}?ticket=... within 30 seconds with an allowed Origin.
    Tickets are consumed once before acceptance. Active identity/ownership is checked
    every 10 seconds; connections expire after five minutes and need a new ticket.
-   Disable/sanitize proxy access logs.
+   The supplied logging config redacts tickets in Uvicorn WebSocket logs;
+   --no-access-log alone does not suppress those messages. Sanitize proxy logs too.
 6. WebSocket messages include connected, pong and verification_status. Notifications
    may be lost or duplicated; reconcile state over HTTP on every reconnect.
 7. Optional POST /verification/{id}/document-check accepts a synthetic multipart

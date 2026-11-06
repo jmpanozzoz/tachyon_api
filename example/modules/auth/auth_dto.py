@@ -3,21 +3,25 @@ Auth DTOs - Data Transfer Objects for authentication.
 """
 
 from tachyon_api import Struct
+from typing import Annotated
+from msgspec import Meta
+
+Email = Annotated[str, Meta(min_length=3, max_length=254)]
 
 
 class LoginRequest(Struct):
     """Request body for login."""
     
-    email: str
-    password: str
+    email: Email
+    password: Annotated[str, Meta(min_length=1, max_length=128)]
 
 
 class RegisterRequest(Struct):
     """Request body for user registration."""
     
-    email: str
-    password: str
-    full_name: str
+    email: Email
+    password: Annotated[str, Meta(min_length=10, max_length=128)]
+    full_name: Annotated[str, Meta(min_length=1, max_length=120)]
 
 
 class TokenResponse(Struct):

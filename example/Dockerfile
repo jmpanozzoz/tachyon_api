@@ -14,4 +14,4 @@ COPY example ./example
 RUN python -m pip install --no-cache-dir /wheel/*.whl -r example/requirements-runtime.txt
 USER reference
 EXPOSE 8000
-CMD ["uvicorn", "example.app:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2", "--limit-concurrency", "128", "--no-access-log", "--timeout-graceful-shutdown", "20", "--ws-max-size", "4096"]
+CMD ["uvicorn", "example.app:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2", "--limit-concurrency", "128", "--no-access-log", "--log-config", "example/logging.json", "--timeout-graceful-shutdown", "20", "--ws-max-size", "4096"]

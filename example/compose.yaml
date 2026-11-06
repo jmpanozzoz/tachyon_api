@@ -9,6 +9,8 @@ x-reference: &reference
     SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in example/.env}
     DATABASE_URL: postgresql+asyncpg://tachyon:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in example/.env}@postgres:5432/tachyon
     REDIS_URL: redis://redis:6379/0
+    ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:5173}
+    PROVIDER_RESULT: ${PROVIDER_RESULT:-passed}
     SOURCE_REVISION: ${SOURCE_REVISION:-unknown}
   init: true
   mem_limit: 512m
@@ -16,6 +18,11 @@ x-reference: &reference
   stop_grace_period: 25s
   security_opt: ["no-new-privileges:true"]
   cap_drop: ["ALL"]
+  logging:
+    driver: local
+    options:
+      max-size: "10m"
+      max-file: "3"
 
 services:
   postgres:

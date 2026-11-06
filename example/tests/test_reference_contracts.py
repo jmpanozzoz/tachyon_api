@@ -103,3 +103,22 @@ def test_readiness_distinguishes_cache_degradation_and_database_failure(client, 
         assert client.get("/health/live").status_code == 200
     finally:
         client.app.state.engine = original
+
+
+@pytest.mark.parametrize("args", [(), ("opaque-ticket",)])
+def test_websocket_ticket_log_filter_redacts_formatted_values(args):
+    import logging
+    from example.shared.observability import TicketLogFilter
+    message = 'WebSocket /ws/notifications/customer?ticket=%s&other=value [accepted]' if args else 'WebSocket /ws/notifications/customer?ticket=opaque-ticket [accepted]'
+    record = logging.LogRecord("uvicorn.error", logging.INFO, "", 1, message, args, None)
+    assert TicketLogFilter().filter(record)
+    output = logging.Formatter("%(message)s").format(record)
+    assert "opaque-ticket" not in output
+    assert "ticket=[REDACTED]" in output
+
+
+@pytest.mark.parametrize("field,length", [("first_name", 121), ("phone", 51), ("date_of_birth", 11), ("email", 255)])
+def test_customer_storage_bounds_return_validation_error_instead_of_database_failure(client, auth_headers, field, length):
+    body = {"first_name": "Synthetic", "last_name": "Example", "email": "synthetic@example.com"}
+    body[field] = "x" * length
+    assert client.post("/customers/", headers=auth_headers, json=body).status_code == 422
