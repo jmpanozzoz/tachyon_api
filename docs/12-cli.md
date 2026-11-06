@@ -420,8 +420,10 @@ tachyon openapi validate schema.json --strict
 
 Doctor is offline/read-only by default. `--app` explicitly imports user code,
 which can have effects; it does not start lifespan. `--connect` explicitly checks
-DATABASE_URL and REDIS_URL with timeouts and requires SQLAlchemy/asyncpg/redis
-installed by the application. Outputs omit credentials and captured import output.
+configured DATABASE_URL/REDIS_URL values with timeouts and requires their client
+libraries installed by the application. Unconfigured services are labelled skipped;
+if neither URL is set, the command fails with an actionable message. Outputs omit
+credentials and captured import output.
 JSON has schema_version, ok and checks; exit 0 means checked conditions passed,
 exit 1 means a failure. It is not a security audit or production-readiness badge.
 

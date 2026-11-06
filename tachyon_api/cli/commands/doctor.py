@@ -44,11 +44,14 @@ def diagnose(app_path=None, connect=False):
 async def connectivity():
     from anyio import fail_after
     checks = []
+    configured = False
     for kind, variable in (("postgres", "DATABASE_URL"), ("redis", "REDIS_URL")):
         url = os.getenv(variable)
         if not url:
-            checks.append({"code": kind, "ok": False, "detail": f"Set {variable} explicitly"})
+            checks.append({"code": kind, "ok": True, "skipped": True,
+                           "detail": f"{variable} is not configured; not checked"})
             continue
+        configured = True
         try:
             if kind == "postgres":
                 from sqlalchemy.ext.asyncio import create_async_engine
@@ -71,6 +74,9 @@ async def connectivity():
         except Exception as exc:
             checks.append({"code": kind, "ok": False,
                            "detail": f"Connection failed ({type(exc).__name__}); check service and configuration"})
+    if not configured:
+        checks.append({"code": "connectivity", "ok": False,
+                       "detail": "Set DATABASE_URL or REDIS_URL explicitly for connectivity checks"})
     return checks
 
 
@@ -80,5 +86,6 @@ def doctor(app_path=None, connect=False, json_output=False):
         typer.echo(json.dumps(report))
     else:
         for check in report["checks"]:
-            typer.echo(f"{'OK' if check['ok'] else 'FAIL'} {check['code']}: {check['detail']}")
+            label = "SKIP" if check.get("skipped") else ("OK" if check["ok"] else "FAIL")
+            typer.echo(f"{label} {check['code']}: {check['detail']}")
     raise typer.Exit(0 if report["ok"] else 1)
