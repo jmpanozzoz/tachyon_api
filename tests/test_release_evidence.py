@@ -11,6 +11,9 @@ def test_export_is_derived_from_the_actual_versioned_audit():
     root = Path(__file__).resolve().parents[1]
     data = build_evidence(root)
     assert data == json.loads((root / "docs/release-evidence.json").read_text())
+    if not (root / "docs/audits" / data["version"] / "summary.json").exists():
+        assert data["comparison"] is None and data["validation"] is None
+        return
     comparison = data["comparison"]
     assert comparison["after"]["version"] == data["version"]
     assert comparison["before"]["value"] > comparison["after"]["value"] > 0

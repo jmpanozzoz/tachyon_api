@@ -28,6 +28,7 @@ class HandlerFactory:
                 payload = await ResponseProcessor.call_endpoint(compiled, args)
                 return await ResponseProcessor.process_response(payload, response_model, background)
             except Exception as exc:
+                request.dependency_failed(exc)
                 response = await app._exc_table.dispatch(exc, request.as_request())
                 return response if response is not None else internal_server_error_response()
 

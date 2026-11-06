@@ -44,11 +44,11 @@ class DependencyResolver:
         self, cls: Type, request_cache: Optional[Dict] = None
     ) -> Any:
         if cls in _registry:
-            prepare_dependency(cls, overrides=self.app.dependency_overrides, captured=_SINGLETON_CAPTURE.get())
+            prepare_dependency(cls, overrides=self.app.dependency_overrides, captured=_SINGLETON_CAPTURE.get(), allow_generators=False)
         override = self._overrides.get_override(cls)
         if override is not _SENTINEL:
             if callable(override):
-                prepare_dependency(override, captured=_SINGLETON_CAPTURE.get())
+                prepare_dependency(override, captured=_SINGLETON_CAPTURE.get(), allow_generators=False)
                 override = self._class_factory.build(override, request_cache)
             if inspect.isawaitable(override):
                 if inspect.iscoroutine(override):

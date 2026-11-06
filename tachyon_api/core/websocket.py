@@ -41,7 +41,7 @@ class WebSocketManager:
         for dependency in dependencies:
             if dependency is None or not callable(dependency):
                 raise TypeError("WebSocket dependencies must be callables or Depends(callable)")
-            prepare_dependency(dependency)
+            prepare_dependency(dependency, allow_generators=False)
         sig = get_signature(endpoint_func)
         if any(p.kind == inspect.Parameter.POSITIONAL_ONLY for p in sig.parameters.values()):
             raise TypeError("WebSocket endpoints do not support positional-only parameters")
@@ -64,15 +64,15 @@ class WebSocketManager:
 
             if isinstance(p.default, Depends):
                 if p.default.dependency is not None:
-                    prepare_dependency(p.default.dependency)
+                    prepare_dependency(p.default.dependency, allow_generators=False)
                     _params.append((_WS_DEP_CALLABLE, p.name, p.default.dependency))
                 else:
-                    prepare_dependency(ann)
+                    prepare_dependency(ann, allow_generators=False)
                     _params.append((_WS_DEP_CLASS, p.name, ann))
                 continue
 
             if p.default is inspect.Parameter.empty and ann in _registry:
-                prepare_dependency(ann)
+                prepare_dependency(ann, allow_generators=False)
                 _params.append((_WS_DEP_CLASS, p.name, ann))
                 continue
 
