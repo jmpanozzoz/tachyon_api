@@ -3,10 +3,11 @@ tachyon routes - List all registered routes in the app.
 """
 
 import typer
+import json
 from ..utils import load_app
 
 
-def list_routes(app_path: str) -> None:
+def list_routes(app_path: str, *, json_output=False, include_websockets=False) -> None:
     """Import the app and print all registered routes."""
     tachyon_app = load_app(app_path)
 
@@ -18,6 +19,23 @@ def list_routes(app_path: str) -> None:
         )
         raise typer.Exit(1)
 
+    routes = [dict(route) for route in routes]
+    if include_websockets:
+        from starlette.routing import WebSocketRoute, Mount
+        def delegated(items, prefix=""):
+            for item in items:
+                if isinstance(item, WebSocketRoute):
+                    routes.append({"method": "WS", "path": prefix + item.path, "name": item.name})
+                elif isinstance(item, Mount):
+                    delegated(item.routes, prefix + item.path)
+        delegated(getattr(getattr(tachyon_app, "_router", None), "routes", ()))
+    if json_output:
+        typer.echo(json.dumps({"schema_version": 1, "routes": [
+            {"method": route.get("method"), "path": route.get("path"), "name": route.get("name", ""),
+             "protocol": "websocket" if route.get("method") == "WS" else "http"}
+            for route in sorted(routes, key=lambda r: (r.get("path", ""), r.get("method", "")))
+        ]}))
+        return
     if not routes:
         typer.secho("ℹ No routes registered.", fg=typer.colors.YELLOW)
         return

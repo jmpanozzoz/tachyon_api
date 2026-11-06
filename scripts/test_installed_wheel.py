@@ -27,7 +27,7 @@ def main():
         tests = target / "tests"
         tests.mkdir()
         (tests / "__init__.py").touch()
-        names = ["helpers.py", "test_audit_wheel.py", "test_audit_routing_contract.py", "test_local_release_runtime.py"]
+        names = ["helpers.py", "test_audit_wheel.py", "test_audit_routing_contract.py", "test_local_release_runtime.py", "test_dependency_cleanup.py", "test_cli_readiness.py"]
         names += [path.name for path in sorted((ROOT / "tests").glob("test_continuous_*.py"))]
         names += [path.name for path in sorted((ROOT / "tests").glob("test_operational_*.py"))]
         for name in names:

@@ -24,7 +24,12 @@ def _to_snake_case(name: str) -> str:
 
 def _create_file(path: Path, content: str, name: str):
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(content)
+    try:
+        with path.open("x") as output:
+            output.write(content)
+    except FileExistsError:
+        typer.echo(f"Refusing to overwrite existing file: {name}", err=True)
+        raise typer.Exit(1) from None
     typer.echo(f"  📄 Created {name}")
 
 

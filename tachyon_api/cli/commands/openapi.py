@@ -57,6 +57,7 @@ def export(
 @app.command()
 def validate(
     schema_path: Path = typer.Argument(..., help="Path to OpenAPI schema file"),
+    strict: bool = typer.Option(False, "--strict", help="Full validation using optional openapi-spec-validator"),
 ):
     """
     ✅ Check basic OpenAPI structure (not full specification validation).
@@ -107,6 +108,19 @@ def validate(
                 fg=typer.colors.RED,
             )
             raise typer.Exit(1)
+        if strict:
+            try:
+                from openapi_spec_validator import validate as validate_spec
+            except ImportError:
+                typer.echo("Install openapi-spec-validator to use --strict", err=True)
+                raise typer.Exit(1)
+            try:
+                validate_spec(schema)
+            except Exception as exc:
+                typer.echo(f"OpenAPI validation failed ({type(exc).__name__})", err=True)
+                raise typer.Exit(1) from exc
+            typer.echo("Full OpenAPI specification validation passed.")
+            return
         typer.secho(
             "✅ Basic structure check passed (not full OpenAPI validation).",
             fg=typer.colors.GREEN,

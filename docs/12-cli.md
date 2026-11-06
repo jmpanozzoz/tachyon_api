@@ -7,9 +7,9 @@
 The CLI is included with `tachyon-api`. Ruff is a separate developer tool: install `ruff` before using `tachyon lint` (the repository validates with Ruff 0.14.9).
 
 The [production and adoption plan](quality/production-readiness.md#p3b--cli-conservar-enfocar-y-comprobar-lo-que-genera)
-proposes retaining these commands, testing generated projects end to end, adding
-environment diagnostics and offering a PostgreSQL starter. These additions are
-planned; `doctor` and project profiles are not available in 1.4.3.
+tracks compatibility, generated-project contracts, environment diagnostics and
+a PostgreSQL starter. The 1.5.0.dev0 branch implements the additions below; they
+are not available in published 1.4.3.
 
 ```bash
 pip install tachyon-api
@@ -401,3 +401,45 @@ specification conformance; use an external OpenAPI validator for that purpose.
 that section. Legacy unmarked content is preserved; remove duplicate old
 Tachyon text manually if desired. Malformed/duplicated markers leave the file
 unchanged with a diagnostic.
+
+
+## Development candidate: diagnostics and persistent starters
+
+These commands require the matching 1.5 development checkout or wheel:
+
+```sh
+tachyon doctor
+tachyon doctor --json
+tachyon doctor --app app:app --json
+tachyon doctor --connect
+tachyon new sample --profile minimal
+tachyon new persistent --profile postgres
+tachyon routes app:app --json --include-websockets
+tachyon openapi validate schema.json --strict
+```
+
+Doctor is offline/read-only by default. `--app` explicitly imports user code,
+which can have effects; it does not start lifespan. `--connect` explicitly checks
+DATABASE_URL and REDIS_URL with timeouts and requires SQLAlchemy/asyncpg/redis
+installed by the application. Outputs omit credentials and captured import output.
+JSON has schema_version, ok and checks; exit 0 means checked conditions passed,
+exit 1 means a failure. It is not a security audit or production-readiness badge.
+
+`minimal` is the compatible default. `postgres` adds a request session provider,
+a lifespan engine, Alembic migrations and a small notes API; it does not add auth
+or the entire KYC reference. Set DATABASE_URL, run `alembic upgrade head`, then
+execute tests and start serving. The generated requirements need a matching
+candidate installed until that version is published. Both profiles contain a
+smoke test and a lifespan-aware async client. PostgreSQL integration tests skip
+explicitly without DATABASE_URL. Those skips do not validate the database flow.
+
+Existing `generate` repositories remain in-memory examples. Component generation
+refuses to overwrite existing files. Keep domain naming singular when generating
+CRUD. `routes` keeps its HTTP-only text default; JSON adds a protocol field and
+WebSockets require opt-in. App imports execute code but no lifespan.
+
+`--strict` requires the optional openapi-spec-validator package; otherwise it
+fails with an installation hint. Without this flag, validate remains the existing
+basic structure check. The optional validator is never imported by normal HTTP
+requests. `lint` remains a Ruff wrapper and `run` remains a Uvicorn wrapper;
+`--prod` is not a complete deployment configuration.
