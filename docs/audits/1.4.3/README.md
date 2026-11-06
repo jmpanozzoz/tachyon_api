@@ -1,6 +1,8 @@
 # 1.4.3 implementation and evidence
 
-Source candidate, not a publication receipt. Date: 2026-11-06.
+Published release audit. Date: 2026-11-06.
+The [publication receipt](PUBLICATION.md) records the verified PyPI/GitHub upload;
+the sections below retain the preparation measurements and their limits.
 Baseline: `f26f6060e7567260763e20cf09f7537d7f56af40` (1.4.2).
 
 ## Plan outcomes
@@ -143,5 +145,16 @@ All execution reported here is macOS ARM64. Linux and Windows execution, longer
 duration stability and numeric performance-budget acceptance remain unclaimed.
 This is a reviewed and locally validated source candidate.
 
-No package upload, remote push or merge is performed by this work. Portable wheel
-metadata alone does not establish execution on an untested platform.
+## Published-package FastAPI comparison
+
+After publication, an isolated environment installed Tachyon 1.4.3 from PyPI and
+FastAPI 0.162.0 / Pydantic 2.14.3. [The benchmark report](fastapi-benchmark.md)
+contains the eight scenarios and production assessment;
+[machine summary](fastapi-summary.json) and
+[raw measurements](fastapi-benchmark.json.gz) retain 240,000 measured responses
+with zero errors. Observed scenario throughput ratios range from 1.34× to 1.64×;
+they are not a universal multiplier or production capacity forecast.
+
+The [machine publication receipt](publication.json) verifies both remote artifact
+hashes. Portable wheel metadata alone does not establish execution on an untested
+platform. The immutable tag was not moved after publication.

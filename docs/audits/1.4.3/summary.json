@@ -1,7 +1,7 @@
 {
   "version": "1.4.3",
-  "status": "validated_for_publication",
-  "published": false,
+  "status": "published_verified",
+  "published": true,
   "baseline_revision": "f26f6060e7567260763e20cf09f7537d7f56af40",
   "branch": "perf/1.4.3-simplification",
   "runtime_sha256_relative_paths": "d2561b20cb7757c552a9412ffceef6c92ef4aa40794d952ced311e2d90d0c8ed",
@@ -140,7 +140,7 @@
         "websockets": "16.1.1",
         "ruff": "0.14.9"
       },
-      "tests_passed": 930
+      "tests_passed": 933
     },
     "minimum-310": {
       "python": "3.10.22 (main, Oct  9 2026, 15:10:41) [Clang 22.1.3 ]",
@@ -449,5 +449,7 @@
       "uncompressed_sha256": "6c3e1a25902b36df17ef6d450a469cacba527ec876c1f4129a6426bf25d039a7"
     }
   },
-  "publication_source_tests": 933
+  "publication_source_tests": 933,
+  "publication_receipt": "publication.json",
+  "source_release_commit": "7f00399b8898b83956cdbf2bf8f2b1013c2d4044"
 }
