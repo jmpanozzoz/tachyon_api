@@ -70,7 +70,8 @@ async def exercise(args, processes, logs):
         return process
     def api(port):
         return spawn("uvicorn", "example.app:app", "--host", "127.0.0.1", "--port", str(port),
-                     "--no-access-log", "--timeout-graceful-shutdown", "5", "--ws-max-size", "4096")
+                     "--no-access-log", "--log-config", "example/logging.json",
+                     "--timeout-graceful-shutdown", "5", "--ws-max-size", "4096")
     async def stop(process):
         if process.poll() is None:
             process.send_signal(signal.SIGTERM)
@@ -107,6 +108,10 @@ async def exercise(args, processes, logs):
             event = json.loads(await asyncio.wait_for(ws.recv(), 15))
             assert event["verification_id"] == started.json()["verification_id"] and event["status"] == "verified"
             result["checks"].append("worker_event_delivered_across_api_processes_via_redis")
+        for log in logs:
+            log.flush()
+            assert ticket.json()["ticket"] not in Path(log.name).read_text(), "WebSocket ticket exposed in private server log"
+        result["checks"].append("websocket_ticket_redacted_from_server_logs")
         await stop(worker)
         restarted_key = uuid4().hex
         pending = await second.post("/verification/start", headers={**headers, "Idempotency-Key": restarted_key}, json={"customer_id": customer_id})

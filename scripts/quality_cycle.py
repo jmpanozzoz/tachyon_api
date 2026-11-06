@@ -38,7 +38,7 @@ def main():
         [sys.executable, "-m", "pytest", "tests", "example/tests", "-q"],
     ]
     digest = hashlib.sha256()
-    inputs = [ROOT / "pyproject.toml", ROOT / "poetry.lock", ROOT / "setup.py", ROOT / "MANIFEST.in", ROOT / "pytest.ini", ROOT / "README.md", ROOT / ".gitattributes", ROOT / "scripts/test-requirements.txt", ROOT / "docs/release-evidence.json"]
+    inputs = [ROOT / "pyproject.toml", ROOT / "poetry.lock", ROOT / "setup.py", ROOT / "MANIFEST.in", ROOT / "pytest.ini", ROOT / "README.md", ROOT / ".gitattributes", ROOT / "scripts/test-requirements.txt", ROOT / "docs/release-evidence.json", ROOT / "example/logging.json"]
     for directory in ("tachyon_api", "tests", "example", "scripts", "benchmark", "docs", ".github/workflows"):
         inputs.extend(path for path in (ROOT / directory).rglob("*")
                       if path.suffix in (".py", ".pyx", ".pxd", ".yml", ".yaml", ".md", ".txt", ".ini", ".mako", ".toml")

@@ -14,9 +14,9 @@ counts/buckets and pool counts are per process; durable queue state is shared.
 Aggregate all worker processes externally. Inspect queue age in PostgreSQL in
 addition to counts and alert on the business deadline, not just API availability.
 
-HTTP logs contain status, elapsed time and a validated correlation ID. Disable
-Uvicorn access logs for this example so ticket URLs are not logged; sanitize
-proxy logs as well. Do not log auth headers, passwords, documents or raw DB
+HTTP logs contain status, elapsed time and a validated correlation ID. Use `--no-access-log --log-config example/logging.json`: Uvicorn emits
+WebSocket URL messages through its error logger even with access logs disabled.
+The supplied filter redacts the ticket parameter. Sanitize proxy logs as well. Do not log auth headers, passwords, documents or raw DB
 exceptions/SQL parameters. Use a trusted proxy configuration before relying on
 client addresses for rate limiting. Restrict metric access to operators.
 
