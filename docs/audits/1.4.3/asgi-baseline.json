@@ -1,0 +1,228 @@
+{
+  "python": "3.13.18 (main, Oct 26 2026, 13:59:02) [Clang 23.1.3 ]",
+  "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+  "versions": {
+    "tachyon-api": "1.4.2",
+    "starlette": "1.10.0",
+    "msgspec": "0.19.0",
+    "orjson": "3.13.0"
+  },
+  "runtime_root": "/Users/juanmanuelpanozzozenere/Projects/personal/tachyon_api/tachyon_api",
+  "trie_origin": "/Users/juanmanuelpanozzozenere/Projects/personal/tachyon_api/tachyon_api/routing/trie.py",
+  "runtime_sha256": "48523106fd091b47c9f850d39c8ef59f7b81ef1078dc796a9d2b25dca374713f",
+  "iterations": 2000,
+  "repetitions": 5,
+  "measurements": [
+    {
+      "scenario": "hello",
+      "repeat": 0,
+      "ns_per_validated_request": 3786.958
+    },
+    {
+      "scenario": "header",
+      "repeat": 0,
+      "ns_per_validated_request": 4833.6455
+    },
+    {
+      "scenario": "dependency",
+      "repeat": 0,
+      "ns_per_validated_request": 11097.1665
+    },
+    {
+      "scenario": "response_model",
+      "repeat": 0,
+      "ns_per_validated_request": 5780.25
+    },
+    {
+      "scenario": "body",
+      "repeat": 0,
+      "ns_per_validated_request": 10832.0625
+    },
+    {
+      "scenario": "nested_body",
+      "repeat": 0,
+      "ns_per_validated_request": 11123.7915
+    },
+    {
+      "scenario": "path_query",
+      "repeat": 0,
+      "ns_per_validated_request": 8406.2915
+    },
+    {
+      "scenario": "query",
+      "repeat": 0,
+      "ns_per_validated_request": 9418.854
+    },
+    {
+      "scenario": "nested_body",
+      "repeat": 1,
+      "ns_per_validated_request": 11174.8125
+    },
+    {
+      "scenario": "query",
+      "repeat": 1,
+      "ns_per_validated_request": 9371.0625
+    },
+    {
+      "scenario": "response_model",
+      "repeat": 1,
+      "ns_per_validated_request": 5680.3955
+    },
+    {
+      "scenario": "path_query",
+      "repeat": 1,
+      "ns_per_validated_request": 8338.229
+    },
+    {
+      "scenario": "header",
+      "repeat": 1,
+      "ns_per_validated_request": 4879.6875
+    },
+    {
+      "scenario": "hello",
+      "repeat": 1,
+      "ns_per_validated_request": 3815.479
+    },
+    {
+      "scenario": "dependency",
+      "repeat": 1,
+      "ns_per_validated_request": 10990.1875
+    },
+    {
+      "scenario": "body",
+      "repeat": 1,
+      "ns_per_validated_request": 10867.854
+    },
+    {
+      "scenario": "body",
+      "repeat": 2,
+      "ns_per_validated_request": 10833.9795
+    },
+    {
+      "scenario": "response_model",
+      "repeat": 2,
+      "ns_per_validated_request": 5743.0
+    },
+    {
+      "scenario": "header",
+      "repeat": 2,
+      "ns_per_validated_request": 4927.9375
+    },
+    {
+      "scenario": "path_query",
+      "repeat": 2,
+      "ns_per_validated_request": 8306.5625
+    },
+    {
+      "scenario": "dependency",
+      "repeat": 2,
+      "ns_per_validated_request": 10906.042
+    },
+    {
+      "scenario": "nested_body",
+      "repeat": 2,
+      "ns_per_validated_request": 11238.2915
+    },
+    {
+      "scenario": "hello",
+      "repeat": 2,
+      "ns_per_validated_request": 3876.9375
+    },
+    {
+      "scenario": "query",
+      "repeat": 2,
+      "ns_per_validated_request": 9443.5
+    },
+    {
+      "scenario": "query",
+      "repeat": 3,
+      "ns_per_validated_request": 9440.1875
+    },
+    {
+      "scenario": "path_query",
+      "repeat": 3,
+      "ns_per_validated_request": 8360.0835
+    },
+    {
+      "scenario": "body",
+      "repeat": 3,
+      "ns_per_validated_request": 12565.3125
+    },
+    {
+      "scenario": "header",
+      "repeat": 3,
+      "ns_per_validated_request": 4902.7705
+    },
+    {
+      "scenario": "nested_body",
+      "repeat": 3,
+      "ns_per_validated_request": 11203.9375
+    },
+    {
+      "scenario": "hello",
+      "repeat": 3,
+      "ns_per_validated_request": 3847.917
+    },
+    {
+      "scenario": "response_model",
+      "repeat": 3,
+      "ns_per_validated_request": 5722.896
+    },
+    {
+      "scenario": "dependency",
+      "repeat": 3,
+      "ns_per_validated_request": 10909.1875
+    },
+    {
+      "scenario": "header",
+      "repeat": 4,
+      "ns_per_validated_request": 4970.6665
+    },
+    {
+      "scenario": "dependency",
+      "repeat": 4,
+      "ns_per_validated_request": 10962.729
+    },
+    {
+      "scenario": "nested_body",
+      "repeat": 4,
+      "ns_per_validated_request": 11300.6665
+    },
+    {
+      "scenario": "hello",
+      "repeat": 4,
+      "ns_per_validated_request": 3864.2085
+    },
+    {
+      "scenario": "query",
+      "repeat": 4,
+      "ns_per_validated_request": 9498.5
+    },
+    {
+      "scenario": "response_model",
+      "repeat": 4,
+      "ns_per_validated_request": 5775.875
+    },
+    {
+      "scenario": "path_query",
+      "repeat": 4,
+      "ns_per_validated_request": 8353.875
+    },
+    {
+      "scenario": "body",
+      "repeat": 4,
+      "ns_per_validated_request": 10932.0415
+    }
+  ],
+  "methodology": "Full single-task ASGI requests using fresh scope and send buffer, shared valid scenarios and async endpoints. Every status/content-type/JSON result is checked, including timed requests. Includes Python driver/validation costs; excludes networking and server. GC stays enabled. Repeated hot inputs, not production access patterns. Not throughput capacity or isolated framework overhead.",
+  "medians_ns": {
+    "hello": 3847.917,
+    "path_query": 8353.875,
+    "body": 10867.854,
+    "nested_body": 11203.9375,
+    "response_model": 5743.0,
+    "header": 4902.7705,
+    "dependency": 10962.729,
+    "query": 9440.1875
+  }
+}

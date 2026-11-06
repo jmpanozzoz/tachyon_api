@@ -56,3 +56,41 @@ are rejected by quality/install gates. See [packaging](16-cython-build.md).
 These corrections preserve the Python API. Rust, model replacement and server
 installation defaults are outside this patch. Platform coverage and durations
 belong to the dated validation evidence, not a blanket production guarantee.
+
+## 1.4.3
+
+- User middleware now shares one chain across HTTP, WebSocket and lifespan,
+  preserving HTTP registration order. WebSocket/lifespan order now matches HTTP;
+  `scope["app"]` and the app passed to user lifespan remain Tachyon.
+  Use `app.state` for shared resources; integrations that used Starlette-specific
+  app attributes on non-HTTP scopes must use the Tachyon surface instead. Each chain
+  generation constructs its middleware once. Late additions rebuild the next
+  generation; active requests/lifespan retain their original instances.
+- Documentation URLs are validated and handlers prepared before the first scope
+  publishes any docs routes. Conflicts with existing GET routes, duplicate docs
+  destinations (including fixed `/swagger`), and malformed local paths raise
+  `ValueError` instead of silently overwriting handlers. Rename conflicting user
+  routes or configure distinct docs URLs. Later GET registrations cannot replace
+  installed docs routes. Ordinary user-route replacement behavior is unchanged.
+- Supply `openapi_config` to the constructor or edit its fields before the first
+  scope. Replacing that object before setup raises a clear error because the schema generator
+  and renderers bind it at construction. After setup, the original configuration
+  remains bound; replacing it does not reconfigure the installed docs. Installed route/schema-link URLs stay
+  bound afterward; changing URL fields does not relocate them. External schema
+  URLs remain HTML destinations and no longer become bogus local trie entries.
+  Relative local schema URLs such as `schemas/openapi.json` remain supported
+  and register at `/schemas/openapi.json`, with mounted HTML links preserved.
+- JSON and direct Request reads now use the same per-request body limit. Changing
+  a valid integer `app.max_body_size` affects subsequent request scopes for both
+  paths. 422 payloads and HTTP/1 retirement/HTTP/2 header behavior are preserved.
+  Closing HTTP/1 with unread upload bytes can reset the TCP stream after rejection
+  headers; delivery of the error body is transport-dependent. Clients must honor
+  `Connection: close` and reconnect. Use an appropriate upload/Expect policy at
+  the deployment ingress when handling large requests.
+- Both public JSON response classes, default dependencies, CORS behavior and
+  cache configuration semantics remain. `Depends(Class)` delegates to the class
+  validation path once; pre-cache and post-construction override/lifetime checks
+  remain. No persistent DI graph cache is introduced.
+
+See the [candidate evidence](audits/1.4.3/README.md) for actual test environments
+and the deliberately deferred CORS/build/dependency restructuring.

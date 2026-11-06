@@ -21,7 +21,3 @@ class MiddlewareStack:
         for mw in reversed(self._middlewares):
             app = mw["func"](app=app, **mw["options"])
         return app
-
-    @property
-    def middlewares(self) -> List[Dict[str, Any]]:
-        return self._middlewares

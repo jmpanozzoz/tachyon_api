@@ -1,12 +1,4 @@
-# Internal helpers for integrating middlewares into Starlette's stack
-from starlette.middleware import Middleware
-
-
-def apply_middleware_to_router(router_app, middleware_class, **options):
-    router_app.user_middleware.insert(0, Middleware(middleware_class, **options))
-    router_app.middleware_stack = router_app.build_middleware_stack()
-
-
+# Function middleware adapters for Tachyon's shared ASGI stack.
 def create_decorated_middleware_class(middleware_func, middleware_type: str = "http"):
     """Wraps a function(scope, receive, send, app) as an ASGI middleware class."""
 

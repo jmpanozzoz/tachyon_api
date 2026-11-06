@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 import re
 import tarfile
 import tempfile
@@ -35,6 +36,8 @@ def main():
         parser.error("duration and concurrency must be positive")
     if args.artifacts is not None and not args.artifacts.is_dir():
         parser.error("artifacts must be an existing directory containing the candidate wheel/sdist")
+    if args.artifacts is None:
+        subprocess.run([sys.executable, ROOT / "scripts/export_release_evidence.py"], cwd=ROOT, check=True)
     output.mkdir(parents=True)
     dist = output / "dist"
     dist.mkdir()
@@ -80,8 +83,8 @@ def main():
                 python = venv / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
                 run(f"{label}-dependencies", [args.uv, "pip", "install", "--python", python,
                     str(source) + ("[test,granian]" if args.with_granian else "[test]"),
-                    *(["websockets"] if args.with_granian else []), "pytest", "pytest-asyncio", "PyJWT", "build",
-                    "setuptools", "wheel", "poetry-core", "ruff==0.14.9", "twine"], source)
+                    "-r", source / "scripts/test-requirements.txt", "build",
+                    "setuptools", "wheel", "poetry-core", "twine"], source)
                 run(f"{label}-ruff", [python, "-m", "ruff", "check", "tachyon_api", "tests", "benchmark", "scripts"], source)
                 run(f"{label}-python", [python, "scripts/quality_cycle.py", "--engine", "python", "--output", output / f"{label}-python.json"], source)
                 if index == 0:

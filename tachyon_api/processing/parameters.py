@@ -38,9 +38,6 @@ from .compiler import (
 )
 from .scope import TachyonScope
 
-_DEFAULT_MAX_BODY_SIZE = 2 * 1024 * 1024  # 2 MB — override via Tachyon(max_body_size=...)
-
-
 class ParameterProcessor:
     """Orchestrates parameter extraction by delegating to atomic extractors."""
 
@@ -52,8 +49,7 @@ class ParameterProcessor:
 
     def __init__(self, app_instance) -> None:
         self.app = app_instance
-        max_body_size = getattr(app_instance, "max_body_size", _DEFAULT_MAX_BODY_SIZE)
-        self._body = BodyExtractor(max_body_size)
+        self._body = BodyExtractor()
         self._query_scalar = QueryExtractor()
         self._query_list = QueryListExtractor()
         self._header = HeaderExtractor()

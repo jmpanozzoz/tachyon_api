@@ -45,7 +45,7 @@ class ParamDescriptor:
     __slots__ = (
         "name", "kind", "annotation", "effective_name", "default",
         "is_list", "item_type", "item_is_optional", "base_type",
-        "decoder", "dependency", "dep_is_async",
+        "decoder", "dependency",
     )
 
     def __init__(
@@ -61,7 +61,6 @@ class ParamDescriptor:
         base_type: Any = str,
         decoder: Any = None,
         dependency: Optional[Callable] = None,
-        dep_is_async: bool = False,
     ):
         self.name = name
         self.kind = kind
@@ -74,7 +73,6 @@ class ParamDescriptor:
         self.base_type = base_type
         self.decoder = decoder
         self.dependency = dependency
-        self.dep_is_async = dep_is_async
 
 
 class CompiledEndpoint:
@@ -127,7 +125,6 @@ def compile_endpoint(func: Callable, path: str) -> CompiledEndpoint:
                 name=param.name,
                 kind=KIND_DEP_CALLABLE,
                 dependency=dep_fn,
-                dep_is_async=is_async_callable(dep_fn),
             ))
             continue
 

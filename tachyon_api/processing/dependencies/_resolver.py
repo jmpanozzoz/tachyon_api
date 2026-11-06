@@ -38,9 +38,7 @@ class DependencyResolver:
         self._overrides = OverrideLookup(app_instance)
         self._scope_cache = ScopeCache(app_instance)
         self._class_factory = ClassFactory(self.resolve_dependency)
-        self._callable_factory = CallableFactory(
-            self.resolve_class_dependency, self.resolve_callable_dependency
-        )
+        self._callable_factory = CallableFactory(self.resolve_callable_dependency)
 
     def resolve_dependency(
         self, cls: Type, request_cache: Optional[Dict] = None
@@ -158,10 +156,11 @@ class DependencyResolver:
         return await self._callable_factory.invoke(cls, cache, request)
 
     async def resolve_callable_dependency(self, dependency, cache, request):
-        prepare_dependency(dependency, overrides=self.app.dependency_overrides, captured=_SINGLETON_CAPTURE.get())
         # Depends(Class) uses the class scope just like Depends() + annotation.
+        # Class resolution performs the same validation before its cache lookup.
         if isinstance(dependency, type) and dependency in _registry:
             return await self.resolve_class_dependency(dependency, cache, request)
+        prepare_dependency(dependency, overrides=self.app.dependency_overrides, captured=_SINGLETON_CAPTURE.get())
         if cache is not None and dependency in cache:
             return cache[dependency]
         stack = _RESOLUTION_STACK.get()
