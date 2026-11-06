@@ -282,3 +282,33 @@ def test_bootstrap_override_rejects_generator_without_creating_it():
     app.dependency_overrides[Service] = resource
     with pytest.raises(TypeError, match="require an HTTP request"):
         app._dependency_resolver.resolve_dependency(Service)
+
+
+@pytest.mark.asyncio
+async def test_raw_cancellation_during_sync_acquisition_closes_before_return():
+    entered, release = threading.Event(), threading.Event()
+    events = []
+    def resource():
+        entered.set()
+        assert release.wait(2)
+        try:
+            yield "value"
+        finally:
+            events.append("closed")
+    app = Tachyon()
+    @app.get("/")
+    async def endpoint(value=Depends(resource)):
+        pytest.fail("Cancelled acquisition must not enter endpoint")
+    async def receive():
+        return {"type": "http.request", "body": b"", "more_body": False}
+    async def send(message):
+        pytest.fail("Cancelled acquisition must not send a response")
+    task = asyncio.create_task(app(scope(), receive, send))
+    while not entered.is_set():
+        await anyio.sleep(.001)
+    task.cancel()
+    await anyio.sleep(.01)
+    release.set()
+    with pytest.raises(asyncio.CancelledError):
+        await asyncio.wait_for(task, 3)
+    assert events == ["closed"]
