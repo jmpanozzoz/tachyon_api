@@ -6,6 +6,11 @@
 
 The CLI is included with `tachyon-api`. Ruff is a separate developer tool: install `ruff` before using `tachyon lint` (the repository validates with Ruff 0.14.9).
 
+The [production and adoption plan](quality/production-readiness.md#p3b--cli-conservar-enfocar-y-comprobar-lo-que-genera)
+proposes retaining these commands, testing generated projects end to end, adding
+environment diagnostics and offering a PostgreSQL starter. These additions are
+planned; `doctor` and project profiles are not available in 1.4.3.
+
 ```bash
 pip install tachyon-api
 tachyon --help

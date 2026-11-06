@@ -5,6 +5,13 @@
 This example implements a **Know Your Customer (KYC)** verification system on
 top of Tachyon. Tests exercise authentication, customers, verification, async HTTP helpers, notification WebSockets and lifespan startup/shutdown; they do not establish exhaustive endpoint coverage.
 
+The [production and adoption plan](../docs/quality/production-readiness.md)
+proposes evolving this same demo with persistence, enforced ownership/roles,
+durable jobs, authenticated WebSockets, Linux validation and tested CLI starters.
+Those changes are pending. The current demo stores passwords without hashing,
+does not enforce all documented ownership rules and accepts notification
+WebSockets without authentication; run it locally with synthetic data.
+
 ## ✨ Features Demonstrated
 
 | Feature | Location | Description |
