@@ -1,146 +1,37 @@
-"""
-Tests for Customers module.
-
-Demonstrates dependency_overrides for mocking.
-"""
-
-from example.app import app
-from example.modules.customers.customers_repository import CustomersRepository
-from example.modules.customers.customers_dto import CustomerResponse, AddressDTO
+"""Ownership is tested with two real users, including after cache population."""
+from sqlalchemy import select
+from example.shared.models import Customer, User
+from .conftest import register
 
 
-class MockCustomersRepository:
-    """Mock repository for testing."""
-
-    def __init__(self):
-        self._customers = {}
-
-    def create(self, user_id, data):
-        customer_id = "mock_customer_001"
-        self._customers[customer_id] = {
-            "customer_id": customer_id,
-            "user_id": user_id,
-            "first_name": data.first_name,
-            "last_name": data.last_name,
-            "email": data.email,
-            "phone": None,
-            "date_of_birth": None,
-            "address": None,
-            "kyc_status": "pending",
-            "created_at": "",
-            "updated_at": "",
-        }
-        return self._to_response(self._customers[customer_id])
-
-    def find_by_id(self, customer_id):
-        if customer_id not in self._customers:
-            return None
-        return self._to_response(self._customers[customer_id])
-
-    def find_by_user_id(self, user_id):
-        for c in self._customers.values():
-            if c["user_id"] == user_id:
-                return self._to_response(c)
-        return None
-
-    def find_all(self, skip=0, limit=10, status=None):
-        customers = list(self._customers.values())
-        return [self._to_response(c) for c in customers[skip : skip + limit]], len(
-            customers
-        )
-
-    def update(self, customer_id, data):
-        if customer_id not in self._customers:
-            return None
-        c = self._customers[customer_id]
-        if data.first_name:
-            c["first_name"] = data.first_name
-        return self._to_response(c)
-
-    def update_kyc_status(self, customer_id, status):
-        if customer_id in self._customers:
-            self._customers[customer_id]["kyc_status"] = status
-
-    def delete(self, customer_id):
-        if customer_id in self._customers:
-            del self._customers[customer_id]
-            return True
-        return False
-
-    def _to_response(self, c):
-        address = c.get("address")
-        if address and isinstance(address, dict):
-            address = AddressDTO(**address)
-        return CustomerResponse(
-            customer_id=c["customer_id"],
-            user_id=c["user_id"],
-            first_name=c["first_name"],
-            last_name=c["last_name"],
-            email=c["email"],
-            phone=c.get("phone"),
-            date_of_birth=c.get("date_of_birth"),
-            address=address,
-            kyc_status=c.get("kyc_status", "pending"),
-            created_at=c.get("created_at", ""),
-            updated_at=c.get("updated_at", ""),
-        )
+def test_create_read_and_repeat_are_persistent(client, customer, auth_headers):
+    for route in ("/customers/me", "/customers/" + customer["customer_id"]):
+        assert client.get(route, headers=auth_headers).json() == customer
+    repeated = client.post("/customers/", headers=auth_headers,
+        json={"first_name": "Alice", "last_name": "Other", "email": "another@example.com"})
+    assert repeated.json()["customer_id"] == customer["customer_id"]
+    async def count():
+        async with client.app.state.sessions() as session:
+            return len((await session.scalars(select(Customer))).all())
+    assert client.portal.call(count) == 1
 
 
-class TestCustomersEndpoints:
-    """Tests for customer endpoints."""
+def test_other_user_cannot_read_customer_even_after_cache_hit(client, customer, auth_headers):
+    assert client.get("/customers/" + customer["customer_id"], headers=auth_headers).status_code == 200
+    _, other = register(client, "bob")
+    for route in ("/customers/" + customer["customer_id"], "/customers/missing", "/customers/me"):
+        assert client.get(route, headers=other).status_code == 404
+    assert client.get("/customers/recent", headers=other).status_code == 403
+    assert client.post("/customers/" + customer["customer_id"] + "/notification-ticket", headers=other).status_code == 404
 
-    def test_create_customer(self, client, auth_headers):
-        """Should create a new customer."""
-        # Use mock repository
-        mock_repo = MockCustomersRepository()
-        app.dependency_overrides[CustomersRepository] = mock_repo
 
-        response = client.post(
-            "/customers/",
-            json={
-                "first_name": "John",
-                "last_name": "Doe",
-                "email": "john@example.com",
-            },
-            headers=auth_headers,
-        )
-
-        assert response.status_code == 200
-        data = response.json()
-        assert data["first_name"] == "John"
-        assert data["last_name"] == "Doe"
-
-    def test_create_and_get_customer(self, client, auth_headers):
-        """Should create and retrieve a customer."""
-        mock_repo = MockCustomersRepository()
-        app.dependency_overrides[CustomersRepository] = mock_repo
-
-        # Create
-        create_response = client.post(
-            "/customers/",
-            json={
-                "first_name": "Jane",
-                "last_name": "Doe",
-                "email": "jane@example.com",
-            },
-            headers=auth_headers,
-        )
-        assert create_response.status_code == 200
-        customer_id = create_response.json()["customer_id"]
-
-        # Get
-        get_response = client.get(
-            f"/customers/{customer_id}",
-            headers=auth_headers,
-        )
-        assert get_response.status_code == 200
-        assert get_response.json()["customer_id"] == customer_id
-
-    def test_get_customer_not_found(self, client, auth_headers):
-        """Should return 404 for non-existent customer."""
-        mock_repo = MockCustomersRepository()
-        app.dependency_overrides[CustomersRepository] = mock_repo
-
-        response = client.get("/customers/nonexistent", headers=auth_headers)
-
-        assert response.status_code == 404
+def test_admin_listing_is_bounded_and_user_role_is_current(client, customer, identity):
+    user, headers = identity
+    assert client.get("/customers/recent", headers=headers).status_code == 403
+    async def promote():
+        async with client.app.state.sessions() as session, session.begin():
+            (await session.get(User, user["user_id"])).role = "admin"
+    client.portal.call(promote)
+    assert client.get("/customers/recent?limit=3", headers=headers).json() == [customer]
+    for limit in (0, 101, -1):
+        assert client.get("/customers/recent?limit=" + str(limit), headers=headers).status_code == 422

@@ -1,187 +1,65 @@
-"""
-Verification Service - KYC verification business logic.
-
-This service:
-- Orchestrates the verification process
-- Runs background tasks for processing
-- Sends WebSocket notifications
-- Caches results
-"""
-
-import asyncio
-import random
-
-from tachyon_api import injectable, cache
-
-from ...shared.exceptions import (
-    VerificationNotFoundError,
-    CustomerNotFoundError,
-)
-from ...shared.websocket_manager import manager as ws_manager
-from ..customers.customers_repository import CustomersRepository
+"""A verification and its durable job commit together, before HTTP success."""
+from datetime import timedelta
+import msgspec
+from sqlalchemy.exc import IntegrityError
+from starlette.requests import Request
+from tachyon_api import Depends, injectable
+from ...shared.dependencies import require_owner
+from ...shared.exceptions import KYCException
+from ...shared.models import Customer, Verification, Job, now
 from .verification_repository import VerificationRepository
-from .verification_dto import (
-    VerificationResponse,
-)
+from .verification_dto import VerificationResponse
 
 
-@injectable
+def response(verification):
+    values = {field: getattr(verification, field) for field in VerificationResponse.__struct_fields__}
+    for field in ("started_at", "completed_at", "expires_at"):
+        values[field] = values[field].isoformat() if values[field] else None
+    return msgspec.convert(values, type=VerificationResponse)
+
+
+@injectable(scope="request")
 class VerificationService:
-    """
-    Service for KYC verification operations.
-    
-    Demonstrates:
-    - Background task processing
-    - WebSocket notifications
-    - Caching
-    - Inter-service communication
-    """
-    
-    def __init__(
-        self,
-        repository: VerificationRepository,
-        customers_repository: CustomersRepository,
-    ):
-        self.repository = repository
-        self.customers_repository = customers_repository
-    
-    def start_verification(
-        self,
-        customer_id: str,
-        verification_type: str = "standard",
-    ) -> VerificationResponse:
-        """
-        Start a new KYC verification.
-        
-        This creates the verification record and triggers
-        background processing.
-        """
-        # Verify customer exists
-        customer = self.customers_repository.find_by_id(customer_id)
-        if not customer:
-            raise CustomerNotFoundError(customer_id)
-        
-        # Check for existing in-progress verification
-        existing = self.repository.find_latest_by_customer(customer_id)
-        if existing and existing.status in ("pending", "processing"):
-            return existing
-        
-        # Create new verification
-        verification = self.repository.create(customer_id, verification_type)
-        
-        # Update customer status
-        self.customers_repository.update_kyc_status(customer_id, "in_progress")
-        
-        return verification
-    
-    async def process_verification(self, verification_id: str) -> None:
-        """
-        Process verification checks (background task).
-        
-        This simulates calling external verification providers:
-        - Identity verification
-        - Address verification
-        - Sanctions screening
-        - PEP (Politically Exposed Persons) check
-        
-        In production, this would call real APIs like:
-        - Jumio, Onfido for identity
-        - LexisNexis for sanctions
-        """
-        verification = self.repository.find_by_id(verification_id)
-        
-        if not verification:
-            return
-        
-        # Update status to processing
-        self.repository.update_status(verification_id, "processing")
-        
-        # Notify via WebSocket
-        await ws_manager.notify_verification_status(
-            verification.customer_id,
-            verification_id,
-            "processing",
-            {"message": "Verification started"},
-        )
-        
-        # Process each check (simulated)
-        total_score = 0
-        all_passed = True
-        
-        for check in verification.checks:
-            # Simulate API call delay
-            await asyncio.sleep(random.uniform(0.5, 1.5))
-            
-            # Mock verification result (random for demo)
-            passed = random.random() > 0.1  # 90% pass rate
-            status = "passed" if passed else "failed"
-            
-            if not passed:
-                all_passed = False
-            
-            # Update check
-            self.repository.update_check(
-                verification_id,
-                check.check_type,
-                status,
-                f"Mock {check.check_type} check completed",
-            )
-            
-            # Notify progress
-            await ws_manager.notify_verification_status(
-                verification.customer_id,
-                verification_id,
-                "processing",
-                {
-                    "check": check.check_type,
-                    "result": status,
-                },
-            )
-            
-            # Add to risk score
-            if passed:
-                total_score += 20
-        
-        # Calculate final risk score (0-100, lower is better)
-        risk_score = 100 - min(total_score, 100)
-        
-        # Determine final status
-        final_status = "verified" if all_passed else "rejected"
-        
-        # Update verification
-        self.repository.update_status(
-            verification_id,
-            final_status,
-            risk_score,
-        )
-        
-        # Update customer KYC status
-        self.customers_repository.update_kyc_status(
-            verification.customer_id,
-            final_status,
-        )
-        
-        # Final notification
-        await ws_manager.notify_verification_status(
-            verification.customer_id,
-            verification_id,
-            final_status,
-            {
-                "risk_score": risk_score,
-                "message": f"Verification {final_status}",
-            },
-        )
-    
-    @cache(TTL=300)  # Cache for 5 minutes
-    def get_verification(self, verification_id: str) -> VerificationResponse:
-        """
-        Get verification by ID.
-        
-        Results are cached for 5 minutes to reduce database load.
-        """
-        verification = self.repository.find_by_id(verification_id)
-        
-        if not verification:
-            raise VerificationNotFoundError(verification_id)
-        
-        return verification
+    def __init__(self, request: Request, repository: VerificationRepository = Depends()):
+        self.repository, self.settings = repository, request.app.state.settings
+        self.session = repository.session
+
+    async def start(self, data, user, key):
+        if not 1 <= len(key) <= 128 or data.verification_type not in {"standard", "enhanced"}:
+            raise KYCException(422, "Invalid verification or idempotency key", "INVALID_VERIFICATION")
+        customer = await self.session.get(Customer, data.customer_id)
+        require_owner(customer, user)
+        existing = await self.repository.by_key(user["user_id"], key)
+        if existing:
+            return self._existing(existing, data)
+        checks = ["identity", "address", "sanctions"]
+        if data.verification_type == "enhanced":
+            checks += ["pep", "adverse_media"]
+        verification = Verification(customer_id=customer.customer_id, owner_id=user["user_id"],
+            idempotency_key=key, verification_type=data.verification_type,
+            checks=[{"check_type": c, "status": "pending"} for c in checks],
+            expires_at=now() + timedelta(seconds=self.settings.verification_timeout_seconds))
+        try:
+            self.session.add(verification)
+            await self.session.flush()
+            self.session.add(Job(verification_id=verification.verification_id))
+            await self.session.commit()
+        except IntegrityError:
+            await self.session.rollback()
+            existing = await self.repository.by_key(user["user_id"], key)
+            if existing is None:
+                raise
+            return self._existing(existing, data)
+        return response(verification)
+
+    def _existing(self, existing, data):
+        if existing.customer_id != data.customer_id or existing.verification_type != data.verification_type:
+            raise KYCException(409, "Idempotency key used for different input", "IDEMPOTENCY_CONFLICT")
+        return response(existing)
+
+    async def get(self, verification_id, user):
+        verification = await self.repository.by_id(verification_id)
+        if verification is None:
+            raise KYCException(404, "Verification not found", "VERIFICATION_NOT_FOUND")
+        require_owner(await self.session.get(Customer, verification.customer_id), user)
+        return response(verification)

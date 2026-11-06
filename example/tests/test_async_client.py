@@ -1,101 +1,37 @@
-"""
-Async integration tests using `tachyon_api.testing.create_client`.
-
-Shows the modern pattern for testing Tachyon apps end-to-end with httpx
-under an ASGI transport — no real network, HTTP ASGI path exercised (lifespan is tested separately).
-
-Run with:
-    pytest example/tests/test_async_client.py -v
-"""
-
-import jwt
+"""Async HTTP execution runs lifespan in the same loop as database use."""
 import pytest
 
-from tachyon_api.testing import create_client
 
-from example.app import app
-from example.config import settings
-
-
-def _auth_headers() -> dict:
-    """Build a Bearer Authorization header with a valid JWT."""
-    from datetime import datetime, timedelta, timezone
-
-    token = jwt.encode(
-        {
-            "sub": "async_test_user",
-            "email": "async@example.com",
-            "role": "user",
-            "exp": datetime.now(timezone.utc) + timedelta(hours=1),
-            "iat": datetime.now(timezone.utc),
-        },
-        settings.secret_key,
-        algorithm=settings.jwt_algorithm,
-    )
-    return {"Authorization": f"Bearer {token}"}
+@pytest.mark.asyncio
+async def test_async_reference_flow(async_client):
+    response = await async_client.post("/auth/register", json={"email": "async@example.com", "password": "synthetic-password", "full_name": "Async"})
+    assert response.status_code == 200
+    login = await async_client.post("/auth/login", json={"email": "async@example.com", "password": "synthetic-password"})
+    assert login.status_code == 200
+    headers = {"Authorization": "Bearer " + login.json()["access_token"], "X-Correlation-Id": "test-correlation"}
+    response = await async_client.get("/customers/me", headers=headers)
+    assert response.status_code == 404
+    assert response.headers["x-correlation-id"] == "test-correlation"
+    assert response.headers["x-content-type-options"] == "nosniff"
+    assert (await async_client.get("/health/live")).status_code == 200
+    assert (await async_client.get("/health/ready")).json()["database"] == "up"
 
 
 @pytest.mark.asyncio
-async def test_health_endpoint_async():
-    """Smoke test — the root health endpoint responds 200 with valid JSON."""
-    async with create_client(app) as client:
-        response = await client.get("/")
-        assert response.status_code == 200
-
-        body = response.json()
-        assert body["status"] == "healthy"
-        assert body["version"] == "1.3.0"
-
-
-@pytest.mark.asyncio
-async def test_security_headers_present():
-    """SecurityHeadersMiddleware adds opt-in protections on every response."""
-    async with create_client(app) as client:
-        response = await client.get("/health")
-        assert response.headers["x-content-type-options"] == "nosniff"
-        assert response.headers["x-frame-options"] == "DENY"
-        assert response.headers["referrer-policy"] == "strict-origin-when-cross-origin"
-
-
-@pytest.mark.asyncio
-async def test_create_client_forwards_default_headers():
-    """create_client accepts httpx kwargs — verify headers reach the app."""
-    headers = {"X-Trace-Id": "abc-123"}
-    async with create_client(app, headers=headers) as client:
-        # The header is forwarded by the test client even though no endpoint
-        # echoes it; this confirms `create_client` accepts httpx options.
-        response = await client.get("/")
-        assert response.status_code == 200
-
-
-@pytest.mark.asyncio
-async def test_http_exception_handler_routes_kyc_exception():
-    """
-    Unauthenticated GET /customers/me raises `UnauthorizedError(KYCException)`
-    which is an HTTPException — the `@app.exception_handler(HTTPException)`
-    branch dispatches by isinstance and emits the `UNAUTHORIZED` code.
-    """
-    async with create_client(app) as client:
-        response = await client.get("/customers/me")
-        assert response.status_code == 401
-        body = response.json()
-        assert body["success"] is False
-        assert body["code"] == "UNAUTHORIZED"
-
-
-@pytest.mark.asyncio
-async def test_recent_customers_returns_list_struct():
-    """
-    `GET /customers/recent` declares `response_model=List[CustomerResponse]`.
-    Whether the list is empty (clean test DB) or not, the response body must
-    be a JSON array — not a wrapper object.
-    """
-    async with create_client(app) as client:
-        response = await client.get(
-            "/customers/recent?limit=3",
-            headers=_auth_headers(),
-        )
-        assert response.status_code == 200
-        body = response.json()
-        # response_model=List[CustomerResponse] always produces an array
-        assert isinstance(body, list)
+async def test_concurrent_idempotent_writes_share_one_durable_job(async_client, application):
+    import asyncio
+    from sqlalchemy import func, select
+    from example.shared.models import Job, Verification
+    response = await async_client.post("/auth/register", json={"email": "race@example.com", "password": "synthetic-password", "full_name": "Concurrent"})
+    assert response.status_code == 200
+    login = await async_client.post("/auth/login", json={"email": "race@example.com", "password": "synthetic-password"})
+    headers = {"Authorization": "Bearer " + login.json()["access_token"]}
+    customer = await async_client.post("/customers/", headers=headers,
+        json={"first_name": "Concurrent", "last_name": "Example", "email": "race@example.com"})
+    data = {"customer_id": customer.json()["customer_id"]}
+    results = await asyncio.gather(*(async_client.post("/verification/start", headers={**headers, "Idempotency-Key": "race"}, json=data) for _ in range(8)))
+    assert all(result.status_code == 200 for result in results)
+    assert len({result.json()["verification_id"] for result in results}) == 1
+    async with application.state.sessions() as session:
+        assert await session.scalar(select(func.count()).select_from(Job)) == 1
+        assert await session.scalar(select(func.count()).select_from(Verification)) == 1

@@ -1,9 +1,1 @@
-"""
-🏦 KYC Demo API
-
-A complete example demonstrating all Tachyon features.
-"""
-
-from .app import app
-
-__all__ = ["app"]
+"""Synthetic reference application. Import example.app explicitly to build the app."""

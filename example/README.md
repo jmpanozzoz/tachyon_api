@@ -1,179 +1,135 @@
-# 🏦 KYC Demo API
+# Synthetic KYC reference application
 
-> A compact example demonstrating selected Tachyon features
+This development reference extends the existing demo. It requires the matching
+**1.5.0.dev0 candidate**, not published Tachyon 1.4.3. It uses PostgreSQL instead
+of global dictionaries and a deterministic synthetic provider, never real KYC.
+Use synthetic data. Linux endurance, container execution and real pilots remain
+separate acceptance gates; see the [implementation plan](../docs/quality/production-readiness.md).
 
-This example implements a **Know Your Customer (KYC)** verification system on
-top of Tachyon. Tests exercise authentication, customers, verification, async HTTP helpers, notification WebSockets and lifespan startup/shutdown; they do not establish exhaustive endpoint coverage.
+## What it exercises
 
-The [production and adoption plan](../docs/quality/production-readiness.md)
-proposes evolving this same demo with persistence, enforced ownership/roles,
-durable jobs, authenticated WebSockets, Linux validation and tested CLI starters.
-Those changes are pending. The current demo stores passwords without hashing,
-does not enforce all documented ownership rules and accepts notification
-WebSockets without authentication; run it locally with synthetic data.
+- Factory-created applications, lifespan engines/Redis clients, request-scoped
+  services and generator dependencies with session cleanup.
+- Argon2id hashing in a bounded thread pool; JWT issuer/audience/required claims;
+  database-backed active users/roles; persistent account/client login limits.
+- Customer ownership and admin-only recent/export operations, including cache hits.
+- Verification + durable job committed atomically, idempotency keys, leased jobs,
+  bounded retries, stale-worker fencing and post-commit notification events.
+- Short-lived single-use WebSocket tickets with origin and ownership checks;
+  Redis notifications across API processes and HTTP reconciliation after loss.
+- Cache TTL/invalidation/fallback; bounded synthetic uploads that are not stored;
+  bounded streaming export with the read transaction released before streaming.
+- Liveness/readiness, correlation headers, sanitized logs and per-process metrics.
+- Alembic migrations and separate worker resources. BackgroundTasks is still a
+  framework feature, but is not used for durable verification processing.
 
-## ✨ Features Demonstrated
+## Local installation
 
-| Feature | Location | Description |
-|---------|----------|-------------|
-| **Clean Architecture** | `modules/` | Controller → Service → Repository pattern |
-| **Dependency Injection (singleton)** | `@injectable`, `Depends()` | The default scope — one instance per app |
-| **DI scope: request** | `shared/request_context.py` | `@injectable(scope="request")` — fresh per HTTP request |
-| **JWT Authentication** | `modules/auth/` | Login, registration, token validation |
-| **`List[Struct]` response model** | `customers_controller.list_recent_customers` | `response_model=List[CustomerResponse]` → array schema |
-| **Background tasks** | `modules/verification/` | Enqueues verification processing after the HTTP response |
-| **WebSockets** | `app.py` | Customer-notification channel; tests exercise messages through the notification manager |
-| **Security headers** | `app.py` | `SecurityHeadersMiddleware` registered explicitly |
-| **CORS opt-in** | `app.py` | Explicit `allow_origins` list (no wildcard default) |
-| **Custom exception handler** | `app.py` | `@app.exception_handler(KYCException)` — subclasses of `HTTPException` are dispatched correctly |
-| **Caching** | `verification_service.py` | `@cache` decorator usage |
-| **Lifecycle Events** | `app.py` | `lifespan` context manager |
-| **Custom Exceptions** | `shared/exceptions.py` | Descriptive error hierarchy |
-| **Testing — sync** | `tests/conftest.py` | `TachyonTestClient`, `dependency_overrides` |
-| **Testing — async** | `tests/test_async_client.py` | `tachyon_api.testing.create_client` with httpx kwargs |
+From the repository root, create an environment, install the development checkout
+or its validated wheel, then the example dependencies:
 
-## 📁 Project Structure
-
-```
-example/
-├── app.py                      # Main application
-├── config.py                   # Configuration
-├── requirements.txt            # Dependencies
-│
-├── modules/                    # Feature modules
-│   ├── auth/                   # Authentication
-│   │   ├── auth_controller.py
-│   │   ├── auth_service.py
-│   │   └── auth_dto.py
-│   │
-│   ├── customers/              # Customer management
-│   │   ├── customers_controller.py
-│   │   ├── customers_service.py
-│   │   ├── customers_repository.py
-│   │   └── customers_dto.py
-│   │
-│   └── verification/           # KYC verification
-│       ├── verification_controller.py
-│       ├── verification_service.py
-│       ├── verification_repository.py
-│       └── verification_dto.py
-│
-├── shared/                     # Shared utilities
-│   ├── dependencies.py         # Auth dependencies
-│   ├── exceptions.py           # Custom exceptions
-│   ├── request_context.py      # Request-scoped DI showcase
-│   └── websocket_manager.py    # WebSocket connections
-│
-└── tests/                      # Tests
-    ├── conftest.py             # Fixtures
-    ├── test_async_client.py
-    ├── test_auth.py
-    ├── test_configuration.py
-    ├── test_customers.py
-    ├── test_verification.py
-    └── test_websocket_lifecycle.py
+```sh
+python -m pip install -e . -r example/requirements.txt
+cp example/.env.example example/.env
 ```
 
-## 🚀 Quick Start
+The application reads environment variables; outside Compose, export them
+explicitly. It does not automatically read `example/.env`. Set DATABASE_URL using
+`postgresql+asyncpg://`, REDIS_URL and a stable random SECRET_KEY. Generate separate
+secrets with `python -c 'import secrets; print(secrets.token_urlsafe(32))'`.
+Development/test can generate an ephemeral signing key, but two HTTP workers
+require the same explicit key. Production rejects missing/placeholder keys,
+debug mode and the local-only DB placeholder. Pools have finite limits/timeouts.
 
-```bash
-# From the repository root (the directory containing example/)
-pip install -r example/requirements.txt
-
-# Run the server (from project root)
-uvicorn example.app:app --reload
-
-# Open docs
-open http://localhost:8000/docs
+```sh
+python -m alembic -c example/alembic.ini upgrade head
+uvicorn example.app:app --no-access-log --ws-max-size 4096
+# In a separate terminal with the same environment:
+python -m example.worker
 ```
 
-## 🔐 Demo Credentials
+Migrations are an explicit deployment step; HTTP/worker startup never creates
+schema. No accounts are seeded automatically. Register a synthetic account via
+POST /auth/register with email, password (10–128 characters) and full_name. For
+an explicit development/test administrator, run:
 
-| Email | Password | Role |
-|-------|----------|------|
-| `demo@example.com` | `demo123` | user |
-| `admin@example.com` | `admin123` | admin |
-
-## 📋 API Flow
-
-### 1. Authenticate
-
-```bash
-curl -X POST http://localhost:8000/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email": "demo@example.com", "password": "demo123"}'
+```sh
+python -m example.seed --email admin@example.com --admin
 ```
 
-### 2. Create Customer Profile
+The password is prompted, not placed in the command line. Seed refuses production.
+The provider result defaults to passed; PROVIDER_RESULT=failed or timeout enables
+deterministic rejection/retry scenarios. These are simulations, not identity checks.
 
-```bash
-curl -X POST http://localhost:8000/customers/ \
-  -H "Authorization: Bearer <token>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "first_name": "John",
-    "last_name": "Doe",
-    "email": "john@example.com"
-  }'
+## Container deployment
+
+Docker and Compose are required. Copy the env example and set separate random
+SECRET_KEY and POSTGRES_PASSWORD values. From the repository root:
+
+```sh
+docker compose --env-file example/.env -f example/compose.yaml up --build
 ```
 
-### 3. Start Verification
+This builds the candidate wheel, runs a single migration job, starts two HTTP
+workers and a separate job worker. PostgreSQL/Redis ports are not published; API
+binds to loopback by default. Images are pinned by registry digest; their Linux
+build/start validation remains pending until executed on the selected server.
+Resource limits are initial test budgets, not sizing guidance. Compose reads the
+env file explicitly. Keep its credentials and resolved config out of evidence.
+Do not use a destructive volume reset against data you need.
 
-```bash
-curl -X POST http://localhost:8000/verification/start \
-  -H "Authorization: Bearer <token>" \
-  -H "Content-Type: application/json" \
-  -d '{"customer_id": "<customer_id>"}'
+## API flow
+
+1. Register, then POST /auth/login; use its access_token as a Bearer header.
+2. POST /customers/ and retain customer_id. GET /customers/me or /customers/{id}.
+3. POST /verification/start with customer_id, verification_type (standard/enhanced)
+   and a stable Idempotency-Key header. Reusing a key for different input is 409.
+4. GET /verification/{id} for authoritative status. Jobs can complete without a
+   connected HTTP client. The worker uses its own sessions and no request objects.
+5. POST /customers/{id}/notification-ticket with authentication. Connect to
+   /ws/notifications/{id}?ticket=... within 30 seconds with an allowed Origin.
+   Tickets are consumed once before acceptance. Active identity/ownership is checked
+   every 10 seconds; connections expire after five minutes and need a new ticket.
+   Disable/sanitize proxy access logs.
+6. WebSocket messages include connected, pong and verification_status. Notifications
+   may be lost or duplicated; reconcile state over HTTP on every reconnect.
+7. Optional POST /verification/{id}/document-check accepts a synthetic multipart
+   document up to 256 KiB and returns its size/hash without storing it. The entire
+   request is also limited to 1 MiB. This is not document storage or malware scanning.
+8. Administrators can GET /customers/recent?limit=5, /customers/export (max 100
+   NDJSON records) and /metrics. Metrics HTTP counters are per process; queue state
+   is shared in PostgreSQL. Public /health/live and /health/ready have distinct roles.
+
+Cache hits still check current user and ownership in PostgreSQL. Cache invalidation
+and notification publication occur after durable completion and retry via the
+outbox. Briefly stale cached status is bounded by TTL if invalidation is delayed;
+GET /verification/{id} is authoritative. Redis Pub/Sub is not a durable event log.
+
+## Tests and evidence
+
+Provide **disposable** TEST_DATABASE_URL ending in `_test` and TEST_REDIS_URL.
+Tests migrate and truncate the test DB and clear only reference:* Redis keys.
+Run serially. Without TEST_DATABASE_URL integration tests skip explicitly; that
+is not evidence of DB/Redis correctness.
+
+```sh
+python -m pytest example/tests/ -q
+python -m pytest example/tests/ --cov=example --cov-config=example/.coveragerc
 ```
 
-### 4. Connect to the Notification WebSocket
+Tests cover real PostgreSQL/Redis behavior, HTTP auth/ownership, async-client
+lifespan, job idempotency/leases/retries and authenticated notifications. Raw TCP,
+two-worker behavior, service outages, restart recovery and long duration load
+have additional gates. See the [Linux runbook](../docs/quality/linux-validation.md),
+[operations runbook](../docs/quality/operations-runbook.md) and
+[pilot template](../docs/adoption/pilot-template.md). Do not infer complete endpoint
+coverage, absence of leaks or production readiness from a passing suite.
 
-```javascript
-const ws = new WebSocket("ws://localhost:8000/ws/notifications/<customer_id>");
+## CLI relationship
 
-ws.onmessage = (event) => {
-  const data = JSON.parse(event.data);
-  console.log("Status update:", data);
-};
-```
-
-## 🧪 Running Tests
-
-```bash
-# From project root
-pytest example/tests/ -v
-
-# With coverage
-python -m pip install pytest-cov
-pytest example/tests/ --cov=example
-```
-
-## 🔧 Configuration
-
-Environment variables:
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `ENVIRONMENT` | `development` | Environment name |
-| `DEBUG` | `true` in development, `false` otherwise | Enable debug mode |
-| `SECRET_KEY` | Random ephemeral key only in development/test | JWT signing key; required in production |
-
-## 📝 Notes
-
-- All data is stored in-memory (mock databases) — replace with real DB for production
-- The controller checks `background_tasks is not None` so the first task is enqueued even when the collection is empty. The HTTP regression verifies that the processing worker is awaited with the returned verification ID; test workers replace simulated provider delays. Notification tests send through the manager directly and do not assert a complete random verification job.
-- When the simulated processing method is invoked, each check waits 0.5–1.5 seconds; total processing time depends on the number of checks. Tachyon background tasks run after the response is sent and complete before request cleanup.
-- Each verification check has a simulated 90% pass probability; this is not a guaranteed aggregate result.
-- `--loop uvloop --http httptools` selects optional Uvicorn implementations when installed on a compatible platform; benchmark the application before claiming a speed improvement.
-
-## 🔗 Related Documentation
-
-- [Getting Started](../docs/01-getting-started.md)
-- [Architecture](../docs/02-architecture.md)
-- [Dependency Injection](../docs/03-dependency-injection.md)
-- [Security](../docs/06-security.md)
-- [Background Tasks](../docs/09-background-tasks.md)
-- [WebSockets](../docs/10-websockets.md)
-- [Testing](../docs/11-testing.md)
-
-Production (`ENVIRONMENT=production` or any environment other than development/test) requires a SECRET_KEY of at least 32 characters and rejects known demo placeholders. Development/test generate a random key per Settings instance if missing; restarting invalidates existing tokens. Set an explicit key for stable tokens across workers/restarts. This remains an in-memory demo, not a production KYC service.
+`tachyon new sample --profile postgres` creates a smaller persistent starter,
+not a second copy of KYC. Its session template is checked against this reference.
+`tachyon doctor` is read-only and offline by default; --app imports user code,
+--connect explicitly checks configured services. The existing generation commands
+retain their documented in-memory repositories; they are not automatically
+rewritten into SQLAlchemy modules. See [the CLI guide](../docs/12-cli.md).

@@ -1,0 +1,9 @@
+[run]
+branch = True
+source = example
+omit =
+    example/tests/*
+    example/migrations/*
+
+[report]
+show_missing = True

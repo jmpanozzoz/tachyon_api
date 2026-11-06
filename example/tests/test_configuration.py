@@ -18,6 +18,7 @@ def test_production_uses_explicit_secret_and_debug_defaults_off(monkeypatch):
     monkeypatch.setenv("ENVIRONMENT", "production")
     monkeypatch.setenv("SECRET_KEY", "a-deliberate-production-secret-key-for-tests")
     monkeypatch.delenv("DEBUG", raising=False)
+    monkeypatch.setenv("DATABASE_URL", "postgresql+asyncpg://explicit@localhost/example")
     settings = Settings.from_env()
     assert settings.secret_key == "a-deliberate-production-secret-key-for-tests"
     assert settings.debug is False
