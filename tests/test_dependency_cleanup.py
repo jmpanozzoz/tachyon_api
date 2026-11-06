@@ -1,7 +1,7 @@
 """Request resource ownership under validation, transmission and cancellation."""
 import asyncio
 import threading
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, contextmanager
 from functools import partial, wraps
 
 import anyio
@@ -15,7 +15,7 @@ from tests.helpers import create_client
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("kind", ["sync", "async", "partial", "callable", "wrapped"])
+@pytest.mark.parametrize("kind", ["sync", "async", "partial", "callable", "wrapped", "contextmanager", "asynccontextmanager"])
 async def test_lifo_cached_resources_survive_stream_and_background(kind):
     events = []
     loop_thread = threading.get_ident()
@@ -30,6 +30,7 @@ async def test_lifo_cached_resources_survive_stream_and_background(kind):
             events.append("close")
 
     async def async_resource():
+        assert threading.get_ident() == loop_thread
         events.append("open")
         try:
             yield []
@@ -47,10 +48,12 @@ async def test_lifo_cached_resources_survive_stream_and_background(kind):
 
     @wraps(async_resource)
     def wrapped():
+        assert threading.get_ident() != loop_thread
         return async_resource()
 
     resource = {"sync": sync_resource, "async": async_resource,
-                "partial": partial(sync_resource), "callable": Callable(), "wrapped": wrapped}[kind]
+                "partial": partial(sync_resource), "callable": Callable(), "wrapped": wrapped,
+                "contextmanager": contextmanager(sync_resource), "asynccontextmanager": asynccontextmanager(async_resource)}[kind]
 
     async def nested(value=Depends(resource)):
         events.append("nested-open")

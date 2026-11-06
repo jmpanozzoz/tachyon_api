@@ -1,5 +1,7 @@
 """Adapt generator providers to one request-owned async exit stack."""
 from contextlib import asynccontextmanager, contextmanager
+from functools import partial
+import inspect
 import logging
 from threading import Event, Lock
 
@@ -9,10 +11,14 @@ from anyio import CapacityLimiter, move_on_after, sleep, to_thread
 @asynccontextmanager
 async def resource_context(provider, args, kwargs, kind):
     if kind == "async":
-        async with asynccontextmanager(provider)(*args, **kwargs) as value:
+        native = inspect.isasyncgenfunction(provider) or inspect.isasyncgenfunction(getattr(provider, "__call__", None))
+        generated = provider(*args, **kwargs) if native else await to_thread.run_sync(partial(provider, *args, **kwargs))
+        manager = asynccontextmanager(lambda: generated)() if inspect.isasyncgen(generated) else generated
+        if not hasattr(manager, "__aenter__") or not hasattr(manager, "__aexit__"):
+            raise TypeError("Async generator dependency must return an async generator or context manager")
+        async with manager as value:
             yield value
         return
-    manager = contextmanager(provider)(*args, **kwargs)
     # Exit cannot wait for the same saturated limiter as resource acquisition.
     exit_limiter = CapacityLimiter(1)
     lock, done = Lock(), Event()
@@ -23,10 +29,15 @@ async def resource_context(provider, args, kwargs, kind):
             if state["closed"]:
                 return False
             state["closed"] = True
-        return manager.__exit__(*exc_info)
+        return state["manager"].__exit__(*exc_info)
 
     def enter():
         try:
+            generated = provider(*args, **kwargs)
+            manager = contextmanager(lambda: generated)() if inspect.isgenerator(generated) else generated
+            if not hasattr(manager, "__enter__") or not hasattr(manager, "__exit__"):
+                raise TypeError("Generator dependency must return a generator or context manager")
+            state["manager"] = manager
             value = manager.__enter__()
             with lock:
                 state["entered"] = True
